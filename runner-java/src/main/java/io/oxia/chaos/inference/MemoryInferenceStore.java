@@ -15,7 +15,6 @@
  */
 package io.oxia.chaos.inference;
 
-import io.oxia.chaos.inference.InferenceStore.KeyValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;

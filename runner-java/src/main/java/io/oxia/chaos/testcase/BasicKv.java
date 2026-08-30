@@ -19,6 +19,8 @@ import static io.oxia.chaos.util.Timing.addSaturated;
 import static io.oxia.chaos.util.Timing.elapsedMillis;
 import static io.oxia.chaos.util.Timing.elapsedSeconds;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
@@ -27,7 +29,7 @@ import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.InferenceStore;
-import io.oxia.chaos.inference.InferenceStore.KeyValue;
+import io.oxia.chaos.inference.KeyValue;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
@@ -41,6 +43,8 @@ import io.oxia.client.api.CloseableIterable;
 import io.oxia.client.api.GetResult;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.client.api.options.GetOption;
+import io.oxia.client.grpc.OxiaStatusException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +58,8 @@ public final class BasicKv {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(BasicKv.class);
   private static final String INSTRUMENTATION_SCOPE = "io.oxia.chaos.basic-kv";
+  private static final Duration INITIAL_RETRY_DELAY = Duration.ofMillis(100);
+  private static final Duration MAX_RETRY_DELAY = Duration.ofSeconds(5);
   private static final double PUT_THRESHOLD = 0.20;
   private static final double GET_THRESHOLD = PUT_THRESHOLD + 0.15;
   private static final double FLOOR_THRESHOLD = GET_THRESHOLD + 0.05;
@@ -71,6 +77,7 @@ public final class BasicKv {
   private final InferenceStore inference;
   private final RunnerMetrics metrics;
   private final Tracer tracer;
+  private final RetryPolicy<Object> retryPolicy;
   private final KeyGenerator keyGenerator;
   private final ValueGenerator valueGenerator;
 
@@ -78,18 +85,45 @@ public final class BasicKv {
   private long checkpointCount;
 
   public BasicKv(
-      Options options,
-      String runId,
-      SyncOxiaClient client,
-      OpenTelemetry openTelemetry,
-      InferenceStore inference,
-      RunnerMetrics metrics) {
+      final Options options,
+      final String runId,
+      final SyncOxiaClient client,
+      final OpenTelemetry openTelemetry,
+      final InferenceStore inference,
+      final RunnerMetrics metrics,
+      final Duration retryTimeout) {
     this.options = options;
     this.runId = runId;
     this.client = client;
     this.inference = inference;
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+    this.retryPolicy =
+        RetryPolicy.builder()
+            .handleIf(error -> OxiaStatusException.from(error).isRetryable())
+            .withBackoff(INITIAL_RETRY_DELAY, MAX_RETRY_DELAY)
+            .withMaxAttempts(-1)
+            .withMaxDuration(retryTimeout)
+            .onRetry(
+                event -> {
+                  final OxiaStatusException error =
+                      OxiaStatusException.from(event.getLastException());
+                  LOGGER
+                      .atWarn()
+                      .addKeyValue("attempt", event.getAttemptCount())
+                      .addKeyValue("status", error.getStatusCode())
+                      .log("Retrying current Oxia operation");
+                })
+            .onRetriesExceeded(
+                event -> {
+                  final OxiaStatusException error = OxiaStatusException.from(event.getException());
+                  LOGGER
+                      .atError()
+                      .addKeyValue("attempts", event.getAttemptCount())
+                      .addKeyValue("status", error.getStatusCode())
+                      .log("Current Oxia operation exhausted its retry window");
+                })
+            .build();
     this.keyGenerator = new KeyGenerator(runId);
     this.valueGenerator = new ValueGenerator(options.seed());
   }
@@ -150,14 +184,27 @@ public final class BasicKv {
     Span span = tracer.spanBuilder("basic-kv.warmup").startSpan();
     long started = System.nanoTime();
     try (Scope ignored = span.makeCurrent()) {
-      GuardUtils.putReferenceGuard(client, inference, keyGenerator.lowerGuardKey(), "lower");
+      Failsafe.with(retryPolicy)
+          .run(
+              () ->
+                  GuardUtils.putReferenceGuard(
+                      client, inference, keyGenerator.lowerGuardKey(), "lower"));
       for (int index = 0; index < options.keyCount(); index++) {
-        String key = keyGenerator.key(index);
-        byte[] value = valueGenerator.warmup(index);
-        client.put(key, value);
-        inference.put(key, value);
+        final int keyIndex = index;
+        final String key = keyGenerator.key(keyIndex);
+        final byte[] value = valueGenerator.warmup(keyIndex);
+        Failsafe.with(retryPolicy)
+            .run(
+                () -> {
+                  client.put(key, value);
+                  inference.put(key, value);
+                });
       }
-      GuardUtils.putReferenceGuard(client, inference, keyGenerator.upperGuardKey(), "upper");
+      Failsafe.with(retryPolicy)
+          .run(
+              () ->
+                  GuardUtils.putReferenceGuard(
+                      client, inference, keyGenerator.upperGuardKey(), "upper"));
       span.setAttribute("test.keys", options.keyCount()).setStatus(StatusCode.OK);
       LOGGER
           .atInfo()
@@ -257,7 +304,7 @@ public final class BasicKv {
             .setAttribute("db.key", key)
             .startSpan();
     try (Scope ignored = span.makeCurrent()) {
-      action.run();
+      Failsafe.with(retryPolicy).run(action::run);
       span.setStatus(StatusCode.OK);
     } catch (RuntimeException error) {
       outcome = "error";
@@ -337,12 +384,18 @@ public final class BasicKv {
       String firstKey = keyGenerator.lowerGuardKey();
       String afterLastKey = keyGenerator.afterUpperGuardKey();
       List<KeyValue> expected = inference.range(firstKey, afterLastKey);
-      List<KeyValue> actual = new ArrayList<>();
-      try (CloseableIterable<GetResult> results = client.rangeScan(firstKey, afterLastKey)) {
-        for (GetResult result : results) {
-          actual.add(new KeyValue(result.key(), result.value()));
-        }
-      }
+      final List<KeyValue> actual = new ArrayList<>();
+      Failsafe.with(retryPolicy)
+          .run(
+              () -> {
+                actual.clear();
+                try (CloseableIterable<GetResult> results =
+                    client.rangeScan(firstKey, afterLastKey)) {
+                  for (final GetResult result : results) {
+                    actual.add(new KeyValue(result.key(), result.value()));
+                  }
+                }
+              });
       if (!expected.equals(actual)) {
         throw CorrectnessViolationException.checkpointMismatch(
             SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
@@ -368,7 +421,11 @@ public final class BasicKv {
   }
 
   private void cleanup() {
-    client.deleteRange(keyGenerator.lowerGuardKey(), keyGenerator.afterUpperGuardKey());
+    Failsafe.with(retryPolicy)
+        .run(
+            () ->
+                client.deleteRange(
+                    keyGenerator.lowerGuardKey(), keyGenerator.afterUpperGuardKey()));
     inference.clear();
     LOGGER.atInfo().addKeyValue("run_id", runId).log("basic-kv cleanup completed");
   }

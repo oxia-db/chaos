@@ -18,7 +18,6 @@ package io.oxia.chaos.inference;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.oxia.chaos.inference.InferenceStore.KeyValue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

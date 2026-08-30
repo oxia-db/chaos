@@ -76,7 +76,8 @@ class BasicKvE2ETest {
             new RunnerMetrics(openTelemetry, Options.BASIC_KV, inference::size);
         SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
-      new BasicKv(options, runId, client, openTelemetry, inference, metrics).run();
+      new BasicKv(options, runId, client, openTelemetry, inference, metrics, Duration.ofSeconds(30))
+          .run();
 
       String runPrefix = "/oxia-chaos/runs/" + runId + "/keys/key-";
       assertThat(inference.size()).isZero();

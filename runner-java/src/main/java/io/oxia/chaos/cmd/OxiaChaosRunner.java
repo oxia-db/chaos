@@ -53,7 +53,7 @@ public final class OxiaChaosRunner implements Callable<Integer> {
 
   static final int CORRECTNESS_VIOLATION_EXIT_CODE = 3;
   private static final Logger LOGGER = LoggerFactory.getLogger(OxiaChaosRunner.class);
-  private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
+  private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
   @Spec private CommandSpec spec;
 
@@ -182,7 +182,15 @@ public final class OxiaChaosRunner implements Callable<Integer> {
         case Options.BASIC_KV ->
             runOnVirtualThread(
                 () -> {
-                  new BasicKv(options, runId, client, openTelemetry, inference, metrics).run();
+                  new BasicKv(
+                          options,
+                          runId,
+                          client,
+                          openTelemetry,
+                          inference,
+                          metrics,
+                          REQUEST_TIMEOUT)
+                      .run();
                   return null;
                 });
         default -> throw new IllegalArgumentException("unsupported case: " + options.caseName());

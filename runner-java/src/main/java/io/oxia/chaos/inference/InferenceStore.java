@@ -15,8 +15,6 @@
  */
 package io.oxia.chaos.inference;
 
-import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.Optional;
@@ -49,44 +47,4 @@ public interface InferenceStore {
   int size();
 
   void clear();
-
-  /** Immutable key/value view with defensive value copies. */
-  record KeyValue(String key, byte[] value) {
-
-    public KeyValue {
-      if (key == null) {
-        throw new NullPointerException("key");
-      }
-      value = copy(value);
-    }
-
-    @Override
-    public byte[] value() {
-      return copy(value);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      return other instanceof KeyValue that
-          && key.equals(that.key)
-          && Arrays.equals(value, that.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return 31 * key.hashCode() + Arrays.hashCode(value);
-    }
-
-    @Override
-    public String toString() {
-      return "KeyValue[key=" + key + ", value=" + Base64.getEncoder().encodeToString(value) + "]";
-    }
-
-    private static byte[] copy(byte[] value) {
-      if (value == null) {
-        throw new NullPointerException("value");
-      }
-      return Arrays.copyOf(value, value.length);
-    }
-  }
 }
