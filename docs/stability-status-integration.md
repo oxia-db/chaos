@@ -160,8 +160,10 @@ For end-to-end validation, manually dispatch Correctness with the
 `status-smoke` profile. It runs the short pipeline for both channels and
 uploads an isolated `status-smoke-result-all` artifact. The status workflow then
 downloads those artifacts, merges and validates a temporary 90-day document,
-and packages a Pages artifact. It deliberately does not update `status-data` or
-deploy GitHub Pages, so smoke results never enter the public stability history.
+deploys it under `/chaos/status-smoke/v1/summary.json`, and preserves the
+production document in the same Pages artifact. The official dashboard exposes
+that result only through `/status?preview=smoke`. It deliberately does not
+update `status-data`, so smoke results never enter the public stability history.
 
 If the implemented Stable/basic-kv job fails to upload its result, the publisher
 records that scheduled run as `failed` with an artifact error. Unsupported

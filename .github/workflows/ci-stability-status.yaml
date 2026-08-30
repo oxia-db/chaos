@@ -146,6 +146,8 @@ jobs:
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      has-results: ${{ steps.detect.outputs.has_results }}
     permissions:
       actions: read
       contents: read
@@ -197,19 +199,27 @@ jobs:
           python3 scripts/status/status.py merge \
             --existing status-smoke/missing-summary.json \
             --results status-smoke-results \
-            --output status-smoke/status/v1/summary.json \
+            --output smoke-pages/status-smoke/v1/summary.json \
             --fallback-date "${RUN_DATE:0:10}" \
             --fallback-run-url "$RUN_URL" \
             "${expected_results[@]}"
-          python3 scripts/status/status.py validate status-smoke/status/v1/summary.json
-          touch status-smoke/.nojekyll
+          python3 scripts/status/status.py validate smoke-pages/status-smoke/v1/summary.json
+
+      - name: Preserve production status in preview artifact
+        if: ${{ steps.detect.outputs.has_results == 'true' }}
+        run: |
+          mkdir -p smoke-pages/status/v1
+          curl --fail --retry 5 --retry-all-errors \
+            https://oxia-db.github.io/chaos/status/v1/summary.json \
+            --output smoke-pages/status/v1/summary.json
+          touch smoke-pages/.nojekyll
 
       - name: Package smoke Pages artifact
         if: ${{ steps.detect.outputs.has_results == 'true' }}
         uses: actions/upload-pages-artifact@v5
         with:
           name: status-smoke-pages-${{ github.event.workflow_run.id }}
-          path: status-smoke
+          path: smoke-pages
           retention-days: 7
           include-hidden-files: true
 
@@ -231,3 +241,23 @@ jobs:
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  deploy-smoke-status:
+    name: Deploy status smoke preview
+    if: ${{ needs.smoke-status.result == 'success' && needs.smoke-status.outputs.has-results == 'true' }}
+    needs:
+      - smoke-status
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: https://oxia-db.github.io/status?preview=smoke
+    steps:
+      - name: Deploy smoke preview data
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: status-smoke-pages-${{ github.event.workflow_run.id }}
