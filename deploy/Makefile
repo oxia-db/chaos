@@ -9,6 +9,7 @@ DOCKER ?= docker
 JAVA_IMAGE ?= oxia/chaos-java:latest
 HELM_ARGS ?=
 CORRECTNESS_PROFILE ?= five-cycle
+CORRECTNESS_VICTIM_ORDINAL ?=
 RUNNER_TIMEOUT_SECONDS ?= 25200
 RUNNER_POLL_INTERVAL ?= 10
 WORKFLOW_TIMEOUT_SECONDS ?= 21600
@@ -75,12 +76,19 @@ correctness:
 		--selector=app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=correctness \
 		--ignore-not-found=true
 	@set -eu; \
+	victim_ordinal='$(CORRECTNESS_VICTIM_ORDINAL)'; \
+	if [ -z "$$victim_ordinal" ]; then \
+		victim_ordinal=$$(awk 'BEGIN { srand(); print int(rand() * 3) }'); \
+	fi; \
+	case "$$victim_ordinal" in 0|1|2) ;; *) echo "Invalid Oxia victim ordinal: $$victim_ordinal" >&2; exit 1 ;; esac; \
+	echo "Selected Oxia victim pod $(RELEASE_NAME)-$$victim_ordinal"; \
 	for attempt in $$(seq 1 30); do \
 		if $(HELM) template $(RELEASE_NAME) ../charts/oxia-chaos \
 			--namespace $(NAMESPACE) \
 			--set runners.java.enabled=false \
 			--set chaosWorkflow.enabled=true \
 			--set-string chaosWorkflow.profile=$(CORRECTNESS_PROFILE) \
+			--set chaosWorkflow.victimOrdinal=$$victim_ordinal \
 			--show-only templates/correctness-workflow.yaml | \
 			$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) apply --filename -; then \
 			exit 0; \

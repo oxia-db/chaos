@@ -45,9 +45,9 @@ on:
         options:
           - quick
           - five-cycle
-      duration:
-        description: Quick workload duration; ignored by the five-cycle profile
-        required: true
+      quick_duration:
+        description: Workload duration for the quick profile only
+        required: false
         type: choice
         default: 2m
         options:
@@ -70,7 +70,7 @@ env:
   RUNNER_IMAGE_REPOSITORY: oxia/chaos-java
   RUNNER_IMAGE_TAG: latest
   CORRECTNESS_PROFILE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || 'quick' }}
-  TEST_DURATION: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '6h' || inputs.duration || '2m' }}
+  TEST_DURATION: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '6h' || inputs.quick_duration || '2m' }}
   KEY_COUNT: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '10000' || '1000' }}
   RATE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '258' || '500' }}
   CHECKPOINT_INTERVAL: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '1m' || '30s' }}

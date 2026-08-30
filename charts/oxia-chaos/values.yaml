@@ -31,6 +31,8 @@ chaosWorkflow:
   enabled: false
   # Supported profiles: quick, five-cycle.
   profile: five-cycle
+  # Local deploy randomly overrides this for each submitted workflow.
+  victimOrdinal: 0
 
 runnerJob:
   imagePullSecrets: []

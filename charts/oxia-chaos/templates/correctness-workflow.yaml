@@ -3,6 +3,17 @@
 {{- if not (has $profile (list "quick" "five-cycle")) -}}
 {{- fail (printf "unsupported chaosWorkflow.profile %q" $profile) -}}
 {{- end }}
+{{- $victimOrdinal := int .Values.chaosWorkflow.victimOrdinal -}}
+{{- if not (has $victimOrdinal (list 0 1 2)) -}}
+{{- fail (printf "chaosWorkflow.victimOrdinal must be 0, 1, or 2, got %d" $victimOrdinal) -}}
+{{- end }}
+{{- $victimPod := printf "%s-%d" .Release.Name $victimOrdinal -}}
+{{- $peerPods := list -}}
+{{- range $ordinal := until 3 -}}
+{{- if ne $ordinal $victimOrdinal -}}
+{{- $peerPods = append $peerPods (printf "%s-%d" $.Release.Name $ordinal) -}}
+{{- end -}}
+{{- end -}}
 ---
 apiVersion: chaos-mesh.org/v1alpha1
 kind: Workflow
@@ -14,6 +25,10 @@ metadata:
     app.kubernetes.io/component: correctness
     app.kubernetes.io/part-of: oxia-chaos
     oxia.chaos/profile: {{ $profile | quote }}
+  {{- if eq $profile "five-cycle" }}
+  annotations:
+    oxia.chaos/victim-pod: {{ $victimPod | quote }}
+  {{- end }}
 spec:
 {{- if eq $profile "quick" }}
   entry: quick-pipeline
@@ -159,7 +174,7 @@ spec:
             - {{ .Release.Namespace | quote }}
           pods:
             {{ .Release.Namespace }}:
-              - {{ printf "%s-0" .Release.Name | quote }}
+              - {{ $victimPod | quote }}
         target:
           mode: all
           selector:
@@ -167,8 +182,7 @@ spec:
               - {{ .Release.Namespace | quote }}
             pods:
               {{ .Release.Namespace }}:
-                - {{ printf "%s-1" .Release.Name | quote }}
-                - {{ printf "%s-2" .Release.Name | quote }}
+                {{- toYaml $peerPods | nindent 16 }}
     - name: network-recovery
       templateType: Suspend
       deadline: 10m
@@ -191,7 +205,7 @@ spec:
             - {{ .Release.Namespace | quote }}
           pods:
             {{ .Release.Namespace }}:
-              - {{ printf "%s-0" .Release.Name | quote }}
+              - {{ $victimPod | quote }}
         stressors:
           cpu:
             workers: 1
@@ -208,7 +222,7 @@ spec:
             - {{ .Release.Namespace | quote }}
           pods:
             {{ .Release.Namespace }}:
-              - {{ printf "%s-0" .Release.Name | quote }}
+              - {{ $victimPod | quote }}
         stressors:
           memory:
             workers: 1
@@ -225,7 +239,7 @@ spec:
             - {{ .Release.Namespace | quote }}
           pods:
             {{ .Release.Namespace }}:
-              - {{ printf "%s-0" .Release.Name | quote }}
+              - {{ $victimPod | quote }}
         delay:
           latency: 100ms
           jitter: 20ms
