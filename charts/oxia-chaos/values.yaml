@@ -1,0 +1,34 @@
+nameOverride: ""
+fullnameOverride: ""
+
+runner:
+  # Set by a values-<language>.yaml file.
+  implementation: ""
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: IfNotPresent
+  imagePullSecrets: []
+  command: []
+  args: []
+  env: []
+  annotations: {}
+  labels: {}
+  activeDeadlineSeconds: 600
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Optional chart-managed test dependencies. Their remaining values are passed
+# directly to the upstream charts.
+oxia-cluster:
+  enabled: false
+
+chaos-mesh:
+  enabled: false

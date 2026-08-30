@@ -1,0 +1,8 @@
+runner:
+  implementation: java
+  image:
+    repository: oxia/chaos-java
+    tag: latest
+    pullPolicy: IfNotPresent
+  args:
+    - --service-address=oxia:6648

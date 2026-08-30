@@ -17,5 +17,8 @@ target
 .gradle/
 **/build/
 
+# Downloaded Helm dependencies
+charts/*/charts/
+
 # IDEs
 .idea/

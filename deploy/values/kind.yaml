@@ -1,0 +1,32 @@
+runner:
+  args:
+    - --service-address=oxia-chaos.oxia-chaos.svc.cluster.local:6648
+
+oxia-cluster:
+  enabled: true
+  initialShardCount: 1
+  replicationFactor: 3
+  image:
+    repository: oxia/oxia
+    tag: 0.16.8
+    pullPolicy: IfNotPresent
+  server:
+    replicas: 3
+    cpu: 250m
+    memory: 512Mi
+    storage: 1Gi
+    config:
+      storage:
+        database:
+          readCacheSizeMB: 64
+
+chaos-mesh:
+  enabled: true
+  controllerManager:
+    leaderElection:
+      enabled: false
+  chaosDaemon:
+    runtime: containerd
+    socketPath: /run/containerd/containerd.sock
+  dashboard:
+    create: false

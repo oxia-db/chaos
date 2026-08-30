@@ -1,0 +1,20 @@
+apiVersion: v2
+name: oxia-chaos
+description: Run fault-injection and recovery tests against an Oxia cluster
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/oxia-db/chaos
+sources:
+  - https://github.com/oxia-db/chaos
+maintainers:
+  - name: The Oxia Authors
+dependencies:
+  - name: oxia-cluster
+    version: 0.0.8
+    repository: https://oxia-db.github.io/helm-charts/
+    condition: oxia-cluster.enabled
+  - name: chaos-mesh
+    version: 2.8.4
+    repository: https://charts.chaos-mesh.org
+    condition: chaos-mesh.enabled

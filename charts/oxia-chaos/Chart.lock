@@ -1,0 +1,9 @@
+dependencies:
+- name: oxia-cluster
+  repository: https://oxia-db.github.io/helm-charts/
+  version: 0.0.8
+- name: chaos-mesh
+  repository: https://charts.chaos-mesh.org
+  version: 2.8.4
+digest: sha256:ef12083d2688964cca4749fb423e7211873812b8ddca26c2d7cc9aae84555a28
+generated: "2026-08-30T16:10:42.046975+08:00"
