@@ -28,9 +28,9 @@ public final class DurationConverter implements ITypeConverter<Duration> {
   private static final Pattern DURATION = Pattern.compile("([0-9]+)(ms|s|m|h)");
 
   @Override
-  public Duration convert(String value) {
-    String normalized = value.toLowerCase(Locale.ROOT);
-    Matcher matcher = DURATION.matcher(normalized);
+  public Duration convert(final String value) {
+    final String normalized = value.toLowerCase(Locale.ROOT);
+    final Matcher matcher = DURATION.matcher(normalized);
     if (!matcher.matches()) {
       throw new TypeConversionException("expected a duration with one of: ms, s, m, h");
     }
@@ -38,7 +38,7 @@ public final class DurationConverter implements ITypeConverter<Duration> {
     final long amount;
     try {
       amount = Long.parseLong(matcher.group(1));
-    } catch (NumberFormatException error) {
+    } catch (final NumberFormatException error) {
       throw new TypeConversionException("duration is too large: " + value);
     }
 
@@ -50,7 +50,7 @@ public final class DurationConverter implements ITypeConverter<Duration> {
         case "h" -> Duration.ofHours(amount);
         default -> throw new IllegalStateException("unreachable duration unit");
       };
-    } catch (ArithmeticException error) {
+    } catch (final ArithmeticException error) {
       throw new TypeConversionException("duration is too large: " + value);
     }
   }

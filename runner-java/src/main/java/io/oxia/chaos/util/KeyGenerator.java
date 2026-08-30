@@ -22,11 +22,11 @@ public final class KeyGenerator {
 
   private final String prefix;
 
-  public KeyGenerator(String runId) {
+  public KeyGenerator(final String runId) {
     this.prefix = "/oxia-chaos/runs/" + runId + "/keys/key-";
   }
 
-  public String key(int index) {
+  public String key(final int index) {
     return prefix + String.format(Locale.ROOT, "%08d", index);
   }
 

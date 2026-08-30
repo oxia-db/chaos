@@ -28,12 +28,12 @@ class BasicKvTest {
 
   @Test
   void followsTheNormalizedBasicKvDistribution() {
-    SplittableRandom random = new SplittableRandom(7);
-    Map<Operation, Integer> counts = new HashMap<>();
-    int samples = 250_000;
+    final SplittableRandom random = new SplittableRandom(7);
+    final Map<Operation, Integer> counts = new HashMap<>();
+    final int samples = 250_000;
 
     for (int index = 0; index < samples; index++) {
-      Operation operation = BasicKv.selectOperation(random.nextDouble(BasicKv.TOTAL_WEIGHT));
+      final Operation operation = BasicKv.selectOperation(random.nextDouble(BasicKv.TOTAL_WEIGHT));
       counts.merge(operation, 1, Integer::sum);
     }
 
@@ -50,8 +50,11 @@ class BasicKvTest {
   }
 
   private static void assertShare(
-      Map<Operation, Integer> counts, int samples, Operation operation, double expected) {
-    double actual = counts.getOrDefault(operation, 0) / (double) samples;
+      final Map<Operation, Integer> counts,
+      final int samples,
+      final Operation operation,
+      final double expected) {
+    final double actual = counts.getOrDefault(operation, 0) / (double) samples;
     assertThat(actual).isCloseTo(expected, Offset.offset(0.0025));
   }
 }

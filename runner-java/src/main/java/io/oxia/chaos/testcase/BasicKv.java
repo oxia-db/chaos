@@ -100,12 +100,12 @@ public final class BasicKv {
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.retryPolicy =
         RetryPolicy.builder()
-            .handleIf(error -> OxiaStatusException.from(error).isRetryable())
+            .handleIf((final Throwable error) -> OxiaStatusException.from(error).isRetryable())
             .withBackoff(INITIAL_RETRY_DELAY, MAX_RETRY_DELAY)
             .withMaxAttempts(-1)
             .withMaxDuration(retryTimeout)
             .onRetry(
-                event -> {
+                (final var event) -> {
                   final OxiaStatusException error =
                       OxiaStatusException.from(event.getLastException());
                   LOGGER
@@ -115,7 +115,7 @@ public final class BasicKv {
                       .log("Retrying current Oxia operation");
                 })
             .onRetriesExceeded(
-                event -> {
+                (final var event) -> {
                   final OxiaStatusException error = OxiaStatusException.from(event.getException());
                   LOGGER
                       .atError()
@@ -130,7 +130,7 @@ public final class BasicKv {
 
   /** Runs warmup, the timed workload, a final checkpoint, and mandatory cleanup. */
   public void run() throws InterruptedException {
-    Span runSpan =
+    final Span runSpan =
         tracer
             .spanBuilder("basic-kv.run")
             .setAttribute("test.case", Options.BASIC_KV)
@@ -140,28 +140,28 @@ public final class BasicKv {
             .startSpan();
 
     Throwable failure = null;
-    try (Scope ignored = runSpan.makeCurrent()) {
+    try (final Scope ignored = runSpan.makeCurrent()) {
       warmup();
       executeWorkload();
       checkpoint(Checkpoint.FINAL);
       runSpan.setStatus(StatusCode.OK);
-    } catch (CorrectnessViolationException error) {
+    } catch (final CorrectnessViolationException error) {
       failure = error;
       metrics.recordSafetyViolation();
       runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
       throw error;
-    } catch (InterruptedException error) {
+    } catch (final InterruptedException error) {
       failure = error;
       runSpan.recordException(error).setStatus(StatusCode.ERROR, "interrupted");
       throw error;
-    } catch (RuntimeException error) {
+    } catch (final RuntimeException error) {
       failure = error;
       runSpan.recordException(error).setStatus(StatusCode.ERROR, "execution failure");
       throw error;
     } finally {
       try {
         cleanup();
-      } catch (RuntimeException cleanupError) {
+      } catch (final RuntimeException cleanupError) {
         if (failure != null) {
           failure.addSuppressed(cleanupError);
         } else {
@@ -181,9 +181,9 @@ public final class BasicKv {
   }
 
   private void warmup() {
-    Span span = tracer.spanBuilder("basic-kv.warmup").startSpan();
-    long started = System.nanoTime();
-    try (Scope ignored = span.makeCurrent()) {
+    final Span span = tracer.spanBuilder("basic-kv.warmup").startSpan();
+    final long started = System.nanoTime();
+    try (final Scope ignored = span.makeCurrent()) {
       Failsafe.with(retryPolicy)
           .run(
               () ->
@@ -212,7 +212,7 @@ public final class BasicKv {
           .addKeyValue("keys", options.keyCount())
           .addKeyValue("duration_ms", elapsedMillis(started))
           .log("basic-kv warmup completed");
-    } catch (RuntimeException error) {
+    } catch (final RuntimeException error) {
       span.recordException(error).setStatus(StatusCode.ERROR);
       throw error;
     } finally {
@@ -221,11 +221,11 @@ public final class BasicKv {
   }
 
   private void executeWorkload() throws InterruptedException {
-    long started = System.nanoTime();
-    long deadline = addSaturated(started, options.duration().toNanos());
+    final long started = System.nanoTime();
+    final long deadline = addSaturated(started, options.duration().toNanos());
     long nextCheckpoint = addSaturated(started, options.checkpointInterval().toNanos());
-    RatePacer pacer = new RatePacer(options.rate());
-    SplittableRandom random = new SplittableRandom(options.seed());
+    final RatePacer pacer = new RatePacer(options.rate());
+    final SplittableRandom random = new SplittableRandom(options.seed());
 
     while (System.nanoTime() < deadline) {
       int generated = 0;
@@ -239,7 +239,7 @@ public final class BasicKv {
         generated++;
       }
 
-      long now = System.nanoTime();
+      final long now = System.nanoTime();
       if (now >= nextCheckpoint && now < deadline) {
         checkpoint(Checkpoint.PERIODIC);
         nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
@@ -247,10 +247,10 @@ public final class BasicKv {
     }
   }
 
-  private void executeNext(SplittableRandom random) {
-    Operation operation = selectOperation(random.nextDouble(TOTAL_WEIGHT));
-    int index = random.nextInt(options.keyCount());
-    String key = keyGenerator.key(index);
+  private void executeNext(final SplittableRandom random) {
+    final Operation operation = selectOperation(random.nextDouble(TOTAL_WEIGHT));
+    final int index = random.nextInt(options.keyCount());
+    final String key = keyGenerator.key(index);
 
     switch (operation) {
       case PUT ->
@@ -258,7 +258,7 @@ public final class BasicKv {
               operation,
               key,
               () -> {
-                byte[] value = valueGenerator.next(index, operationCount);
+                final byte[] value = valueGenerator.next(index, operationCount);
                 client.put(key, value);
                 inference.put(key, value);
               });
@@ -274,7 +274,8 @@ public final class BasicKv {
           observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonHigher));
       case DELETE -> observe(operation, key, () -> executeDelete(operation, key));
       case DELETE_RANGE, RANGE_SCAN, LIST -> {
-        String endKey = keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
+        final String endKey =
+            keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
         switch (operation) {
           case DELETE_RANGE ->
               observe(
@@ -293,20 +294,20 @@ public final class BasicKv {
     }
   }
 
-  private void observe(Operation operation, String key, Runnable action) {
-    long started = System.nanoTime();
+  private void observe(final Operation operation, final String key, final Runnable action) {
+    final long started = System.nanoTime();
     String outcome = "success";
-    String operationLabel = operation.label();
-    Span span =
+    final String operationLabel = operation.label();
+    final Span span =
         tracer
             .spanBuilder("basic-kv." + operationLabel)
             .setAttribute("db.operation.name", operationLabel)
             .setAttribute("db.key", key)
             .startSpan();
-    try (Scope ignored = span.makeCurrent()) {
+    try (final Scope ignored = span.makeCurrent()) {
       Failsafe.with(retryPolicy).run(action::run);
       span.setStatus(StatusCode.OK);
-    } catch (RuntimeException error) {
+    } catch (final RuntimeException error) {
       outcome = "error";
       span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
       throw error;
@@ -316,10 +317,10 @@ public final class BasicKv {
     }
   }
 
-  private void verifyGet(Operation operation, String key, GetOption option) {
-    Optional<KeyValue> expected = expectedGet(operation, key);
-    GetResult result = client.get(key, Set.of(option));
-    Optional<KeyValue> actual =
+  private void verifyGet(final Operation operation, final String key, final GetOption option) {
+    final Optional<KeyValue> expected = expectedGet(operation, key);
+    final GetResult result = client.get(key, Set.of(option));
+    final Optional<KeyValue> actual =
         result == null ? Optional.empty() : Optional.of(new KeyValue(result.key(), result.value()));
     if (!expected.equals(actual)) {
       throw CorrectnessViolationException.operationMismatch(
@@ -327,7 +328,7 @@ public final class BasicKv {
     }
   }
 
-  private Optional<KeyValue> expectedGet(Operation operation, String key) {
+  private Optional<KeyValue> expectedGet(final Operation operation, final String key) {
     return switch (operation) {
       case GET -> inference.get(key);
       case FLOOR -> inference.floor(key);
@@ -338,9 +339,9 @@ public final class BasicKv {
     };
   }
 
-  private void executeDelete(Operation operation, String key) {
-    boolean expected = inference.get(key).isPresent();
-    boolean actual = client.delete(key);
+  private void executeDelete(final Operation operation, final String key) {
+    final boolean expected = inference.get(key).isPresent();
+    final boolean actual = client.delete(key);
     if (expected != actual) {
       throw CorrectnessViolationException.operationMismatch(
           operation, key, Boolean.toString(expected), Boolean.toString(actual));
@@ -348,11 +349,11 @@ public final class BasicKv {
     inference.delete(key);
   }
 
-  private void verifyRangeScan(Operation operation, String key, String endKey) {
-    List<KeyValue> expected = inference.range(key, endKey);
-    List<KeyValue> actual = new ArrayList<>();
-    try (CloseableIterable<GetResult> results = client.rangeScan(key, endKey)) {
-      for (GetResult result : results) {
+  private void verifyRangeScan(final Operation operation, final String key, final String endKey) {
+    final List<KeyValue> expected = inference.range(key, endKey);
+    final List<KeyValue> actual = new ArrayList<>();
+    try (final CloseableIterable<GetResult> results = client.rangeScan(key, endKey)) {
+      for (final GetResult result : results) {
         actual.add(new KeyValue(result.key(), result.value()));
       }
     }
@@ -362,34 +363,34 @@ public final class BasicKv {
     }
   }
 
-  private void verifyList(Operation operation, String key, String endKey) {
-    List<String> expected = inference.list(key, endKey);
-    List<String> actual = client.list(key, endKey);
+  private void verifyList(final Operation operation, final String key, final String endKey) {
+    final List<String> expected = inference.list(key, endKey);
+    final List<String> actual = client.list(key, endKey);
     if (!expected.equals(actual)) {
       throw CorrectnessViolationException.operationMismatch(
           operation, key, SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
     }
   }
 
-  private void checkpoint(Checkpoint checkpoint) {
-    long started = System.nanoTime();
+  private void checkpoint(final Checkpoint checkpoint) {
+    final long started = System.nanoTime();
     String outcome = "success";
-    String checkpointLabel = checkpoint.label();
-    Span span =
+    final String checkpointLabel = checkpoint.label();
+    final Span span =
         tracer
             .spanBuilder("basic-kv.checkpoint")
             .setAttribute("checkpoint.kind", checkpointLabel)
             .startSpan();
-    try (Scope ignored = span.makeCurrent()) {
-      String firstKey = keyGenerator.lowerGuardKey();
-      String afterLastKey = keyGenerator.afterUpperGuardKey();
-      List<KeyValue> expected = inference.range(firstKey, afterLastKey);
+    try (final Scope ignored = span.makeCurrent()) {
+      final String firstKey = keyGenerator.lowerGuardKey();
+      final String afterLastKey = keyGenerator.afterUpperGuardKey();
+      final List<KeyValue> expected = inference.range(firstKey, afterLastKey);
       final List<KeyValue> actual = new ArrayList<>();
       Failsafe.with(retryPolicy)
           .run(
               () -> {
                 actual.clear();
-                try (CloseableIterable<GetResult> results =
+                try (final CloseableIterable<GetResult> results =
                     client.rangeScan(firstKey, afterLastKey)) {
                   for (final GetResult result : results) {
                     actual.add(new KeyValue(result.key(), result.value()));
@@ -410,7 +411,7 @@ public final class BasicKv {
           .addKeyValue("operations", operationCount)
           .addKeyValue("duration_ms", elapsedMillis(started))
           .log("basic-kv checkpoint passed");
-    } catch (RuntimeException error) {
+    } catch (final RuntimeException error) {
       outcome = "error";
       span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
       throw error;
@@ -430,7 +431,7 @@ public final class BasicKv {
     LOGGER.atInfo().addKeyValue("run_id", runId).log("basic-kv cleanup completed");
   }
 
-  static Operation selectOperation(double selected) {
+  static Operation selectOperation(final double selected) {
     if (selected < PUT_THRESHOLD) {
       return Operation.PUT;
     }

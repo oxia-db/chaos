@@ -22,7 +22,7 @@ public enum Checkpoint {
 
   private final String label;
 
-  Checkpoint(String label) {
+  Checkpoint(final String label) {
     this.label = label;
   }
 

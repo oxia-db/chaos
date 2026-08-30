@@ -27,7 +27,7 @@ class OxiaChaosRunnerTest {
 
   @Test
   void parsesTheBasicKvDefaults() {
-    Options options = parse("--case=basic-kv", "--service-address=oxia:6648");
+    final Options options = parse("--case=basic-kv", "--service-address=oxia:6648");
 
     assertThat(options.caseName()).isEqualTo("basic-kv");
     assertThat(options.serviceAddress()).isEqualTo("oxia:6648");
@@ -41,7 +41,7 @@ class OxiaChaosRunnerTest {
 
   @Test
   void parsesWorkloadOverrides() {
-    Options options =
+    final Options options =
         parse(
             "--case=basic-kv",
             "--service-address=oxia:6648",
@@ -96,7 +96,7 @@ class OxiaChaosRunnerTest {
 
   @Test
   void runsTheSelectedCaseOnANamedVirtualThread() throws Exception {
-    AtomicReference<Thread> caseThread = new AtomicReference<>();
+    final AtomicReference<Thread> caseThread = new AtomicReference<>();
 
     OxiaChaosRunner.runOnVirtualThread(
         () -> {
@@ -108,8 +108,8 @@ class OxiaChaosRunnerTest {
     assertThat(caseThread.get().getName()).startsWith("oxia-chaos-case-");
   }
 
-  private static Options parse(String... arguments) {
-    OxiaChaosRunner runner = new OxiaChaosRunner();
+  private static Options parse(final String... arguments) {
+    final OxiaChaosRunner runner = new OxiaChaosRunner();
     OxiaChaosRunner.commandLine(runner).parseArgs(arguments);
     return runner.options();
   }

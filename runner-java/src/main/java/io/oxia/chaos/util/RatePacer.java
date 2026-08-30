@@ -25,7 +25,7 @@ public final class RatePacer {
   private final long intervalNanos;
   private long nextOperation;
 
-  public RatePacer(int operationsPerSecond) {
+  public RatePacer(final int operationsPerSecond) {
     intervalNanos =
         operationsPerSecond == 0
             ? 0
@@ -37,11 +37,11 @@ public final class RatePacer {
     if (intervalNanos == 0) {
       return;
     }
-    long remaining = nextOperation - System.nanoTime();
+    final long remaining = nextOperation - System.nanoTime();
     if (remaining > 0) {
       TimeUnit.NANOSECONDS.sleep(remaining);
     }
-    long now = System.nanoTime();
+    final long now = System.nanoTime();
     nextOperation = Math.max(addSaturated(nextOperation, intervalNanos), now);
   }
 }

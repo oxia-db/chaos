@@ -30,7 +30,7 @@ public enum Operation {
 
   private final String label;
 
-  Operation(String label) {
+  Operation(final String label) {
     this.label = label;
   }
 

@@ -36,9 +36,11 @@ public final class RunnerMetrics implements AutoCloseable {
   private final ObservableLongGauge referenceKeys;
 
   public RunnerMetrics(
-      OpenTelemetry openTelemetry, String caseName, LongSupplier referenceKeyCount) {
+      final OpenTelemetry openTelemetry,
+      final String caseName,
+      final LongSupplier referenceKeyCount) {
     caseAttributes = Attributes.builder().put("case", caseName).build();
-    var meter = openTelemetry.getMeter(INSTRUMENTATION_SCOPE);
+    final var meter = openTelemetry.getMeter(INSTRUMENTATION_SCOPE);
     operations =
         meter
             .counterBuilder("oxia.chaos.operations")
@@ -76,11 +78,13 @@ public final class RunnerMetrics implements AutoCloseable {
             .setDescription("Keys currently held by the inference store")
             .setUnit("{key}")
             .buildWithCallback(
-                measurement -> measurement.record(referenceKeyCount.getAsLong(), caseAttributes));
+                (final var measurement) ->
+                    measurement.record(referenceKeyCount.getAsLong(), caseAttributes));
   }
 
-  public void recordOperation(String operation, String outcome, double durationSeconds) {
-    Attributes attributes =
+  public void recordOperation(
+      final String operation, final String outcome, final double durationSeconds) {
+    final Attributes attributes =
         Attributes.builder()
             .putAll(caseAttributes)
             .put("operation", operation)
@@ -90,8 +94,9 @@ public final class RunnerMetrics implements AutoCloseable {
     operationDuration.record(durationSeconds, attributes);
   }
 
-  public void recordCheckpoint(String kind, String outcome, double durationSeconds) {
-    Attributes attributes =
+  public void recordCheckpoint(
+      final String kind, final String outcome, final double durationSeconds) {
+    final Attributes attributes =
         Attributes.builder()
             .putAll(caseAttributes)
             .put("checkpoint.kind", kind)

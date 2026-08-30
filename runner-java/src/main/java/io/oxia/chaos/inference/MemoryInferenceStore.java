@@ -30,66 +30,66 @@ public final class MemoryInferenceStore implements InferenceStore {
   private final ConcurrentSkipListMap<String, byte[]> values = new ConcurrentSkipListMap<>();
 
   @Override
-  public Optional<KeyValue> get(String key) {
+  public Optional<KeyValue> get(final String key) {
     return valueOf(key, values.get(key));
   }
 
   @Override
-  public Optional<KeyValue> floor(String key) {
+  public Optional<KeyValue> floor(final String key) {
     return entryOf(values.floorEntry(key));
   }
 
   @Override
-  public Optional<KeyValue> ceiling(String key) {
+  public Optional<KeyValue> ceiling(final String key) {
     return entryOf(values.ceilingEntry(key));
   }
 
   @Override
-  public Optional<KeyValue> lower(String key) {
+  public Optional<KeyValue> lower(final String key) {
     return entryOf(values.lowerEntry(key));
   }
 
   @Override
-  public Optional<KeyValue> higher(String key) {
+  public Optional<KeyValue> higher(final String key) {
     return entryOf(values.higherEntry(key));
   }
 
   @Override
-  public void put(String key, byte[] value) {
+  public void put(final String key, final byte[] value) {
     values.put(key, copy(value));
   }
 
   @Override
-  public boolean delete(String key) {
+  public boolean delete(final String key) {
     return values.remove(key) != null;
   }
 
   @Override
-  public void deleteRange(String fromInclusive, String toExclusive) {
+  public void deleteRange(final String fromInclusive, final String toExclusive) {
     validateRange(fromInclusive, toExclusive);
     values.subMap(fromInclusive, true, toExclusive, false).clear();
   }
 
   @Override
-  public List<KeyValue> range(String fromInclusive, String toExclusive) {
+  public List<KeyValue> range(final String fromInclusive, final String toExclusive) {
     validateRange(fromInclusive, toExclusive);
-    List<KeyValue> result = new ArrayList<>();
+    final List<KeyValue> result = new ArrayList<>();
     values
         .subMap(fromInclusive, true, toExclusive, false)
-        .forEach((key, value) -> result.add(new KeyValue(key, value)));
+        .forEach((final var key, final var value) -> result.add(new KeyValue(key, value)));
     return List.copyOf(result);
   }
 
   @Override
-  public List<String> list(String fromInclusive, String toExclusive) {
+  public List<String> list(final String fromInclusive, final String toExclusive) {
     validateRange(fromInclusive, toExclusive);
     return List.copyOf(values.subMap(fromInclusive, true, toExclusive, false).keySet());
   }
 
   @Override
   public NavigableMap<String, byte[]> snapshot() {
-    NavigableMap<String, byte[]> snapshot = new TreeMap<>();
-    values.forEach((key, value) -> snapshot.put(key, copy(value)));
+    final NavigableMap<String, byte[]> snapshot = new TreeMap<>();
+    values.forEach((final var key, final var value) -> snapshot.put(key, copy(value)));
     return Collections.unmodifiableNavigableMap(snapshot);
   }
 
@@ -103,23 +103,23 @@ public final class MemoryInferenceStore implements InferenceStore {
     values.clear();
   }
 
-  private static Optional<KeyValue> entryOf(java.util.Map.Entry<String, byte[]> entry) {
+  private static Optional<KeyValue> entryOf(final java.util.Map.Entry<String, byte[]> entry) {
     return entry == null
         ? Optional.empty()
         : Optional.of(new KeyValue(entry.getKey(), entry.getValue()));
   }
 
-  private static Optional<KeyValue> valueOf(String key, byte[] value) {
+  private static Optional<KeyValue> valueOf(final String key, final byte[] value) {
     return value == null ? Optional.empty() : Optional.of(new KeyValue(key, value));
   }
 
-  private static void validateRange(String fromInclusive, String toExclusive) {
+  private static void validateRange(final String fromInclusive, final String toExclusive) {
     if (fromInclusive.compareTo(toExclusive) > 0) {
       throw new IllegalArgumentException("range start must not be greater than range end");
     }
   }
 
-  private static byte[] copy(byte[] value) {
+  private static byte[] copy(final byte[] value) {
     if (value == null) {
       throw new NullPointerException("value");
     }

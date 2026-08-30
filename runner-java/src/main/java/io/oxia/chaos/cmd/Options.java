@@ -59,21 +59,21 @@ public record Options(
     return "oc-java-" + caseName;
   }
 
-  private static String requireText(String value, String option) {
+  private static String requireText(final String value, final String option) {
     if (value == null || value.isBlank()) {
       throw new IllegalArgumentException(option + " requires a value");
     }
     return value;
   }
 
-  private static Duration requirePositive(Duration value, String option) {
+  private static Duration requirePositive(final Duration value, final String option) {
     Objects.requireNonNull(value, option);
     if (value.isZero() || value.isNegative()) {
       throw new IllegalArgumentException(option + " must be greater than zero");
     }
     try {
       value.toNanos();
-    } catch (ArithmeticException error) {
+    } catch (final ArithmeticException error) {
       throw new IllegalArgumentException(option + " is too large", error);
     }
     return value;

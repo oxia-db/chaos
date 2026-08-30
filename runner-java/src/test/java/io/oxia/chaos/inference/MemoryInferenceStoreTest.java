@@ -62,19 +62,19 @@ class MemoryInferenceStoreTest {
 
   @Test
   void protectsStoredAndReturnedValuesFromMutation() {
-    byte[] input = bytes("value");
+    final byte[] input = bytes("value");
     inference.put("key", input);
     input[0] = 'X';
 
-    byte[] returned = inference.get("key").orElseThrow().value();
+    final byte[] returned = inference.get("key").orElseThrow().value();
     returned[1] = 'X';
-    byte[] snapshotValue = inference.snapshot().get("key");
+    final byte[] snapshotValue = inference.snapshot().get("key");
     snapshotValue[2] = 'X';
 
     assertThat(inference.get("key").orElseThrow().value()).isEqualTo(bytes("value"));
   }
 
-  private static byte[] bytes(String value) {
+  private static byte[] bytes(final String value) {
     return value.getBytes(UTF_8);
   }
 }

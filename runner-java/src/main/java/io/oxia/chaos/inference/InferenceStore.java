@@ -22,25 +22,25 @@ import java.util.Optional;
 /** Ordered reference data used to infer the expected result of client operations. */
 public interface InferenceStore {
 
-  Optional<KeyValue> get(String key);
+  Optional<KeyValue> get(final String key);
 
-  Optional<KeyValue> floor(String key);
+  Optional<KeyValue> floor(final String key);
 
-  Optional<KeyValue> ceiling(String key);
+  Optional<KeyValue> ceiling(final String key);
 
-  Optional<KeyValue> lower(String key);
+  Optional<KeyValue> lower(final String key);
 
-  Optional<KeyValue> higher(String key);
+  Optional<KeyValue> higher(final String key);
 
-  void put(String key, byte[] value);
+  void put(final String key, final byte[] value);
 
-  boolean delete(String key);
+  boolean delete(final String key);
 
-  void deleteRange(String fromInclusive, String toExclusive);
+  void deleteRange(final String fromInclusive, final String toExclusive);
 
-  List<KeyValue> range(String fromInclusive, String toExclusive);
+  List<KeyValue> range(final String fromInclusive, final String toExclusive);
 
-  List<String> list(String fromInclusive, String toExclusive);
+  List<String> list(final String fromInclusive, final String toExclusive);
 
   NavigableMap<String, byte[]> snapshot();
 

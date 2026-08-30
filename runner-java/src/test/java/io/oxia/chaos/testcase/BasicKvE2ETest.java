@@ -57,9 +57,9 @@ class BasicKvE2ETest {
 
   @Test
   void runsBasicKvAgainstOxiaAndCleansUpItsKeys() throws Exception {
-    String runId = "testcontainers-e2e";
-    String serviceAddress = OXIA.getHost() + ":" + OXIA.getMappedPort(OXIA_PORT);
-    Options options =
+    final String runId = "testcontainers-e2e";
+    final String serviceAddress = OXIA.getHost() + ":" + OXIA.getMappedPort(OXIA_PORT);
+    final Options options =
         new Options(
             Options.BASIC_KV,
             serviceAddress,
@@ -69,17 +69,17 @@ class BasicKvE2ETest {
             100,
             Duration.ofMillis(500),
             7L);
-    InferenceStore inference = new MemoryInferenceStore();
-    OpenTelemetry openTelemetry = OpenTelemetry.noop();
+    final InferenceStore inference = new MemoryInferenceStore();
+    final OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
-    try (RunnerMetrics metrics =
+    try (final RunnerMetrics metrics =
             new RunnerMetrics(openTelemetry, Options.BASIC_KV, inference::size);
-        SyncOxiaClient client =
+        final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
       new BasicKv(options, runId, client, openTelemetry, inference, metrics, Duration.ofSeconds(30))
           .run();
 
-      String runPrefix = "/oxia-chaos/runs/" + runId + "/keys/key-";
+      final String runPrefix = "/oxia-chaos/runs/" + runId + "/keys/key-";
       assertThat(inference.size()).isZero();
       assertThat(client.list(runPrefix, runPrefix + "zz")).isEmpty();
     }

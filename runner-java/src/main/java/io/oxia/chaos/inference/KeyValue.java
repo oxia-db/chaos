@@ -35,7 +35,7 @@ public record KeyValue(String key, byte[] value) {
 
   @Override
   public boolean equals(final Object other) {
-    return other instanceof KeyValue that
+    return other instanceof final KeyValue that
         && key.equals(that.key)
         && Arrays.equals(value, that.value);
   }

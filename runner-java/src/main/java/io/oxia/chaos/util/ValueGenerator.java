@@ -23,16 +23,16 @@ public final class ValueGenerator {
 
   private final long seed;
 
-  public ValueGenerator(long seed) {
+  public ValueGenerator(final long seed) {
     this.seed = seed;
   }
 
-  public byte[] warmup(int index) {
+  public byte[] warmup(final int index) {
     return String.format(Locale.ROOT, "warmup-%016x-%08d", seed, index)
         .getBytes(StandardCharsets.UTF_8);
   }
 
-  public byte[] next(int index, long operationCount) {
+  public byte[] next(final int index, final long operationCount) {
     return String.format(Locale.ROOT, "value-%016x-%08d-%016x", seed, index, operationCount)
         .getBytes(StandardCharsets.UTF_8);
   }

@@ -22,12 +22,12 @@ public final class RangeUtils {
 
   private RangeUtils() {}
 
-  public static int nextEnd(SplittableRandom random, int start, int keyCount) {
-    int length = 1 + random.nextInt(maximumLength(keyCount));
+  public static int nextEnd(final SplittableRandom random, final int start, final int keyCount) {
+    final int length = 1 + random.nextInt(maximumLength(keyCount));
     return (int) Math.min(keyCount, (long) start + length);
   }
 
-  public static int maximumLength(int keyCount) {
+  public static int maximumLength(final int keyCount) {
     return Math.max(1, keyCount / 100);
   }
 }

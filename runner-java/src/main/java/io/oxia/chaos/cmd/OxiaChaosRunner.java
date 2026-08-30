@@ -108,8 +108,8 @@ public final class OxiaChaosRunner implements Callable<Integer> {
       description = "Full-state checkpoint interval. Default: ${DEFAULT-VALUE}.")
   private Duration checkpointInterval;
 
-  public static void main(String[] args) {
-    int exitCode = commandLine(new OxiaChaosRunner()).execute(args);
+  public static void main(final String[] args) {
+    final int exitCode = commandLine(new OxiaChaosRunner()).execute(args);
     System.exit(exitCode);
   }
 
@@ -118,20 +118,20 @@ public final class OxiaChaosRunner implements Callable<Integer> {
     final Options options;
     try {
       options = options();
-    } catch (IllegalArgumentException error) {
+    } catch (final IllegalArgumentException error) {
       throw new ParameterException(spec.commandLine(), error.getMessage(), error);
     }
 
     try {
       return run(options);
-    } catch (CorrectnessViolationException error) {
+    } catch (final CorrectnessViolationException error) {
       LOGGER.error("basic-kv correctness violation", error);
       return CORRECTNESS_VIOLATION_EXIT_CODE;
-    } catch (InterruptedException error) {
+    } catch (final InterruptedException error) {
       Thread.currentThread().interrupt();
       LOGGER.error("runner interrupted", error);
       return ExitCode.SOFTWARE;
-    } catch (Exception error) {
+    } catch (final Exception error) {
       LOGGER.error("runner failed", error);
       return ExitCode.SOFTWARE;
     }
@@ -149,11 +149,11 @@ public final class OxiaChaosRunner implements Callable<Integer> {
         ThreadLocalRandom.current().nextLong());
   }
 
-  private int run(Options options) throws Exception {
-    String runId = UUID.randomUUID().toString();
-    AutoConfiguredOpenTelemetrySdk configuredTelemetry = configureOpenTelemetry();
-    OpenTelemetrySdk openTelemetry = configuredTelemetry.getOpenTelemetrySdk();
-    InferenceStore inference = new MemoryInferenceStore();
+  private int run(final Options options) throws Exception {
+    final String runId = UUID.randomUUID().toString();
+    final AutoConfiguredOpenTelemetrySdk configuredTelemetry = configureOpenTelemetry();
+    final OpenTelemetrySdk openTelemetry = configuredTelemetry.getOpenTelemetrySdk();
+    final InferenceStore inference = new MemoryInferenceStore();
 
     LOGGER
         .atInfo()
@@ -169,9 +169,9 @@ public final class OxiaChaosRunner implements Callable<Integer> {
         .log("starting chaos case");
 
     try (openTelemetry;
-        RunnerMetrics metrics =
+        final RunnerMetrics metrics =
             new RunnerMetrics(openTelemetry, options.caseName(), inference::size);
-        SyncOxiaClient client =
+        final SyncOxiaClient client =
             OxiaClientBuilder.create(options.serviceAddress())
                 .namespace(options.namespace())
                 .clientIdentifier("oxia-chaos-java/" + options.caseName() + "/" + runId)
@@ -201,25 +201,25 @@ public final class OxiaChaosRunner implements Callable<Integer> {
     return ExitCode.OK;
   }
 
-  static CommandLine commandLine(OxiaChaosRunner runner) {
+  static CommandLine commandLine(final OxiaChaosRunner runner) {
     return new CommandLine(runner);
   }
 
-  static void runOnVirtualThread(Callable<Void> task) throws Exception {
-    Thread.Builder.OfVirtual threads = Thread.ofVirtual().name("oxia-chaos-case-", 0);
-    try (var executor = Executors.newThreadPerTaskExecutor(threads.factory())) {
-      var future = executor.submit(task);
+  static void runOnVirtualThread(final Callable<Void> task) throws Exception {
+    final Thread.Builder.OfVirtual threads = Thread.ofVirtual().name("oxia-chaos-case-", 0);
+    try (final var executor = Executors.newThreadPerTaskExecutor(threads.factory())) {
+      final var future = executor.submit(task);
       try {
         future.get();
-      } catch (InterruptedException error) {
+      } catch (final InterruptedException error) {
         future.cancel(true);
         throw error;
-      } catch (ExecutionException error) {
-        Throwable cause = error.getCause();
-        if (cause instanceof Exception exception) {
+      } catch (final ExecutionException error) {
+        final Throwable cause = error.getCause();
+        if (cause instanceof final Exception exception) {
           throw exception;
         }
-        if (cause instanceof Error fatal) {
+        if (cause instanceof final Error fatal) {
           throw fatal;
         }
         throw new IllegalStateException("virtual case thread failed", cause);

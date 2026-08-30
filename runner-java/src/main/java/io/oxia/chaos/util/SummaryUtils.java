@@ -24,8 +24,8 @@ public final class SummaryUtils {
 
   private SummaryUtils() {}
 
-  public static String summarize(List<?> values) {
-    int displayed = Math.min(values.size(), MAX_DISPLAYED_VALUES);
+  public static String summarize(final List<?> values) {
+    final int displayed = Math.min(values.size(), MAX_DISPLAYED_VALUES);
     return "size=" + values.size() + ", first=" + values.subList(0, displayed);
   }
 }

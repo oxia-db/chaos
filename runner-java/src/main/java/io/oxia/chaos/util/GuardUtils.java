@@ -25,8 +25,11 @@ public final class GuardUtils {
   private GuardUtils() {}
 
   public static void putReferenceGuard(
-      SyncOxiaClient client, InferenceStore inference, String key, String name) {
-    byte[] value = ("guard-" + name).getBytes(StandardCharsets.UTF_8);
+      final SyncOxiaClient client,
+      final InferenceStore inference,
+      final String key,
+      final String name) {
+    final byte[] value = ("guard-" + name).getBytes(StandardCharsets.UTF_8);
     client.put(key, value);
     inference.put(key, value);
   }

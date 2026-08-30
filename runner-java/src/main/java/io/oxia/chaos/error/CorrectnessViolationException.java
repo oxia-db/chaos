@@ -20,12 +20,12 @@ import io.oxia.chaos.ops.Operation;
 /** Signals a correctness failure distinct from an infrastructure or availability failure. */
 public final class CorrectnessViolationException extends RuntimeException {
 
-  public CorrectnessViolationException(String message) {
+  public CorrectnessViolationException(final String message) {
     super(message);
   }
 
   public static CorrectnessViolationException operationMismatch(
-      Operation operation, String key, String expected, String actual) {
+      final Operation operation, final String key, final String expected, final String actual) {
     return new CorrectnessViolationException(
         "operation mismatch: operation="
             + operation.label()
@@ -37,7 +37,8 @@ public final class CorrectnessViolationException extends RuntimeException {
             + actual);
   }
 
-  public static CorrectnessViolationException checkpointMismatch(String expected, String actual) {
+  public static CorrectnessViolationException checkpointMismatch(
+      final String expected, final String actual) {
     return new CorrectnessViolationException(
         "checkpoint mismatch: expected=" + expected + ", actual=" + actual);
   }

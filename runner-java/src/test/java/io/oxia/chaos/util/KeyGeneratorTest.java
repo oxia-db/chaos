@@ -23,7 +23,7 @@ class KeyGeneratorTest {
 
   @Test
   void generatesOrderedRunScopedKeysAndGuards() {
-    KeyGenerator generator = new KeyGenerator("run-1");
+    final KeyGenerator generator = new KeyGenerator("run-1");
 
     assertThat(generator.key(12)).isEqualTo("/oxia-chaos/runs/run-1/keys/key-00000012");
     assertThat(generator.lowerGuardKey()).isLessThan(generator.key(0));

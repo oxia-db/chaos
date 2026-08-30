@@ -22,19 +22,19 @@ public final class Timing {
 
   private Timing() {}
 
-  public static long addSaturated(long left, long right) {
-    long result = left + right;
+  public static long addSaturated(final long left, final long right) {
+    final long result = left + right;
     if (((left ^ result) & (right ^ result)) < 0) {
       return Long.MAX_VALUE;
     }
     return result;
   }
 
-  public static long elapsedMillis(long startedNanos) {
+  public static long elapsedMillis(final long startedNanos) {
     return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
   }
 
-  public static double elapsedSeconds(long startedNanos) {
+  public static double elapsedSeconds(final long startedNanos) {
     return (System.nanoTime() - startedNanos) / 1_000_000_000d;
   }
 }
