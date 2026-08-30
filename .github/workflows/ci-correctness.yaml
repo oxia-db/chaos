@@ -16,8 +16,7 @@ name: Correctness
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths:
       - ".github/workflows/ci-correctness.yaml"
       - "charts/**"
@@ -27,8 +26,7 @@ on:
       - "scripts/status/**"
       - "Makefile"
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - ".github/workflows/ci-correctness.yaml"
       - "charts/**"
@@ -47,19 +45,7 @@ on:
         required: true
         type: choice
         default: quick
-        options:
-          - quick
-          - status-smoke
-          - five-cycle
-      quick_duration:
-        description: Workload duration for quick and status-smoke profiles
-        required: false
-        type: choice
-        default: 2m
-        options:
-          - 1m
-          - 2m
-          - 5m
+        options: [quick, status-smoke, five-cycle]
 
 concurrency:
   group: correctness-${{ github.workflow }}-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || inputs.profile == 'status-smoke' && 'status-smoke' || 'quick' }}
@@ -73,239 +59,86 @@ env:
   KUBE_CONTEXT: kind-oxia-chaos
   NAMESPACE: oxia-chaos
   RELEASE_NAME: oxia-chaos
-  RUNNER_IMAGE_REPOSITORY: oxia/chaos-java
-  RUNNER_IMAGE_TAG: latest
-  CORRECTNESS_PROFILE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || 'quick' }}
-  TEST_DURATION: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '6h' || inputs.quick_duration || '2m' }}
-  KEY_COUNT: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '10000' || '1000' }}
-  RATE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '258' || '500' }}
-  CHECKPOINT_INTERVAL: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '1m' || '30s' }}
-  RUNNER_ACTIVE_DEADLINE_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '23400' || '420' }}
-  RUNNER_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '23400' || '480' }}
-  WORKFLOW_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '21600' || '180' }}
+  CHANNELS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') && 'stable beta alpha' || 'stable' }}
+  WORKLOAD_PROFILE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || 'quick' }}
+  RUNNER_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '23400' || '600' }}
+  WORKFLOW_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '21600' || '240' }}
   EXPECTED_CHAOS_INJECTIONS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '50' || '1' }}
 
 jobs:
-  plan:
-    name: Plan correctness channels
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
+  correctness:
+    name: Helm correctness ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || inputs.profile == 'status-smoke' && 'status-smoke' || 'quick' }}
+    runs-on: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') && 'cncf-ubuntu-8-32-x86' || 'ubuntu-latest' }}
+    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 420 || inputs.profile == 'status-smoke' && 45 || 25 }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-      - name: Select channel matrix
-        id: matrix
-        env:
-          ALL_CHANNELS: ${{ github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke' }}
-        run: |
-          jq --exit-status \
-            'keys == ["alpha", "beta", "stable"] and
-             all(.[];
-               (.imageTag | type == "string") and
-               (.imageTag | length > 0) and
-               (.serverVersion | type == "string") and
-               (.serverVersion | length > 0) and
-               (.resolveDigest | type == "boolean"))' \
-            config/oxia-channels.json >/dev/null
-          if [ "$ALL_CHANNELS" = "true" ]; then
-            matrix=$(jq --compact-output \
-              '{include: [
-                .stable + {channel: "stable"},
-                .beta + {channel: "beta"},
-                .alpha + {channel: "alpha"}
-              ]}' config/oxia-channels.json)
-          else
-            matrix=$(jq --compact-output \
-              '{include: [.stable + {channel: "stable"}]}' \
-              config/oxia-channels.json)
-          fi
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-
-  basic-kv:
-    name: Java basic-kv ${{ matrix.channel }} ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle pipeline' || inputs.profile == 'status-smoke' && 'status-smoke pipeline' || 'quick pipeline' }}
-    needs:
-      - plan
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    runs-on: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'cncf-ubuntu-8-32-x86' || 'ubuntu-latest' }}
-    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 420 || 25 }}
-    env:
-      OXIA_CHANNEL: ${{ matrix.channel }}
-      OXIA_SOURCE_TAG: ${{ matrix.imageTag }}
-      OXIA_STATUS_VERSION: ${{ matrix.serverVersion }}
-      OXIA_RESOLVE_DIGEST: ${{ matrix.resolveDigest }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Java
-        uses: actions/setup-java@v6
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
           cache: gradle
 
-      - name: Set up Helm
-        uses: azure/setup-helm@v5
+      - uses: azure/setup-helm@v5
 
-      - name: Resolve Oxia server image
-        id: server
-        run: |
-          image_tag="$OXIA_SOURCE_TAG"
-          server_version="$OXIA_STATUS_VERSION"
-          if [ "$OXIA_RESOLVE_DIGEST" = "true" ]; then
-            digest=$(docker buildx imagetools inspect "oxia/oxia:$OXIA_SOURCE_TAG" | awk '$1 == "Digest:" { print $2; exit }')
-            case "$digest" in sha256:*) ;; *) echo "Unable to resolve Oxia image digest" >&2; exit 1 ;; esac
-            image_tag="$OXIA_SOURCE_TAG@$digest"
-            server_version="$digest"
-          fi
-          {
-            echo "image_tag=$image_tag"
-            echo "server_version=$server_version"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Verify runner and chart
+      - name: Verify repository
         id: verify
         run: make check
 
-      - name: Create kind cluster
+      - name: Resolve channel images
+        id: image
+        run: make -C deploy channel-plan CHANNELS="$CHANNELS"
+
+      - name: Create shared kind cluster
         id: cluster
         uses: helm/kind-action@v1.14.0
         with:
           cluster_name: ${{ env.CLUSTER_NAME }}
           wait: 120s
 
-      - name: Preload Oxia and Chaos Mesh images
-        id: preload
-        env:
-          OXIA_IMAGE_TAG: ${{ steps.server.outputs.image_tag }}
-        run: |
-          make -C deploy dependency-images \
-            CLUSTER_NAME="$CLUSTER_NAME" \
-            HELM_ARGS="--set-string oxia-cluster.image.tag=$OXIA_IMAGE_TAG"
-
-      - name: Install Oxia and Chaos Mesh
+      - name: Deploy shared environment and all Helm testcases
         id: install
-        env:
-          OXIA_IMAGE_TAG: ${{ steps.server.outputs.image_tag }}
         run: |
-          kubectl --context "$KUBE_CONTEXT" apply --filename deploy/namespaces.yaml
-          helm upgrade --install "$RELEASE_NAME" charts/oxia-chaos \
-            --kube-context "$KUBE_CONTEXT" \
-            --namespace "$NAMESPACE" \
-            --set runners.java.enabled=false \
-            --set chaosWorkflow.enabled=false \
-            --set-string oxia-cluster.image.tag="$OXIA_IMAGE_TAG" \
-            --wait \
-            --timeout 10m
+          make -C deploy release \
+            CHANNELS="$CHANNELS" \
+            WORKLOAD_PROFILE="$WORKLOAD_PROFILE" \
+            REUSE_CHANNEL_PLAN=true \
+            RUNNER_IMAGE_PULL_POLICY=Always
 
-      - name: Start correctness runner
-        id: runner
-        env:
-          OXIA_IMAGE_TAG: ${{ steps.server.outputs.image_tag }}
+      - name: Run all Helm testcases under chaos
+        id: pipeline
         run: |
-          helm upgrade --install "$RELEASE_NAME" charts/oxia-chaos \
-            --kube-context "$KUBE_CONTEXT" \
-            --namespace "$NAMESPACE" \
-            --set runners.java.enabled=true \
-            --set-string runners.java.image.repository="$RUNNER_IMAGE_REPOSITORY" \
-            --set-string runners.java.image.tag="$RUNNER_IMAGE_TAG" \
-            --set runners.java.image.pullPolicy=Always \
-            --set chaosWorkflow.enabled=false \
-            --set-string oxia-cluster.image.tag="$OXIA_IMAGE_TAG" \
-            --set-string cases.basic-kv.duration="$TEST_DURATION" \
-            --set cases.basic-kv.keyCount="$KEY_COUNT" \
-            --set cases.basic-kv.rate="$RATE" \
-            --set cases.basic-kv.batchSize=100 \
-            --set-string cases.basic-kv.checkpointInterval="$CHECKPOINT_INTERVAL" \
-            --set runnerJob.activeDeadlineSeconds="$RUNNER_ACTIVE_DEADLINE_SECONDS" \
-            --wait \
-            --timeout 5m
-          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" wait \
-            --for=condition=Ready pod \
-            --selector="app.kubernetes.io/instance=$RELEASE_NAME,app.kubernetes.io/component=runner" \
-            --timeout=3m
-
-      - name: Start correctness workflow
-        id: workflow
-        env:
-          OXIA_IMAGE_TAG: ${{ steps.server.outputs.image_tag }}
-        run: |
-          make -C deploy correctness \
-            KUBE_CONTEXT="$KUBE_CONTEXT" \
-            NAMESPACE="$NAMESPACE" \
-            RELEASE_NAME="$RELEASE_NAME" \
-            CORRECTNESS_PROFILE="$CORRECTNESS_PROFILE" \
-            HELM_ARGS="--set-string oxia-cluster.image.tag=$OXIA_IMAGE_TAG"
-
-      - name: Wait for correctness pipeline
-        id: chaos
-        run: |
-          make -C deploy correctness-test \
-            KUBE_CONTEXT="$KUBE_CONTEXT" \
-            NAMESPACE="$NAMESPACE" \
-            RELEASE_NAME="$RELEASE_NAME" \
+          make -C deploy correctness correctness-test test \
+            CHANNELS="$CHANNELS" \
+            WORKLOAD_PROFILE="$WORKLOAD_PROFILE" \
+            RUNNER_TIMEOUT_SECONDS="$RUNNER_TIMEOUT_SECONDS" \
             WORKFLOW_TIMEOUT_SECONDS="$WORKFLOW_TIMEOUT_SECONDS" \
             EXPECTED_CHAOS_INJECTIONS="$EXPECTED_CHAOS_INJECTIONS"
 
-      - name: Wait for runner result
-        id: result
-        run: |
-          make -C deploy test \
-            KUBE_CONTEXT="$KUBE_CONTEXT" \
-            NAMESPACE="$NAMESPACE" \
-            RELEASE_NAME="$RELEASE_NAME" \
-            RUNNER_TIMEOUT_SECONDS="$RUNNER_TIMEOUT_SECONDS" \
-            RUNNER_POLL_INTERVAL=5
-
-      - name: Collect cluster diagnostics
+      - name: Collect diagnostics
         if: always()
-        run: |
-          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get \
-            pods,jobs,workflows,workflownodes,podchaos,networkchaos,stresschaos \
-            --output=wide || true
-          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get events \
-            --sort-by=.lastTimestamp || true
-          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" logs \
-            --selector=app.kubernetes.io/instance=oxia-chaos,app.kubernetes.io/component=runner \
-            --all-containers=true --prefix=true --tail=500 || true
-          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" logs \
-            --selector=chaos-mesh.org/workflow \
-            --all-containers=true --prefix=true --tail=200 || true
-          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" logs \
-            --selector=app.kubernetes.io/name=oxia-cluster,app.kubernetes.io/component=server \
-            --all-containers=true --prefix=true --tail=200 || true
-          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" describe \
-            workflows,workflownodes || true
+        run: make -C deploy diagnostics
 
-      - name: Write normalized stability result
+      - name: Collect normalized status results
         if: ${{ always() && (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') }}
-        env:
-          JOB_STATUS: ${{ job.status }}
-          PHASES_JSON: >-
-            {"image":"${{ steps.server.outcome }}","verify":"${{ steps.verify.outcome }}","cluster":"${{ steps.cluster.outcome }}","preload":"${{ steps.preload.outcome }}","install":"${{ steps.install.outcome }}","runner":"${{ steps.runner.outcome }}","workflow":"${{ steps.workflow.outcome }}","chaos":"${{ steps.chaos.outcome }}","result":"${{ steps.result.outcome }}"}
-          RESOLVED_SERVER_VERSION: ${{ steps.server.outputs.server_version || matrix.serverVersion }}
         run: |
-          mkdir -p status-result
-          python3 scripts/status/status.py write-result \
-            --output "status-result/$OXIA_CHANNEL-basic-kv.json" \
-            --channel "$OXIA_CHANNEL" \
-            --server-version "$RESOLVED_SERVER_VERSION" \
-            --test-case basic-kv \
-            --run-date "$(date -u +%F)" \
-            --run-url "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            --job-status "$JOB_STATUS" \
-            --phases-json "$PHASES_JSON"
+          make -C deploy status-results \
+            CHANNELS="$CHANNELS" \
+            WORKLOAD_PROFILE="$WORKLOAD_PROFILE" \
+            RUN_DATE="$(date -u +%F)" \
+            RUN_URL="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            IMAGE_OUTCOME="${{ steps.image.outcome }}" \
+            VERIFY_OUTCOME="${{ steps.verify.outcome }}" \
+            CLUSTER_OUTCOME="${{ steps.cluster.outcome }}" \
+            INSTALL_OUTCOME="${{ steps.install.outcome }}" \
+            WORKFLOW_OUTCOME="${{ steps.pipeline.outcome }}" \
+            CHAOS_OUTCOME="${{ steps.pipeline.outcome }}"
 
-      - name: Upload normalized stability result
+      - name: Upload normalized status results
         if: ${{ always() && (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') }}
         uses: actions/upload-artifact@v7
         with:
-          name: status-${{ inputs.profile == 'status-smoke' && 'smoke-' || '' }}result-${{ matrix.channel }}-basic-kv
-          path: status-result/${{ matrix.channel }}-basic-kv.json
+          name: status-${{ inputs.profile == 'status-smoke' && 'smoke-' || '' }}result-all
+          path: status-result/*.json
           if-no-files-found: error
           retention-days: 14

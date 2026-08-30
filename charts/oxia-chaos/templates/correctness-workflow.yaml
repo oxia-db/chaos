@@ -24,6 +24,7 @@ metadata:
     {{- include "oxia-chaos.labels" . | nindent 4 }}
     app.kubernetes.io/component: correctness
     app.kubernetes.io/part-of: oxia-chaos
+    oxia.chaos/channel: {{ required "channel is required" .Values.channel | quote }}
     oxia.chaos/profile: {{ $profile | quote }}
   {{- if eq $profile "five-cycle" }}
   annotations:

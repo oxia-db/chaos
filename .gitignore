@@ -19,6 +19,7 @@ target
 
 # Downloaded Helm dependencies
 charts/*/charts/
+deploy/.work/
 
 # Python
 __pycache__/

@@ -2,23 +2,39 @@ CLUSTER_NAME ?= oxia-chaos
 KUBE_CONTEXT ?= kind-$(CLUSTER_NAME)
 NAMESPACE ?= oxia-chaos
 RELEASE_NAME ?= oxia-chaos
+INFRA_RELEASE_NAME ?= $(RELEASE_NAME)-infra
 KIND ?= kind
 KUBECTL ?= kubectl
 HELM ?= helm
 DOCKER ?= docker
 JAVA_IMAGE ?= oxia/chaos-java:latest
 HELM_ARGS ?=
-CORRECTNESS_PROFILE ?= five-cycle
+CHANNEL_CONFIG ?= ../config/oxia-channels.json
+CHANNELS ?= stable
+WORKLOAD_PROFILE ?= five-cycle
+REUSE_CHANNEL_PLAN ?= false
+RUNNER_IMAGE_PULL_POLICY ?= IfNotPresent
+WORK_DIR ?= .work
+CHANNEL_PLAN ?= $(WORK_DIR)/oxia-channels.json
 CORRECTNESS_VICTIM_ORDINAL ?=
 RUNNER_TIMEOUT_SECONDS ?= 25200
 RUNNER_POLL_INTERVAL ?= 10
 WORKFLOW_TIMEOUT_SECONDS ?= 21600
 EXPECTED_CHAOS_INJECTIONS ?= 1
+STATUS_OUTPUT_DIR ?= ../status-result
+RUN_DATE ?= $(shell date -u +%F)
+RUN_URL ?= https://github.com/oxia-db/chaos/actions
+IMAGE_OUTCOME ?= skipped
+VERIFY_OUTCOME ?= skipped
+CLUSTER_OUTCOME ?= skipped
+INSTALL_OUTCOME ?= skipped
+WORKFLOW_OUTCOME ?= skipped
+CHAOS_OUTCOME ?= skipped
 
 .NOTPARALLEL:
-.PHONY: up down cluster namespaces dependencies dependency-images runner-image release correctness correctness-test test status
+.PHONY: up run down cluster namespaces dependencies channel-plan dependency-images runner-image release release-infra release-clusters release-runners correctness correctness-test test status-results diagnostics status
 
-up: release correctness status
+up: runner-image release correctness status
 
 cluster:
 	@if $(KIND) get clusters | grep -qx '$(CLUSTER_NAME)'; then \
@@ -33,7 +49,45 @@ namespaces: cluster
 dependencies:
 	$(MAKE) -C .. chart-deps
 
-dependency-images: cluster dependencies
+channel-plan: dependencies
+	@set -eu; \
+	mkdir -p '$(WORK_DIR)'; \
+	if [ '$(REUSE_CHANNEL_PLAN)' = true ] && [ -s '$(CHANNEL_PLAN)' ]; then \
+		jq . '$(CHANNEL_PLAN)'; \
+		exit 0; \
+	fi; \
+	plan='{}'; \
+	selected=0; \
+	for channel in $(CHANNELS); do \
+		case "$$channel" in ''|*[!a-z0-9-]*) echo "Invalid channel ID: $$channel" >&2; exit 1 ;; esac; \
+		entry=$$(jq --compact-output --exit-status --arg channel "$$channel" '.[$$channel]' '$(CHANNEL_CONFIG)'); \
+		source_tag=$$(printf '%s' "$$entry" | jq --raw-output '.imageTag'); \
+		server_version=$$(printf '%s' "$$entry" | jq --raw-output '.serverVersion'); \
+		resolved_tag="$$source_tag"; \
+		if [ "$$(printf '%s' "$$entry" | jq --raw-output '.resolveDigest')" = true ]; then \
+			digest=$$($(DOCKER) buildx imagetools inspect "oxia/oxia:$$source_tag" | \
+				awk '$$1 == "Digest:" { print $$2; exit }'); \
+			case "$$digest" in sha256:*) ;; *) echo "Unable to resolve oxia/oxia:$$source_tag" >&2; exit 1 ;; esac; \
+			resolved_tag="$$source_tag@$$digest"; \
+			server_version="$$digest"; \
+		fi; \
+		entry=$$(printf '%s' "$$entry" | jq --compact-output \
+			--arg sourceTag "$$source_tag" \
+			--arg imageTag "$$resolved_tag" \
+			--arg serverVersion "$$server_version" \
+			'. + {sourceTag: $$sourceTag, imageTag: $$imageTag, serverVersion: $$serverVersion}'); \
+		plan=$$(jq --compact-output --null-input \
+			--argjson plan "$$plan" --arg channel "$$channel" --argjson entry "$$entry" \
+			'$$plan + {($$channel): $$entry}'); \
+		selected=$$((selected + 1)); \
+	done; \
+	if [ "$$selected" -eq 0 ]; then echo "At least one channel is required" >&2; exit 1; fi; \
+	tmp='$(CHANNEL_PLAN).tmp'; \
+	printf '%s\n' "$$plan" > "$$tmp"; \
+	mv "$$tmp" '$(CHANNEL_PLAN)'; \
+	jq . '$(CHANNEL_PLAN)'
+
+dependency-images: cluster channel-plan
 	@set -eu; \
 	node=$$($(KIND) get nodes --name $(CLUSTER_NAME) | head -n 1); \
 	case "$$($(DOCKER) exec "$$node" uname -m)" in \
@@ -42,17 +96,38 @@ dependency-images: cluster dependencies
 		*) echo "Unsupported kind node architecture" >&2; exit 1 ;; \
 	esac; \
 	nodes=$$($(KIND) get nodes --name $(CLUSTER_NAME)); \
-	images=$$($(HELM) template $(RELEASE_NAME) ../charts/oxia-chaos \
-		--namespace $(NAMESPACE) \
-		--set runners.java.enabled=false $(HELM_ARGS) | \
-		awk '$$1 == "image:" { gsub(/"/, "", $$2); print $$2 }' | sort -u); \
+	images=$$({ \
+		$(HELM) template $(INFRA_RELEASE_NAME) ../charts/oxia-chaos \
+			--namespace $(NAMESPACE) \
+			--set oxia-cluster.enabled=false \
+			--set runnerWorkloadsEnabled=false \
+			--set chaosWorkflow.enabled=false \
+			--set chaos-mesh.enabled=true \
+			--set-string channel=infra \
+			--set-string testProfile=$(WORKLOAD_PROFILE) $(HELM_ARGS); \
+		for channel in $$(jq --raw-output 'keys_unsorted[]' '$(CHANNEL_PLAN)'); do \
+			image_tag=$$(jq --raw-output --arg channel "$$channel" '.[$$channel].imageTag' '$(CHANNEL_PLAN)'); \
+			$(HELM) template "$(RELEASE_NAME)-$$channel" ../charts/oxia-chaos \
+				--namespace $(NAMESPACE) \
+				--set runnerWorkloadsEnabled=false \
+				--set chaosWorkflow.enabled=false \
+				--set chaos-mesh.enabled=false \
+				--set-string channel="$$channel" \
+				--set-string testProfile=$(WORKLOAD_PROFILE) \
+				--set-string oxia-cluster.image.tag="$$image_tag" $(HELM_ARGS); \
+		done; \
+	} | awk '$$1 == "image:" { gsub(/"/, "", $$2); print $$2 }' | sort -u); \
 	for image in $$images; do \
-		$(DOCKER) pull --platform "$$platform" "$$image"; \
+		if ! $(DOCKER) image inspect "$$image" >/dev/null 2>&1; then \
+			$(DOCKER) pull --platform "$$platform" "$$image"; \
+		else \
+			echo "Using cached image $$image"; \
+		fi; \
 		for node in $$nodes; do \
 			$(DOCKER) save "$$image" | \
 				$(DOCKER) exec --privileged --interactive "$$node" \
-				ctr --namespace=k8s.io images import \
-				--platform="$$platform" --digests --snapshotter=overlayfs -; \
+					ctr --namespace=k8s.io images import \
+					--platform="$$platform" --digests --snapshotter=overlayfs -; \
 		done; \
 	done
 
@@ -60,84 +135,131 @@ runner-image: cluster
 	$(MAKE) -C .. java-image JAVA_IMAGE=$(JAVA_IMAGE)
 	$(KIND) load docker-image $(JAVA_IMAGE) --name $(CLUSTER_NAME)
 
-release: namespaces dependency-images runner-image
-	$(HELM) upgrade --install $(RELEASE_NAME) ../charts/oxia-chaos \
+release-infra: namespaces dependency-images
+	$(HELM) upgrade --install $(INFRA_RELEASE_NAME) ../charts/oxia-chaos \
 		--kube-context $(KUBE_CONTEXT) \
 		--namespace $(NAMESPACE) \
-		--set runners.java.image.pullPolicy=IfNotPresent \
-		--wait $(HELM_ARGS)
+		--set oxia-cluster.enabled=false \
+		--set runnerWorkloadsEnabled=false \
+		--set chaosWorkflow.enabled=false \
+		--set chaos-mesh.enabled=true \
+		--set-string channel=infra \
+		--set-string testProfile=$(WORKLOAD_PROFILE) \
+		--wait --timeout 10m $(HELM_ARGS)
+
+release-clusters: namespaces dependency-images
+	@set -eu; \
+	for channel in $$(jq --raw-output 'keys_unsorted[]' '$(CHANNEL_PLAN)'); do \
+		image_tag=$$(jq --raw-output --arg channel "$$channel" '.[$$channel].imageTag' '$(CHANNEL_PLAN)'); \
+		$(HELM) upgrade --install "$(RELEASE_NAME)-$$channel" ../charts/oxia-chaos \
+			--kube-context $(KUBE_CONTEXT) \
+			--namespace $(NAMESPACE) \
+			--set runnerWorkloadsEnabled=false \
+			--set chaosWorkflow.enabled=false \
+			--set chaos-mesh.enabled=false \
+			--set-string channel="$$channel" \
+			--set-string testProfile=$(WORKLOAD_PROFILE) \
+			--set-string oxia-cluster.image.tag="$$image_tag" \
+			--wait --timeout 10m $(HELM_ARGS); \
+	done
+
+release-runners: release-infra release-clusters
+	@set -eu; \
+	for channel in $$(jq --raw-output 'keys_unsorted[]' '$(CHANNEL_PLAN)'); do \
+		image_tag=$$(jq --raw-output --arg channel "$$channel" '.[$$channel].imageTag' '$(CHANNEL_PLAN)'); \
+		$(HELM) upgrade --install "$(RELEASE_NAME)-$$channel" ../charts/oxia-chaos \
+			--kube-context $(KUBE_CONTEXT) \
+			--namespace $(NAMESPACE) \
+			--set runnerWorkloadsEnabled=true \
+			--set-string runnerImagePullPolicyOverride=$(RUNNER_IMAGE_PULL_POLICY) \
+			--set chaosWorkflow.enabled=false \
+			--set chaos-mesh.enabled=false \
+			--set-string channel="$$channel" \
+			--set-string testProfile=$(WORKLOAD_PROFILE) \
+			--set-string oxia-cluster.image.tag="$$image_tag" \
+			--wait --timeout 5m $(HELM_ARGS); \
+	done
+
+release: release-runners
+
+run: release correctness correctness-test test
 
 correctness:
-	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) wait \
-		--for=condition=Ready pod \
-		--selector=app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=runner \
-		--timeout=3m
-	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) delete workflows \
-		--selector=app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=correctness \
-		--ignore-not-found=true
 	@set -eu; \
-	victim_ordinal='$(CORRECTNESS_VICTIM_ORDINAL)'; \
-	if [ -z "$$victim_ordinal" ]; then \
-		victim_ordinal=$$(awk 'BEGIN { srand(); print int(rand() * 3) }'); \
-	fi; \
-	case "$$victim_ordinal" in 0|1|2) ;; *) echo "Invalid Oxia victim ordinal: $$victim_ordinal" >&2; exit 1 ;; esac; \
-	echo "Selected Oxia victim pod $(RELEASE_NAME)-$$victim_ordinal"; \
-	for attempt in $$(seq 1 30); do \
-		if $(HELM) template $(RELEASE_NAME) ../charts/oxia-chaos \
-			--namespace $(NAMESPACE) \
-			--set runners.java.enabled=false \
-			--set chaosWorkflow.enabled=true \
-			--set-string chaosWorkflow.profile=$(CORRECTNESS_PROFILE) \
-			--set chaosWorkflow.victimOrdinal=$$victim_ordinal \
-			$(HELM_ARGS) \
-			--show-only templates/correctness-workflow.yaml | \
-			$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) apply --filename -; then \
-			exit 0; \
-		fi; \
-		if [ "$$attempt" -eq 30 ]; then \
-			echo "Failed to submit correctness workflow" >&2; \
-			exit 1; \
-		fi; \
-		sleep 2; \
+	for channel in $$(jq --raw-output 'keys_unsorted[]' '$(CHANNEL_PLAN)'); do \
+		release="$(RELEASE_NAME)-$$channel"; \
+		$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) wait \
+			--for=condition=Ready pod \
+			--selector="app.kubernetes.io/instance=$$release,app.kubernetes.io/component=runner" \
+			--timeout=3m; \
+	done; \
+	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) delete workflows \
+		--selector=app.kubernetes.io/component=correctness \
+		--ignore-not-found=true; \
+	for channel in $$(jq --raw-output 'keys_unsorted[]' '$(CHANNEL_PLAN)'); do \
+		release="$(RELEASE_NAME)-$$channel"; \
+		image_tag=$$(jq --raw-output --arg channel "$$channel" '.[$$channel].imageTag' '$(CHANNEL_PLAN)'); \
+		victim_ordinal='$(CORRECTNESS_VICTIM_ORDINAL)'; \
+		if [ -z "$$victim_ordinal" ]; then victim_ordinal=$$(od -An -N4 -tu4 /dev/urandom | awk '{ print $$1 % 3 }'); fi; \
+		case "$$victim_ordinal" in 0|1|2) ;; *) echo "Invalid Oxia victim ordinal: $$victim_ordinal" >&2; exit 1 ;; esac; \
+		echo "Selected Oxia victim pod $$release-$$victim_ordinal for $$channel"; \
+		for attempt in $$(seq 1 30); do \
+			if $(HELM) template "$$release" ../charts/oxia-chaos \
+				--namespace $(NAMESPACE) \
+				--set runnerWorkloadsEnabled=false \
+				--set chaosWorkflow.enabled=true \
+				--set-string chaosWorkflow.profile=$(WORKLOAD_PROFILE) \
+				--set chaosWorkflow.victimOrdinal=$$victim_ordinal \
+				--set chaos-mesh.enabled=false \
+				--set-string channel="$$channel" \
+				--set-string testProfile=$(WORKLOAD_PROFILE) \
+				--set-string oxia-cluster.image.tag="$$image_tag" $(HELM_ARGS) \
+				--show-only templates/correctness-workflow.yaml | \
+				$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) apply --filename -; then \
+				break; \
+			fi; \
+			if [ "$$attempt" -eq 30 ]; then echo "Failed to submit correctness workflow for $$channel" >&2; exit 1; fi; \
+			sleep 2; \
+		done; \
 	done
 
 correctness-test:
-	@set -eu; \
-	selector='app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=correctness'; \
-	workflow_name=''; \
-	for attempt in $$(seq 1 30); do \
-		workflow_name=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
-			get workflows --selector="$$selector" \
-			--output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | head -n 1); \
-		if [ -n "$$workflow_name" ]; then break; fi; \
-		sleep 2; \
+	@set -u; \
+	result=0; \
+	for channel in $$(jq --raw-output 'keys_unsorted[]' '$(CHANNEL_PLAN)'); do \
+		release="$(RELEASE_NAME)-$$channel"; \
+		selector="app.kubernetes.io/instance=$$release,app.kubernetes.io/component=correctness"; \
+		workflow_name=''; \
+		for attempt in $$(seq 1 30); do \
+			workflow_name=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
+				get workflows --selector="$$selector" \
+				--output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | head -n 1); \
+			if [ -n "$$workflow_name" ]; then break; fi; \
+			sleep 2; \
+		done; \
+		if [ -z "$$workflow_name" ]; then echo "No correctness workflow found for $$channel" >&2; result=1; continue; fi; \
+		if ! $(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) wait \
+			--for=condition=Accomplished=True "workflow/$$workflow_name" \
+			--timeout=$(WORKFLOW_TIMEOUT_SECONDS)s; then result=1; continue; fi; \
+		failed_tasks=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
+			get pods --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
+			jq '[.items[] | select(.status.phase == "Failed")] | length'); \
+		injected=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
+			get workflownodes --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
+			jq '[.items[] | select(any(.status.conditions[]?; .type == "ChaosInjected" and .status == "True"))] | length'); \
+		if [ "$$failed_tasks" -gt 0 ] || [ "$$injected" -lt $(EXPECTED_CHAOS_INJECTIONS) ]; then \
+			echo "Correctness workflow $$workflow_name failed validation: failedTasks=$$failed_tasks injections=$$injected" >&2; \
+			result=1; \
+		else \
+			echo "Correctness workflow $$workflow_name completed with $$injected chaos injections"; \
+		fi; \
 	done; \
-	if [ -z "$$workflow_name" ]; then \
-		echo "No correctness workflow found" >&2; \
-		exit 1; \
-	fi; \
-	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) wait \
-		--for=condition=Accomplished=True "workflow/$$workflow_name" \
-		--timeout=$(WORKFLOW_TIMEOUT_SECONDS)s; \
-	failed_tasks=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
-		get pods --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
-		jq '[.items[] | select(.status.phase == "Failed")] | length'); \
-	if [ "$$failed_tasks" -gt 0 ]; then \
-		echo "Correctness workflow has $$failed_tasks failed health tasks" >&2; \
-		exit 1; \
-	fi; \
-	injected=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
-		get workflownodes --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
-		jq '[.items[] | select(any(.status.conditions[]?; .type == "ChaosInjected" and .status == "True"))] | length'); \
-	if [ "$$injected" -lt $(EXPECTED_CHAOS_INJECTIONS) ]; then \
-		echo "Expected at least $(EXPECTED_CHAOS_INJECTIONS) chaos injections, observed $$injected" >&2; \
-		exit 1; \
-	fi; \
-	echo "Correctness workflow $$workflow_name completed with $$injected chaos injections"
+	exit $$result
 
 test:
 	@started_at=$$(date +%s); \
-	selector='app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=runner'; \
+	channel_csv=$$(jq --raw-output 'keys_unsorted | join(",")' '$(CHANNEL_PLAN)'); \
+	selector="app.kubernetes.io/part-of=oxia-chaos,app.kubernetes.io/component=runner,oxia.chaos/channel in ($$channel_csv)"; \
 	result=0; \
 	while true; do \
 		statuses=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get jobs \
@@ -155,6 +277,42 @@ test:
 	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) logs \
 		--selector="$$selector" --all-containers=true --prefix=true || true; \
 	exit $$result
+
+status-results:
+	python3 ../scripts/status/collect.py \
+		--channel-config '$(CHANNEL_CONFIG)' \
+		--channel-plan '$(CHANNEL_PLAN)' \
+		--channels $(CHANNELS) \
+		--chart ../charts/oxia-chaos \
+		--workload-profile '$(WORKLOAD_PROFILE)' \
+		--release-name '$(RELEASE_NAME)' \
+		--namespace '$(NAMESPACE)' \
+		--kube-context '$(KUBE_CONTEXT)' \
+		--output-dir '$(STATUS_OUTPUT_DIR)' \
+		--run-date '$(RUN_DATE)' \
+		--run-url '$(RUN_URL)' \
+		--image-outcome '$(IMAGE_OUTCOME)' \
+		--verify-outcome '$(VERIFY_OUTCOME)' \
+		--cluster-outcome '$(CLUSTER_OUTCOME)' \
+		--install-outcome '$(INSTALL_OUTCOME)' \
+		--workflow-outcome '$(WORKFLOW_OUTCOME)' \
+		--chaos-outcome '$(CHAOS_OUTCOME)'
+
+diagnostics:
+	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get \
+		pods,jobs,statefulsets,workflows,workflownodes,podchaos,networkchaos,stresschaos \
+		--output=wide
+	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get events \
+		--sort-by=.lastTimestamp
+	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) logs \
+		--selector=app.kubernetes.io/part-of=oxia-chaos,app.kubernetes.io/component=runner \
+		--all-containers=true --prefix=true --tail=500
+	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) logs \
+		--selector=chaos-mesh.org/workflow \
+		--all-containers=true --prefix=true --tail=200
+	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) logs \
+		--selector=app.kubernetes.io/name=oxia-cluster,app.kubernetes.io/component=server \
+		--all-containers=true --prefix=true --tail=200
 
 status:
 	$(KUBECTL) --context $(KUBE_CONTEXT) get pods --all-namespaces

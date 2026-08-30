@@ -4,10 +4,22 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from collect import parse_execution_plan
 from status import CHAOS, TEST_CASES, WINDOW_DAYS, StatusValidationError, create_result, merge_summary, validate_summary
 
 
 class StatusDataTest(unittest.TestCase):
+    def test_execution_plan_is_read_from_rendered_configmap(self) -> None:
+        manifest = '''
+data:
+  channel: "stable"
+  test-cases.json: "[{\\"runner\\":\\"java\\",\\"testCase\\":\\"basic-kv\\"}]"
+'''
+        self.assertEqual(
+            parse_execution_plan(manifest),
+            [{"runner": "java", "testCase": "basic-kv"}],
+        )
+
     def test_merge_backfills_all_channels_and_cases(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

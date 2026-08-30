@@ -1,6 +1,16 @@
 nameOverride: ""
 fullnameOverride: ""
 
+# Identifies the Oxia server channel exercised by this chart release.
+channel: stable
+
+# Selects one configuration from each enabled testcase.
+testProfile: five-cycle
+
+# Deployment orchestration disables every runner while Oxia clusters converge.
+runnerWorkloadsEnabled: true
+runnerImagePullPolicyOverride: ""
+
 # Leave empty to use the chart-managed Oxia service in the release namespace.
 serviceAddress: ""
 
@@ -21,11 +31,20 @@ runners:
 
 cases:
   basic-kv:
-    duration: 6h
-    keyCount: 10000
-    rate: 258
-    batchSize: 100
-    checkpointInterval: 1m
+    enabled: true
+    profiles:
+      quick:
+        duration: 1m
+        keyCount: 1000
+        rate: 500
+        batchSize: 100
+        checkpointInterval: 30s
+      five-cycle:
+        duration: 6h
+        keyCount: 10000
+        rate: 258
+        batchSize: 100
+        checkpointInterval: 1m
 
 chaosWorkflow:
   enabled: false

@@ -20,9 +20,14 @@ make deploy-up
 
 The environment contains one `oxia-chaos` namespace with:
 
-- Oxia 0.16.8;
-- Chaos Mesh 2.8.4; and
-- the Java runner Job.
+- one shared Chaos Mesh 2.8.4 installation;
+- one Oxia cluster for every selected server channel; and
+- one runner Job for every enabled runner/testcase pair on each channel.
+
+Local deployment selects only the stable channel by default. Set
+`CHANNELS='stable beta alpha'` to reproduce the scheduled CI topology. Channel
+image sources are defined in `config/oxia-channels.json`; testcase enablement
+and workload parameters are defined in `charts/oxia-chaos/values.yaml`.
 
 The environment chart is installed by `make deploy-up`. The runner image is
 built and loaded into kind before the Java case starts. The pinned Oxia and
@@ -37,12 +42,11 @@ make -C deploy correctness-test
 make -C deploy test
 ```
 
-The default case runs for six hours. Use Helm overrides for a shorter local run,
-for example:
+The default profile runs for six hours. Use the chart-defined quick profile for
+a shorter local run:
 
 ```shell
-make -C deploy release \
-  HELM_ARGS='--set cases.basic-kv.duration=10m --set runnerJob.activeDeadlineSeconds=1200'
+make -C deploy up WORKLOAD_PROFILE=quick
 ```
 
 Delete the local cluster when finished:

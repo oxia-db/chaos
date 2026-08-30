@@ -142,12 +142,12 @@ jobs:
           artifact_count=$(gh api \
             "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts?per_page=100" \
             --jq '[.artifacts[].name | select(startswith("status-smoke-result-"))] | length')
-          if [ "$artifact_count" -eq 3 ]; then
+          if [ "$artifact_count" -eq 1 ]; then
             echo "has_results=true" >> "$GITHUB_OUTPUT"
           elif [ "$artifact_count" -eq 0 ]; then
             echo "has_results=false" >> "$GITHUB_OUTPUT"
           else
-            echo "Expected zero or three status smoke artifacts, found $artifact_count" >&2
+            echo "Expected zero or one status smoke artifact, found $artifact_count" >&2
             exit 1
           fi
 

@@ -113,7 +113,7 @@ Channel IDs and tested server versions are:
 
 The source tags and displayed fallback versions are defined once in
 `config/oxia-channels.json`. Update that file when a channel advances; both the
-correctness matrix and status publisher consume it.
+correctness deployment plan and status publisher consume it.
 
 Never report only a range such as `0.16.x` in JSON. Publish the exact version or
 commit that actually ran.
@@ -137,10 +137,12 @@ The chaos repository has three top-level CI workflows with separate ownership:
 1. `ci-docker-release.yaml` builds and publishes runner images.
 2. `ci-correctness.yaml` runs quick checks for pull requests and pushes, and the
    six-hour five-cycle profile at `02:00 UTC` each day, after Oxia's scheduled
-   `main` image refresh. A five-cycle job writes
-   one normalized result JSON in an `if: always()` step and uploads it with
-   `actions/upload-artifact@v7`. Important steps have IDs so failures identify
-   the phase that failed.
+   `main` image refresh. Each run creates one kind cluster, installs Chaos Mesh
+   once, and installs one Oxia Helm release per selected channel. Every enabled
+   runner/testcase pair comes from the chart and runs against each channel.
+   CI invokes the deployment as a unit instead of enumerating testcases. An
+   `if: always()` collector writes per-channel/testcase JSON files and uploads
+   them together with `actions/upload-artifact@v7`.
 3. `ci-stability-status.yaml` is triggered after a scheduled Correctness run.
    It downloads the source run's result artifacts with
    `actions/download-artifact@v8`, merges the 90-day history, validates it,
@@ -152,7 +154,7 @@ scheduled Correctness runs only. Quick results never affect stability history.
 
 For end-to-end validation, manually dispatch Correctness with the
 `status-smoke` profile. It runs the short pipeline for all three channels and
-uploads isolated `status-smoke-result-*` artifacts. The status workflow then
+uploads an isolated `status-smoke-result-all` artifact. The status workflow then
 downloads those artifacts, merges and validates a temporary 90-day document,
 and packages a Pages artifact. It deliberately does not update `status-data` or
 deploy GitHub Pages, so smoke results never enter the public stability history.

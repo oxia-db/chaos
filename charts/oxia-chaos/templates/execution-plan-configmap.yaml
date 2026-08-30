@@ -1,0 +1,24 @@
+{{- $testCases := list -}}
+{{- range $runnerName, $runner := .Values.runners -}}
+{{- if $runner.enabled -}}
+{{- range $caseName, $case := $.Values.cases -}}
+{{- if $case.enabled -}}
+{{- $testCases = append $testCases (dict "runner" $runnerName "testCase" $caseName) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-execution-plan" (include "oxia-chaos.fullname" .) | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: execution-plan
+    app.kubernetes.io/part-of: oxia-chaos
+    oxia.chaos/channel: {{ required "channel is required" .Values.channel | quote }}
+data:
+  channel: {{ .Values.channel | quote }}
+  test-profile: {{ required "testProfile is required" .Values.testProfile | quote }}
+  test-cases.json: {{ $testCases | toJson | quote }}

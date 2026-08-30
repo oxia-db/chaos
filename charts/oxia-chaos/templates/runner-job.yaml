@@ -1,7 +1,9 @@
 {{- $root := . -}}
 {{- range $runnerName, $runner := .Values.runners -}}
-{{- if $runner.enabled -}}
+{{- if and $root.Values.runnerWorkloadsEnabled $runner.enabled -}}
 {{- range $caseName, $case := $root.Values.cases }}
+{{- if $case.enabled -}}
+{{- $caseProfile := required (printf "cases.%s.profiles.%s is required" $caseName $root.Values.testProfile) (index $case.profiles $root.Values.testProfile) -}}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -12,6 +14,7 @@ metadata:
     app.kubernetes.io/component: runner
     app.kubernetes.io/part-of: oxia-chaos
     helm.sh/revision: {{ $root.Release.Revision | quote }}
+    oxia.chaos/channel: {{ required "channel is required" $root.Values.channel | quote }}
     oxia.chaos/runner: {{ $runnerName | quote }}
     oxia.chaos/case: {{ $caseName | quote }}
 spec:
@@ -24,6 +27,7 @@ spec:
         app.kubernetes.io/component: runner
         app.kubernetes.io/part-of: oxia-chaos
         helm.sh/revision: {{ $root.Release.Revision | quote }}
+        oxia.chaos/channel: {{ required "channel is required" $root.Values.channel | quote }}
         oxia.chaos/runner: {{ $runnerName | quote }}
         oxia.chaos/case: {{ $caseName | quote }}
         {{- with $root.Values.runnerJob.labels }}
@@ -67,20 +71,20 @@ spec:
       containers:
         - name: runner
           image: "{{ required (printf "runners.%s.image.repository is required" $runnerName) $runner.image.repository }}:{{ required (printf "runners.%s.image.tag is required" $runnerName) $runner.image.tag }}"
-          imagePullPolicy: {{ default "IfNotPresent" $runner.image.pullPolicy }}
+          imagePullPolicy: {{ default (default "IfNotPresent" $runner.image.pullPolicy) $root.Values.runnerImagePullPolicyOverride }}
           args:
             - {{ printf "--case=%s" $caseName | quote }}
             - {{ printf "--service-address=%s" (include "oxia-chaos.serviceAddress" $root) | quote }}
-            - {{ printf "--duration=%s" $case.duration | quote }}
-            - {{ printf "--key-count=%v" $case.keyCount | quote }}
-            - {{ printf "--rate=%v" $case.rate | quote }}
-            - {{ printf "--batch-size=%v" $case.batchSize | quote }}
-            - {{ printf "--checkpoint-interval=%s" $case.checkpointInterval | quote }}
+            - {{ printf "--duration=%s" $caseProfile.duration | quote }}
+            - {{ printf "--key-count=%v" $caseProfile.keyCount | quote }}
+            - {{ printf "--rate=%v" $caseProfile.rate | quote }}
+            - {{ printf "--batch-size=%v" $caseProfile.batchSize | quote }}
+            - {{ printf "--checkpoint-interval=%s" $caseProfile.checkpointInterval | quote }}
           {{- if or $root.Values.runnerJob.metrics.enabled $runner.env }}
           env:
             {{- if $root.Values.runnerJob.metrics.enabled }}
             - name: OTEL_SERVICE_NAME
-              value: {{ printf "oxia-chaos-%s" $runnerName | quote }}
+              value: {{ printf "oxia-chaos-%s-%s-%s" $root.Values.channel $runnerName $caseName | quote }}
             - name: OTEL_METRICS_EXPORTER
               value: prometheus
             - name: OTEL_EXPORTER_PROMETHEUS_HOST
@@ -112,6 +116,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
