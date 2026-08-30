@@ -1,0 +1,117 @@
+{{- $root := . -}}
+{{- range $runnerName, $runner := .Values.runners -}}
+{{- if $runner.enabled -}}
+{{- range $caseName, $case := $root.Values.cases }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-%s-%s-r%d" (include "oxia-chaos.fullname" $root) $runnerName $caseName $root.Release.Revision | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "oxia-chaos.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: runner
+    app.kubernetes.io/part-of: oxia-chaos
+    helm.sh/revision: {{ $root.Release.Revision | quote }}
+    oxia.chaos/runner: {{ $runnerName | quote }}
+    oxia.chaos/case: {{ $caseName | quote }}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ $root.Values.runnerJob.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "oxia-chaos.labels" $root | nindent 8 }}
+        app.kubernetes.io/component: runner
+        app.kubernetes.io/part-of: oxia-chaos
+        helm.sh/revision: {{ $root.Release.Revision | quote }}
+        oxia.chaos/runner: {{ $runnerName | quote }}
+        oxia.chaos/case: {{ $caseName | quote }}
+        {{- with $root.Values.runnerJob.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if or $root.Values.runnerJob.metrics.enabled $root.Values.runnerJob.annotations }}
+      annotations:
+        {{- if $root.Values.runnerJob.metrics.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $root.Values.runnerJob.metrics.port | quote }}
+        prometheus.io/path: {{ $root.Values.runnerJob.metrics.path | quote }}
+        {{- end }}
+        {{- with $root.Values.runnerJob.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "oxia-chaos.serviceAccountName" $root }}
+      {{- with $root.Values.runnerJob.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if (index $root.Values "oxia-cluster").enabled }}
+      initContainers:
+        - name: wait-for-oxia
+          image: "{{ (index $root.Values "oxia-cluster").image.repository }}:{{ (index $root.Values "oxia-cluster").image.tag }}"
+          imagePullPolicy: {{ (index $root.Values "oxia-cluster").image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - until oxia health --host={{ $root.Release.Name }} --port=6649; do sleep 2; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+      {{- end }}
+      containers:
+        - name: runner
+          image: "{{ required (printf "runners.%s.image.repository is required" $runnerName) $runner.image.repository }}:{{ required (printf "runners.%s.image.tag is required" $runnerName) $runner.image.tag }}"
+          imagePullPolicy: {{ default "IfNotPresent" $runner.image.pullPolicy }}
+          args:
+            - {{ printf "--case=%s" $caseName | quote }}
+            - {{ printf "--service-address=%s" (include "oxia-chaos.serviceAddress" $root) | quote }}
+            - {{ printf "--duration=%s" $case.duration | quote }}
+            - {{ printf "--key-count=%v" $case.keyCount | quote }}
+            - {{ printf "--rate=%v" $case.rate | quote }}
+            - {{ printf "--batch-size=%v" $case.batchSize | quote }}
+            - {{ printf "--checkpoint-interval=%s" $case.checkpointInterval | quote }}
+          {{- if or $root.Values.runnerJob.metrics.enabled $runner.env }}
+          env:
+            {{- if $root.Values.runnerJob.metrics.enabled }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ printf "oxia-chaos-%s" $runnerName | quote }}
+            - name: OTEL_METRICS_EXPORTER
+              value: prometheus
+            - name: OTEL_EXPORTER_PROMETHEUS_HOST
+              value: 0.0.0.0
+            - name: OTEL_EXPORTER_PROMETHEUS_PORT
+              value: {{ $root.Values.runnerJob.metrics.port | quote }}
+            {{- end }}
+            {{- with $runner.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if $root.Values.runnerJob.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ $root.Values.runnerJob.metrics.port }}
+              protocol: TCP
+          {{- end }}
+          resources:
+            {{- toYaml (default dict $runner.resources) | nindent 12 }}
+      {{- with $root.Values.runnerJob.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $root.Values.runnerJob.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $root.Values.runnerJob.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

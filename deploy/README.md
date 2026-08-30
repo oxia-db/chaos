@@ -1,8 +1,8 @@
 # Test environment
 
 This directory provisions a local Kubernetes environment for developing Oxia
-chaos cases. Its kind overlay enables the `oxia-cluster` and `chaos-mesh`
-dependencies of the main chart with pinned versions.
+chaos cases. The main chart enables the `oxia-cluster` and `chaos-mesh`
+dependencies with pinned versions by default.
 
 Prerequisites:
 
@@ -21,13 +21,22 @@ The environment contains one `oxia-chaos` namespace with:
 
 - Oxia 0.16.8;
 - Chaos Mesh 2.8.4; and
-- the Java runner Helm test.
+- the Java runner Job.
 
-The environment chart is installed by `make deploy-up`. The runner image must be
-built and loaded into kind before executing the Java case:
+The environment chart is installed by `make deploy-up`. The runner image is
+built and loaded into kind before the Java case starts. Wait for the runner and
+print its logs with:
 
 ```shell
-helm test oxia-chaos --namespace oxia-chaos --logs
+make -C deploy test
+```
+
+The default case runs for six hours. Use Helm overrides for a shorter local run,
+for example:
+
+```shell
+make -C deploy release \
+  HELM_ARGS='--set cases.basic-kv.duration=10m --set runnerJob.activeDeadlineSeconds=1200'
 ```
 
 Delete the local cluster when finished:

@@ -26,6 +26,17 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
+{{/* Oxia endpoint used by every runner. */}}
+{{- define "oxia-chaos.serviceAddress" -}}
+{{- if .Values.serviceAddress -}}
+{{- .Values.serviceAddress -}}
+{{- else if (index .Values "oxia-cluster").enabled -}}
+{{- printf "%s.%s.svc.cluster.local:6648" .Release.Name .Release.Namespace -}}
+{{- else -}}
+{{- fail "serviceAddress is required when oxia-cluster.enabled is false" -}}
+{{- end -}}
+{{- end }}
+
 {{/* Service account name. */}}
 {{- define "oxia-chaos.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}

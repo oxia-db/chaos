@@ -29,28 +29,54 @@ repositories {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
 dependencies {
     implementation(platform("io.opentelemetry:opentelemetry-bom:1.63.0"))
+    implementation(platform("io.opentelemetry:opentelemetry-bom-alpha:1.63.0-alpha"))
     implementation("io.github.oxia-db:oxia-client:0.9.4")
+    implementation("info.picocli:picocli:4.7.7")
+    implementation("io.opentelemetry:opentelemetry-sdk")
+    implementation("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
+    implementation("org.slf4j:slf4j-api:2.0.16")
+    runtimeOnly("io.opentelemetry:opentelemetry-exporter-otlp")
+    runtimeOnly("io.opentelemetry:opentelemetry-exporter-prometheus")
     runtimeOnly("org.slf4j:slf4j-simple:2.0.16")
 
+    annotationProcessor("info.picocli:picocli-codegen:4.7.7")
+
     testImplementation(platform("org.junit:junit-bom:5.11.3"))
+    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
+    testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 application {
     mainClass = "io.oxia.chaos.runner.OxiaChaosRunner"
+    applicationName = "oxia-chaos"
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("e2e")
+    }
+}
+
+tasks.register<Test>("e2eTest") {
+    description = "Runs Java runner end-to-end tests with Testcontainers."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    shouldRunAfter(tasks.test)
+    useJUnitPlatform {
+        includeTags("e2e")
+    }
 }
 
 spotless {

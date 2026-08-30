@@ -1,21 +1,41 @@
 nameOverride: ""
 fullnameOverride: ""
 
-runner:
-  # Set by a values-<language>.yaml file.
-  implementation: ""
-  image:
-    repository: ""
-    tag: latest
-    pullPolicy: IfNotPresent
+# Leave empty to use the chart-managed Oxia service in the release namespace.
+serviceAddress: ""
+
+runners:
+  java:
+    enabled: true
+    image:
+      repository: oxia/chaos-java
+      tag: latest
+      pullPolicy: IfNotPresent
+    env: []
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+cases:
+  basic-kv:
+    duration: 6h
+    keyCount: 10000
+    rate: 258
+    batchSize: 100
+    checkpointInterval: 1m
+
+runnerJob:
   imagePullSecrets: []
-  command: []
-  args: []
-  env: []
   annotations: {}
   labels: {}
-  activeDeadlineSeconds: 600
-  resources: {}
+  activeDeadlineSeconds: 25200
+  metrics:
+    enabled: true
+    port: 9464
+    path: /metrics
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -25,10 +45,34 @@ serviceAccount:
   annotations: {}
   name: ""
 
-# Optional chart-managed test dependencies. Their remaining values are passed
-# directly to the upstream charts.
 oxia-cluster:
-  enabled: false
+  enabled: true
+  # Add oc-<runner>-<case> for every enabled pair.
+  namespaces:
+    - name: oc-java-basic-kv
+      initialShardCount: 1
+      replicationFactor: 3
+  image:
+    repository: oxia/oxia
+    tag: 0.16.8
+    pullPolicy: IfNotPresent
+  server:
+    replicas: 3
+    cpu: 250m
+    memory: 512Mi
+    storage: 1Gi
+    config:
+      storage:
+        database:
+          readCacheSizeMB: 64
 
 chaos-mesh:
-  enabled: false
+  enabled: true
+  controllerManager:
+    leaderElection:
+      enabled: false
+  chaosDaemon:
+    runtime: containerd
+    socketPath: /run/containerd/containerd.sock
+  dashboard:
+    create: false
