@@ -17,10 +17,17 @@ package io.oxia.chaos.testcase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Operation;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.SplittableRandom;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 
@@ -49,12 +56,58 @@ class BasicKvTest {
     assertShare(counts, samples, Operation.LIST, 0.0293);
   }
 
-  private static void assertShare(
-      final Map<Operation, Integer> counts,
-      final int samples,
-      final Operation operation,
-      final double expected) {
-    final double actual = counts.getOrDefault(operation, 0) / (double) samples;
+  @Test
+  void followsTheNormalizedBatchTypeDistribution() {
+    final SplittableRandom random = new SplittableRandom(7);
+    final Map<BatchType, Integer> counts = new HashMap<>();
+    final int samples = 250_000;
+
+    for (int index = 0; index < samples; index++) {
+      final BatchType batchType = BasicKv.selectBatch(random.nextDouble(BasicKv.TOTAL_WEIGHT));
+      counts.merge(batchType, 1, Integer::sum);
+    }
+
+    assertShare(counts, samples, BatchType.WRITE, 0.4103);
+    assertShare(counts, samples, BatchType.READ, 0.5861);
+    assertShare(counts, samples, BatchType.DELETE_RANGE, 0.0037);
+  }
+
+  @Test
+  void executesEveryOperationInABatchConcurrentlyAndWaitsForCompletion() throws Exception {
+    final CountDownLatch entered = new CountDownLatch(2);
+    final CountDownLatch release = new CountDownLatch(1);
+    final List<Callable<Void>> operations =
+        List.of(operation(entered, release), operation(entered, release));
+
+    try (final var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      final Future<?> batch =
+          executor.submit(
+              () -> {
+                BasicKv.executeConcurrentBatch(executor, operations);
+                return null;
+              });
+      try {
+        assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(batch).isNotDone();
+      } finally {
+        release.countDown();
+      }
+      batch.get();
+    }
+  }
+
+  private static <T> void assertShare(
+      final Map<T, Integer> counts, final int samples, final T value, final double expected) {
+    final double actual = counts.getOrDefault(value, 0) / (double) samples;
     assertThat(actual).isCloseTo(expected, Offset.offset(0.0025));
+  }
+
+  private static Callable<Void> operation(
+      final CountDownLatch entered, final CountDownLatch release) {
+    return () -> {
+      entered.countDown();
+      assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+      return null;
+    };
   }
 }

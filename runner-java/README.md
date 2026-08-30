@@ -34,8 +34,9 @@ make run-java ARGS='--case=basic-kv --service-address=localhost:6648'
 ```
 
 The default workload uses 10,000 keys for 10 minutes at 258 operations per
-second, executes at most 100 operations per scheduling cycle, and performs a
-full checkpoint every minute. Override these settings with:
+second, chooses a write, read, or delete-range batch of up to 100 operations per
+round, executes that batch concurrently, and performs a full checkpoint every
+minute. Override these settings with:
 
 - `--duration=<Nms|Ns|Nm|Nh>`
 - `--key-count=<count>`

@@ -22,9 +22,11 @@ import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.MemoryInferenceStore;
 import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.ops.BatchType;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import java.time.Duration;
+import java.util.SplittableRandom;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
@@ -38,6 +40,7 @@ import org.testcontainers.utility.DockerImageName;
 class BasicKvE2ETest {
 
   private static final int OXIA_PORT = 6648;
+  private static final long SEED = 211L;
 
   @Container
   private static final GenericContainer<?> OXIA =
@@ -57,6 +60,9 @@ class BasicKvE2ETest {
 
   @Test
   void runsBasicKvAgainstOxiaAndCleansUpItsKeys() throws Exception {
+    assertThat(BasicKv.selectBatch(new SplittableRandom(SEED).nextDouble(BasicKv.TOTAL_WEIGHT)))
+        .isEqualTo(BatchType.DELETE_RANGE);
+
     final String runId = "testcontainers-e2e";
     final String serviceAddress = OXIA.getHost() + ":" + OXIA.getMappedPort(OXIA_PORT);
     final Options options =
@@ -68,7 +74,7 @@ class BasicKvE2ETest {
             500,
             100,
             Duration.ofMillis(500),
-            7L);
+            SEED);
     final InferenceStore inference = new MemoryInferenceStore();
     final OpenTelemetry openTelemetry = OpenTelemetry.noop();
 

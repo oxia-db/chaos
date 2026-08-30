@@ -25,12 +25,14 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.KeyValue;
 import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.GuardUtils;
@@ -46,10 +48,16 @@ import io.oxia.client.api.options.GetOption;
 import io.oxia.client.grpc.OxiaStatusException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -227,70 +235,193 @@ public final class BasicKv {
     final RatePacer pacer = new RatePacer(options.rate());
     final SplittableRandom random = new SplittableRandom(options.seed());
 
-    while (System.nanoTime() < deadline) {
-      int generated = 0;
-      while (generated < options.batchSize() && System.nanoTime() < deadline) {
-        pacer.beforeOperation();
-        if (System.nanoTime() >= deadline) {
-          break;
+    final Thread.Builder.OfVirtual threads = Thread.ofVirtual().name("oxia-chaos-operation-", 0);
+    try (final ExecutorService executor =
+        Context.taskWrapping(Executors.newThreadPerTaskExecutor(threads.factory()))) {
+      while (System.nanoTime() < deadline) {
+        final BatchType batchType = selectBatch(random.nextDouble(TOTAL_WEIGHT));
+        final int maximumBatchSize =
+            batchType == BatchType.WRITE
+                ? Math.min(options.batchSize(), options.keyCount())
+                : options.batchSize();
+        final List<Callable<Void>> operations = new ArrayList<>(maximumBatchSize);
+        final List<Runnable> inferenceUpdates = new ArrayList<>(maximumBatchSize);
+        final Set<Integer> writeKeys = new HashSet<>(maximumBatchSize);
+        int generated = 0;
+        while (generated < maximumBatchSize && System.nanoTime() < deadline) {
+          pacer.beforeOperation();
+          if (System.nanoTime() >= deadline) {
+            break;
+          }
+          final long sequence = operationCount + generated;
+          addNextOperation(batchType, random, sequence, writeKeys, operations, inferenceUpdates);
+          generated++;
         }
-        executeNext(random);
-        operationCount++;
-        generated++;
-      }
 
-      final long now = System.nanoTime();
-      if (now >= nextCheckpoint && now < deadline) {
-        checkpoint(Checkpoint.PERIODIC);
-        nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
+        executeConcurrentBatch(executor, operations);
+        for (final Runnable inferenceUpdate : inferenceUpdates) {
+          inferenceUpdate.run();
+        }
+        operationCount += generated;
+
+        final long now = System.nanoTime();
+        if (now >= nextCheckpoint && now < deadline) {
+          checkpoint(Checkpoint.PERIODIC);
+          nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
+        }
       }
     }
   }
 
-  private void executeNext(final SplittableRandom random) {
-    final Operation operation = selectOperation(random.nextDouble(TOTAL_WEIGHT));
+  private void addNextOperation(
+      final BatchType batchType,
+      final SplittableRandom random,
+      final long sequence,
+      final Set<Integer> writeKeys,
+      final List<Callable<Void>> operations,
+      final List<Runnable> inferenceUpdates) {
+    switch (batchType) {
+      case WRITE -> addWriteOperation(random, sequence, writeKeys, operations, inferenceUpdates);
+      case READ -> addReadOperation(random, operations);
+      case DELETE_RANGE -> addDeleteRangeOperation(random, operations, inferenceUpdates);
+      default -> throw new IllegalStateException("unreachable batch type: " + batchType);
+    }
+  }
+
+  private void addWriteOperation(
+      final SplittableRandom random,
+      final long sequence,
+      final Set<Integer> writeKeys,
+      final List<Callable<Void>> operations,
+      final List<Runnable> inferenceUpdates) {
+    final Operation operation = selectOperationForBatch(BatchType.WRITE, random);
+    final int index = nextUniqueWriteIndex(random, writeKeys);
+    final String key = keyGenerator.key(index);
+
+    switch (operation) {
+      case PUT -> {
+        final byte[] value = valueGenerator.next(index, sequence);
+        operations.add(
+            () -> {
+              observe(operation, key, () -> client.put(key, value));
+              return null;
+            });
+        inferenceUpdates.add(() -> inference.put(key, value));
+      }
+      case DELETE -> {
+        final boolean expected = inference.get(key).isPresent();
+        operations.add(
+            () -> {
+              observe(operation, key, () -> verifyDelete(operation, key, expected));
+              return null;
+            });
+        inferenceUpdates.add(() -> inference.delete(key));
+      }
+      default -> throw new IllegalStateException("unreachable write operation: " + operation);
+    }
+  }
+
+  private void addReadOperation(
+      final SplittableRandom random, final List<Callable<Void>> operations) {
+    final Operation operation = selectOperationForBatch(BatchType.READ, random);
     final int index = random.nextInt(options.keyCount());
     final String key = keyGenerator.key(index);
 
     switch (operation) {
-      case PUT ->
-          observe(
-              operation,
-              key,
-              () -> {
-                final byte[] value = valueGenerator.next(index, operationCount);
-                client.put(key, value);
-                inference.put(key, value);
-              });
       case GET ->
-          observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonEqual));
-      case FLOOR ->
-          observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonFloor));
-      case CEILING ->
-          observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonCeiling));
-      case LOWER ->
-          observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonLower));
-      case HIGHER ->
-          observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonHigher));
-      case DELETE -> observe(operation, key, () -> executeDelete(operation, key));
-      case DELETE_RANGE, RANGE_SCAN, LIST -> {
+          operations.add(
+              () -> {
+                observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonEqual));
+                return null;
+              });
+      case FLOOR, CEILING, LOWER, HIGHER ->
+          operations.add(
+              () -> {
+                observe(operation, key, () -> verifyGet(operation, key, comparisonFor(operation)));
+                return null;
+              });
+      case RANGE_SCAN, LIST -> {
         final String endKey =
             keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
         switch (operation) {
-          case DELETE_RANGE ->
-              observe(
-                  operation,
-                  key,
+          case RANGE_SCAN ->
+              operations.add(
                   () -> {
-                    client.deleteRange(key, endKey);
-                    inference.deleteRange(key, endKey);
+                    observe(operation, key, () -> verifyRangeScan(operation, key, endKey));
+                    return null;
                   });
-          case RANGE_SCAN -> observe(operation, key, () -> verifyRangeScan(operation, key, endKey));
-          case LIST -> observe(operation, key, () -> verifyList(operation, key, endKey));
+          case LIST ->
+              operations.add(
+                  () -> {
+                    observe(operation, key, () -> verifyList(operation, key, endKey));
+                    return null;
+                  });
           default -> throw new IllegalStateException("unreachable range operation");
         }
       }
       default -> throw new IllegalStateException("unreachable operation: " + operation);
+    }
+  }
+
+  private void addDeleteRangeOperation(
+      final SplittableRandom random,
+      final List<Callable<Void>> operations,
+      final List<Runnable> inferenceUpdates) {
+    final int index = random.nextInt(options.keyCount());
+    final String key = keyGenerator.key(index);
+    final String endKey = keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
+    operations.add(
+        () -> {
+          observe(Operation.DELETE_RANGE, key, () -> client.deleteRange(key, endKey));
+          return null;
+        });
+    inferenceUpdates.add(() -> inference.deleteRange(key, endKey));
+  }
+
+  private int nextUniqueWriteIndex(final SplittableRandom random, final Set<Integer> writeKeys) {
+    int index;
+    do {
+      index = random.nextInt(options.keyCount());
+    } while (!writeKeys.add(index));
+    return index;
+  }
+
+  private static GetOption comparisonFor(final Operation operation) {
+    return switch (operation) {
+      case FLOOR -> GetOption.ComparisonFloor;
+      case CEILING -> GetOption.ComparisonCeiling;
+      case LOWER -> GetOption.ComparisonLower;
+      case HIGHER -> GetOption.ComparisonHigher;
+      default -> throw new IllegalArgumentException("not an ordered get operation: " + operation);
+    };
+  }
+
+  static void executeConcurrentBatch(
+      final ExecutorService executor, final List<Callable<Void>> operations)
+      throws InterruptedException {
+    final List<Future<Void>> batch = executor.invokeAll(operations);
+    Throwable failure = null;
+    for (final Future<Void> future : batch) {
+      try {
+        future.get();
+      } catch (final ExecutionException error) {
+        final Throwable cause = error.getCause() == null ? error : error.getCause();
+        if (failure == null) {
+          failure = cause;
+        } else {
+          failure.addSuppressed(cause);
+        }
+      }
+    }
+
+    if (failure instanceof final RuntimeException runtime) {
+      throw runtime;
+    }
+    if (failure instanceof final Error fatal) {
+      throw fatal;
+    }
+    if (failure != null) {
+      throw new IllegalStateException("concurrent operation failed", failure);
     }
   }
 
@@ -339,14 +470,12 @@ public final class BasicKv {
     };
   }
 
-  private void executeDelete(final Operation operation, final String key) {
-    final boolean expected = inference.get(key).isPresent();
+  private void verifyDelete(final Operation operation, final String key, final boolean expected) {
     final boolean actual = client.delete(key);
     if (expected != actual) {
       throw CorrectnessViolationException.operationMismatch(
           operation, key, Boolean.toString(expected), Boolean.toString(actual));
     }
-    inference.delete(key);
   }
 
   private void verifyRangeScan(final Operation operation, final String key, final String endKey) {
@@ -429,6 +558,32 @@ public final class BasicKv {
                     keyGenerator.lowerGuardKey(), keyGenerator.afterUpperGuardKey()));
     inference.clear();
     LOGGER.atInfo().addKeyValue("run_id", runId).log("basic-kv cleanup completed");
+  }
+
+  static BatchType selectBatch(final double selected) {
+    return batchType(selectOperation(selected));
+  }
+
+  private static Operation selectOperationForBatch(
+      final BatchType batchType, final SplittableRandom random) {
+    if (batchType == BatchType.DELETE_RANGE) {
+      return Operation.DELETE_RANGE;
+    }
+
+    Operation operation;
+    do {
+      operation = selectOperation(random.nextDouble(TOTAL_WEIGHT));
+    } while (batchType(operation) != batchType);
+    return operation;
+  }
+
+  private static BatchType batchType(final Operation operation) {
+    return switch (operation) {
+      case PUT, DELETE -> BatchType.WRITE;
+      case GET, FLOOR, CEILING, LOWER, HIGHER, RANGE_SCAN, LIST -> BatchType.READ;
+      case DELETE_RANGE -> BatchType.DELETE_RANGE;
+      default -> throw new IllegalStateException("unreachable operation: " + operation);
+    };
   }
 
   static Operation selectOperation(final double selected) {

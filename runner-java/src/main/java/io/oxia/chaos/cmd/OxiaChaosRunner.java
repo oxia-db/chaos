@@ -97,7 +97,7 @@ public final class OxiaChaosRunner implements Callable<Integer> {
       names = "--batch-size",
       defaultValue = "100",
       paramLabel = "COUNT",
-      description = "Maximum operations per execution cycle. Default: ${DEFAULT-VALUE}.")
+      description = "Maximum operations generated per ordered batch. Default: ${DEFAULT-VALUE}.")
   private int batchSize;
 
   @Option(
