@@ -107,15 +107,17 @@ contain the complete 90-day history and all required channels and test cases.
 
 Channel IDs and tested server versions are:
 
-- `stable`: the official `0.16.8` release.
-- `beta`: the official `0.17.1` release.
+- `stable`: the `oxia/oxia:nightly-stable` image built daily from
+  `release-0.16`.
+- `beta`: the `oxia/oxia:nightly-beta` image built daily from `main`, which is
+  the `0.17` server line.
 
 The source tags and displayed fallback versions are defined once in
 `config/oxia-channels.json`. Update that file when a channel advances; both the
 correctness deployment plan and status publisher consume it.
 
-Never report only a range such as `0.16.x` in JSON. Publish the exact version or
-commit that actually ran.
+Never report only a range such as `0.16.x` in JSON. Resolve each nightly image
+to an immutable digest and publish that exact digest for the run.
 
 Testcase IDs are:
 
@@ -136,7 +138,7 @@ The chaos repository has three top-level CI workflows with separate ownership:
 1. `ci-docker-release.yaml` builds and publishes runner images.
 2. `ci-correctness.yaml` runs quick checks for pull requests and pushes, and the
    six-hour five-cycle profile at `02:00 UTC` each day, after Oxia's scheduled
-   `main` image refresh. Each run creates one kind cluster, installs Chaos Mesh
+   Stable and Beta image refresh. Each run creates one kind cluster, installs Chaos Mesh
    once, and installs one Oxia Helm release per selected channel. Every enabled
    runner/testcase pair comes from the chart and runs against each channel.
    CI invokes the deployment as a unit instead of enumerating testcases. An

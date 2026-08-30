@@ -36,7 +36,7 @@ on:
       - "scripts/status/**"
       - "Makefile"
   schedule:
-    # Oxia refreshes oxia/oxia:main at 00:00 UTC.
+    # Oxia refreshes the nightly Stable and Beta images at 18:00 UTC.
     - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:

@@ -58,7 +58,7 @@ data:
                     self.assertEqual(len(test_case["history"]), WINDOW_DAYS)
             latest = summary["channels"][0]["testCases"][0]["history"][-1]
             self.assertEqual(latest["result"], "passed")
-            self.assertEqual(summary["channels"][1]["serverVersion"], "0.17.1")
+            self.assertEqual(summary["channels"][1]["serverVersion"], "0.17")
 
     def test_missing_artifact_becomes_failed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -89,8 +89,8 @@ data:
                     fallback_date="2026-08-31",
                     fallback_run_url="https://github.com/oxia-db/chaos/actions/runs/456",
                     expected_result=[
-                        "stable,0.16.8,basic-kv",
-                        "beta,0.17.1,basic-kv",
+                        "stable,0.16,basic-kv",
+                        "beta,0.17,basic-kv",
                     ],
                 )
             )
