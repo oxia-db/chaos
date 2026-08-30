@@ -44,7 +44,7 @@ dependency-images: cluster dependencies
 	nodes=$$($(KIND) get nodes --name $(CLUSTER_NAME)); \
 	images=$$($(HELM) template $(RELEASE_NAME) ../charts/oxia-chaos \
 		--namespace $(NAMESPACE) \
-		--set runners.java.enabled=false | \
+		--set runners.java.enabled=false $(HELM_ARGS) | \
 		awk '$$1 == "image:" { gsub(/"/, "", $$2); print $$2 }' | sort -u); \
 	for image in $$images; do \
 		$(DOCKER) pull --platform "$$platform" "$$image"; \
@@ -89,6 +89,7 @@ correctness:
 			--set chaosWorkflow.enabled=true \
 			--set-string chaosWorkflow.profile=$(CORRECTNESS_PROFILE) \
 			--set chaosWorkflow.victimOrdinal=$$victim_ordinal \
+			$(HELM_ARGS) \
 			--show-only templates/correctness-workflow.yaml | \
 			$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) apply --filename -; then \
 			exit 0; \

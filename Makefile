@@ -6,7 +6,7 @@ CHART := charts/oxia-chaos
 OXIA_CHART_REPOSITORY := https://oxia-db.github.io/helm-charts/
 CHAOS_MESH_CHART_REPOSITORY := https://charts.chaos-mesh.org
 
-.PHONY: build test e2e-test check format clean java-build java-test java-e2e-test java-check java-format java-clean java-image run-java chart-deps chart-lint chart-template deploy-up deploy-down
+.PHONY: build test e2e-test check format clean java-build java-test java-e2e-test java-check java-format java-clean java-image run-java status-test chart-deps chart-lint chart-template deploy-up deploy-down
 
 build: java-build chart-lint
 
@@ -14,7 +14,7 @@ test: java-test
 
 e2e-test: java-e2e-test
 
-check: java-check chart-lint
+check: java-check status-test chart-lint
 
 format: java-format
 
@@ -43,6 +43,9 @@ java-image:
 
 run-java:
 	$(JAVA_GRADLE) run --args='$(ARGS)'
+
+status-test:
+	python3 -m unittest discover -s scripts/status -p 'test_*.py'
 
 chart-deps:
 	$(HELM) repo add oxia-chaos-oxia $(OXIA_CHART_REPOSITORY) --force-update

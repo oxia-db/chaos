@@ -20,5 +20,9 @@ target
 # Downloaded Helm dependencies
 charts/*/charts/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # IDEs
 .idea/
