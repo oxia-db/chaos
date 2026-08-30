@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Docker Release
+name: Docker Image Release
 
 on:
   push:
@@ -44,7 +44,7 @@ permissions:
 
 jobs:
   publish-java:
-    name: Publish Java runner
+    name: Java runner image
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

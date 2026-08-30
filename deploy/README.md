@@ -10,6 +10,7 @@ Prerequisites:
 - kind
 - kubectl
 - Helm
+- jq
 
 Create the cluster and install the test dependencies from the repository root:
 
@@ -26,10 +27,13 @@ The environment contains one `oxia-chaos` namespace with:
 The environment chart is installed by `make deploy-up`. The runner image is
 built and loaded into kind before the Java case starts. The pinned Oxia and
 Chaos Mesh images are also pulled through host Docker and loaded into kind.
-This keeps local loopback HTTP proxy settings out of the kind nodes. Wait for
-the runner and print its logs with:
+The local deployment overrides the chart's `Always` pull policy because the
+runner image is already loaded into kind. This keeps local loopback HTTP proxy
+settings out of the kind nodes. Wait for the correctness workflow, then wait
+for the runner and print its logs with:
 
 ```shell
+make -C deploy correctness-test
 make -C deploy test
 ```
 

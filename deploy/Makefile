@@ -1,18 +1,23 @@
 CLUSTER_NAME ?= oxia-chaos
 KUBE_CONTEXT ?= kind-$(CLUSTER_NAME)
+NAMESPACE ?= oxia-chaos
+RELEASE_NAME ?= oxia-chaos
 KIND ?= kind
 KUBECTL ?= kubectl
 HELM ?= helm
 DOCKER ?= docker
 JAVA_IMAGE ?= oxia/chaos-java:latest
 HELM_ARGS ?=
+CORRECTNESS_PROFILE ?= five-cycle
 RUNNER_TIMEOUT_SECONDS ?= 25200
 RUNNER_POLL_INTERVAL ?= 10
+WORKFLOW_TIMEOUT_SECONDS ?= 21600
+EXPECTED_CHAOS_INJECTIONS ?= 1
 
 .NOTPARALLEL:
-.PHONY: up down cluster namespaces dependencies dependency-images runner-image release test status
+.PHONY: up down cluster namespaces dependencies dependency-images runner-image release correctness correctness-test test status
 
-up: release status
+up: release correctness status
 
 cluster:
 	@if $(KIND) get clusters | grep -qx '$(CLUSTER_NAME)'; then \
@@ -36,8 +41,8 @@ dependency-images: cluster dependencies
 		*) echo "Unsupported kind node architecture" >&2; exit 1 ;; \
 	esac; \
 	nodes=$$($(KIND) get nodes --name $(CLUSTER_NAME)); \
-	images=$$($(HELM) template oxia-chaos ../charts/oxia-chaos \
-		--namespace oxia-chaos \
+	images=$$($(HELM) template $(RELEASE_NAME) ../charts/oxia-chaos \
+		--namespace $(NAMESPACE) \
 		--set runners.java.enabled=false | \
 		awk '$$1 == "image:" { gsub(/"/, "", $$2); print $$2 }' | sort -u); \
 	for image in $$images; do \
@@ -55,17 +60,78 @@ runner-image: cluster
 	$(KIND) load docker-image $(JAVA_IMAGE) --name $(CLUSTER_NAME)
 
 release: namespaces dependency-images runner-image
-	$(HELM) upgrade --install oxia-chaos ../charts/oxia-chaos \
+	$(HELM) upgrade --install $(RELEASE_NAME) ../charts/oxia-chaos \
 		--kube-context $(KUBE_CONTEXT) \
-		--namespace oxia-chaos \
+		--namespace $(NAMESPACE) \
+		--set runners.java.image.pullPolicy=IfNotPresent \
 		--wait $(HELM_ARGS)
+
+correctness:
+	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) wait \
+		--for=condition=Ready pod \
+		--selector=app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=runner \
+		--timeout=3m
+	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) delete workflows \
+		--selector=app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=correctness \
+		--ignore-not-found=true
+	@set -eu; \
+	for attempt in $$(seq 1 30); do \
+		if $(HELM) template $(RELEASE_NAME) ../charts/oxia-chaos \
+			--namespace $(NAMESPACE) \
+			--set runners.java.enabled=false \
+			--set chaosWorkflow.enabled=true \
+			--set-string chaosWorkflow.profile=$(CORRECTNESS_PROFILE) \
+			--show-only templates/correctness-workflow.yaml | \
+			$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) apply --filename -; then \
+			exit 0; \
+		fi; \
+		if [ "$$attempt" -eq 30 ]; then \
+			echo "Failed to submit correctness workflow" >&2; \
+			exit 1; \
+		fi; \
+		sleep 2; \
+	done
+
+correctness-test:
+	@set -eu; \
+	selector='app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=correctness'; \
+	workflow_name=''; \
+	for attempt in $$(seq 1 30); do \
+		workflow_name=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
+			get workflows --selector="$$selector" \
+			--output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | head -n 1); \
+		if [ -n "$$workflow_name" ]; then break; fi; \
+		sleep 2; \
+	done; \
+	if [ -z "$$workflow_name" ]; then \
+		echo "No correctness workflow found" >&2; \
+		exit 1; \
+	fi; \
+	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) wait \
+		--for=condition=Accomplished=True "workflow/$$workflow_name" \
+		--timeout=$(WORKFLOW_TIMEOUT_SECONDS)s; \
+	failed_tasks=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
+		get pods --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
+		jq '[.items[] | select(.status.phase == "Failed")] | length'); \
+	if [ "$$failed_tasks" -gt 0 ]; then \
+		echo "Correctness workflow has $$failed_tasks failed health tasks" >&2; \
+		exit 1; \
+	fi; \
+	injected=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
+		get workflownodes --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
+		jq '[.items[] | select(any(.status.conditions[]?; .type == "ChaosInjected" and .status == "True"))] | length'); \
+	if [ "$$injected" -lt $(EXPECTED_CHAOS_INJECTIONS) ]; then \
+		echo "Expected at least $(EXPECTED_CHAOS_INJECTIONS) chaos injections, observed $$injected" >&2; \
+		exit 1; \
+	fi; \
+	echo "Correctness workflow $$workflow_name completed with $$injected chaos injections"
 
 test:
 	@started_at=$$(date +%s); \
-	selector='app.kubernetes.io/instance=oxia-chaos,app.kubernetes.io/component=runner'; \
+	selector='app.kubernetes.io/instance=$(RELEASE_NAME),app.kubernetes.io/component=runner'; \
 	result=0; \
 	while true; do \
-		statuses=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace oxia-chaos get jobs \
+		statuses=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get jobs \
 			--selector="$$selector" \
 			--output=jsonpath='{range .items[*]}{.status.succeeded},{.status.failed}{"\n"}{end}'); \
 		if [ -n "$$statuses" ]; then \
@@ -77,7 +143,7 @@ test:
 		if [ $$(( $$(date +%s) - started_at )) -ge $(RUNNER_TIMEOUT_SECONDS) ]; then result=124; break; fi; \
 		sleep $(RUNNER_POLL_INTERVAL); \
 	done; \
-	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace oxia-chaos logs \
+	$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) logs \
 		--selector="$$selector" --all-containers=true --prefix=true || true; \
 	exit $$result
 

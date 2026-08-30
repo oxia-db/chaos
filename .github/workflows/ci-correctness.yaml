@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Quick Chaos Test
+name: Correctness
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - ".github/workflows/chaos-test.yaml"
+      - ".github/workflows/ci-correctness.yaml"
       - "charts/**"
       - "deploy/**"
       - "runner-java/**"
@@ -28,15 +28,25 @@ on:
     branches:
       - main
     paths:
-      - ".github/workflows/chaos-test.yaml"
+      - ".github/workflows/ci-correctness.yaml"
       - "charts/**"
       - "deploy/**"
       - "runner-java/**"
       - "Makefile"
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
+      profile:
+        description: Correctness pipeline profile
+        required: true
+        type: choice
+        default: quick
+        options:
+          - quick
+          - five-cycle
       duration:
-        description: Quick workload duration
+        description: Quick workload duration; ignored by the five-cycle profile
         required: true
         type: choice
         default: 2m
@@ -46,7 +56,7 @@ on:
           - 5m
 
 concurrency:
-  group: quick-chaos-${{ github.workflow }}-${{ github.ref }}
+  group: correctness-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -59,13 +69,21 @@ env:
   RELEASE_NAME: oxia-chaos
   RUNNER_IMAGE_REPOSITORY: oxia/chaos-java
   RUNNER_IMAGE_TAG: latest
-  TEST_DURATION: ${{ inputs.duration || '2m' }}
+  CORRECTNESS_PROFILE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || 'quick' }}
+  TEST_DURATION: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '6h' || inputs.duration || '2m' }}
+  KEY_COUNT: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '10000' || '1000' }}
+  RATE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '258' || '500' }}
+  CHECKPOINT_INTERVAL: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '1m' || '30s' }}
+  RUNNER_ACTIVE_DEADLINE_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '23400' || '420' }}
+  RUNNER_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '23400' || '480' }}
+  WORKFLOW_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '21600' || '180' }}
+  EXPECTED_CHAOS_INJECTIONS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '50' || '1' }}
 
 jobs:
   basic-kv:
-    name: Java basic-kv with pod kill
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    name: Java basic-kv ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle pipeline' || 'quick pipeline' }}
+    runs-on: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'cncf-ubuntu-8-32-x86' || 'ubuntu-latest' }}
+    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 420 || 25 }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -99,10 +117,11 @@ jobs:
             --kube-context "$KUBE_CONTEXT" \
             --namespace "$NAMESPACE" \
             --set runners.java.enabled=false \
+            --set chaosWorkflow.enabled=false \
             --wait \
             --timeout 10m
 
-      - name: Start quick runner
+      - name: Start correctness runner
         run: |
           helm upgrade --install "$RELEASE_NAME" charts/oxia-chaos \
             --kube-context "$KUBE_CONTEXT" \
@@ -111,54 +130,62 @@ jobs:
             --set-string runners.java.image.repository="$RUNNER_IMAGE_REPOSITORY" \
             --set-string runners.java.image.tag="$RUNNER_IMAGE_TAG" \
             --set runners.java.image.pullPolicy=Always \
+            --set chaosWorkflow.enabled=false \
             --set-string cases.basic-kv.duration="$TEST_DURATION" \
-            --set cases.basic-kv.keyCount=1000 \
-            --set cases.basic-kv.rate=500 \
+            --set cases.basic-kv.keyCount="$KEY_COUNT" \
+            --set cases.basic-kv.rate="$RATE" \
             --set cases.basic-kv.batchSize=100 \
-            --set-string cases.basic-kv.checkpointInterval=30s \
-            --set runnerJob.activeDeadlineSeconds=420 \
+            --set-string cases.basic-kv.checkpointInterval="$CHECKPOINT_INTERVAL" \
+            --set runnerJob.activeDeadlineSeconds="$RUNNER_ACTIVE_DEADLINE_SECONDS" \
             --wait \
             --timeout 5m
           kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" wait \
             --for=condition=Ready pod \
-            --selector=app.kubernetes.io/instance=oxia-chaos,app.kubernetes.io/component=runner \
+            --selector="app.kubernetes.io/instance=$RELEASE_NAME,app.kubernetes.io/component=runner" \
             --timeout=3m
 
-      - name: Inject pod kill
+      - name: Start correctness workflow
         run: |
-          sleep 20
-          kubectl --context "$KUBE_CONTEXT" apply --filename deploy/chaos/quick-pod-kill.yaml
-          for _ in $(seq 1 45); do
-            injected=$(kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
-              get podchaos quick-pod-kill --output=json | \
-              jq '[.status.experiment.containerRecords[]?.injectedCount] | add // 0')
-            if [ "$injected" -gt 0 ]; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Chaos Mesh did not report a pod-kill injection" >&2
-          exit 1
+          make -C deploy correctness \
+            KUBE_CONTEXT="$KUBE_CONTEXT" \
+            NAMESPACE="$NAMESPACE" \
+            RELEASE_NAME="$RELEASE_NAME" \
+            CORRECTNESS_PROFILE="$CORRECTNESS_PROFILE"
+
+      - name: Wait for correctness pipeline
+        run: |
+          make -C deploy correctness-test \
+            KUBE_CONTEXT="$KUBE_CONTEXT" \
+            NAMESPACE="$NAMESPACE" \
+            RELEASE_NAME="$RELEASE_NAME" \
+            WORKFLOW_TIMEOUT_SECONDS="$WORKFLOW_TIMEOUT_SECONDS" \
+            EXPECTED_CHAOS_INJECTIONS="$EXPECTED_CHAOS_INJECTIONS"
 
       - name: Wait for runner result
         run: |
           make -C deploy test \
             KUBE_CONTEXT="$KUBE_CONTEXT" \
-            RUNNER_TIMEOUT_SECONDS=480 \
+            NAMESPACE="$NAMESPACE" \
+            RELEASE_NAME="$RELEASE_NAME" \
+            RUNNER_TIMEOUT_SECONDS="$RUNNER_TIMEOUT_SECONDS" \
             RUNNER_POLL_INTERVAL=5
 
       - name: Collect cluster diagnostics
         if: always()
         run: |
           kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get \
-            pods,jobs,podchaos --output=wide || true
+            pods,jobs,workflows,workflownodes,podchaos,networkchaos,stresschaos \
+            --output=wide || true
           kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get events \
             --sort-by=.lastTimestamp || true
           kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" logs \
             --selector=app.kubernetes.io/instance=oxia-chaos,app.kubernetes.io/component=runner \
             --all-containers=true --prefix=true --tail=500 || true
           kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" logs \
+            --selector=chaos-mesh.org/workflow \
+            --all-containers=true --prefix=true --tail=200 || true
+          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" logs \
             --selector=app.kubernetes.io/name=oxia-cluster,app.kubernetes.io/component=server \
             --all-containers=true --prefix=true --tail=200 || true
           kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" describe \
-            podchaos quick-pod-kill || true
+            workflows,workflownodes || true

@@ -1,0 +1,243 @@
+{{- if .Values.chaosWorkflow.enabled }}
+{{- $profile := required "chaosWorkflow.profile is required" .Values.chaosWorkflow.profile -}}
+{{- if not (has $profile (list "quick" "five-cycle")) -}}
+{{- fail (printf "unsupported chaosWorkflow.profile %q" $profile) -}}
+{{- end }}
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: {{ printf "%s-%s-correctness-r%d" (include "oxia-chaos.fullname" .) $profile .Release.Revision | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: correctness
+    app.kubernetes.io/part-of: oxia-chaos
+    oxia.chaos/profile: {{ $profile | quote }}
+spec:
+{{- if eq $profile "quick" }}
+  entry: quick-pipeline
+  templates:
+    - name: quick-pipeline
+      templateType: Serial
+      children:
+        - quick-baseline
+        - pod-kill
+        - quick-recovery
+        - health-check
+        - quick-observation
+    - name: quick-baseline
+      templateType: Suspend
+      deadline: 20s
+    - name: pod-kill
+      templateType: PodChaos
+      deadline: 10s
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - {{ .Release.Namespace | quote }}
+          labelSelectors:
+            app.kubernetes.io/name: oxia-cluster
+            app.kubernetes.io/component: server
+            app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    - name: quick-recovery
+      templateType: Suspend
+      deadline: 20s
+    - name: health-check
+      templateType: Task
+      task:
+        container:
+          name: oxia-health
+          image: {{ printf "%s:%s" (index .Values "oxia-cluster").image.repository (index .Values "oxia-cluster").image.tag | quote }}
+          imagePullPolicy: {{ (index .Values "oxia-cluster").image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - for ordinal in 0 1 2; do until oxia health --host={{ .Release.Name }}-$ordinal.{{ .Release.Name }}-svc --port=6649; do sleep 2; done; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+    - name: quick-observation
+      templateType: Suspend
+      deadline: 10s
+{{- else }}
+  entry: five-cycle-pipeline
+  templates:
+    - name: five-cycle-pipeline
+      templateType: Serial
+      children:
+        - one-hour-cycle
+        - one-hour-cycle
+        - one-hour-cycle
+        - one-hour-cycle
+        - one-hour-cycle
+        - final-observation
+    - name: one-hour-cycle
+      templateType: Serial
+      children:
+        - cycle-baseline
+        - pod-kill
+        - pod-kill-spacing
+        - health-check
+        - pod-kill
+        - pod-kill-spacing
+        - health-check
+        - pod-kill
+        - pod-kill-spacing
+        - health-check
+        - pod-kill
+        - pod-kill-spacing
+        - health-check
+        - pod-kill
+        - pod-kill-spacing
+        - health-check
+        - pod-kill
+        - pod-kill-recovery
+        - health-check
+        - network-partition
+        - network-recovery
+        - health-check
+        - pressure
+        - pressure-recovery
+        - health-check
+        - cycle-observation
+    - name: cycle-baseline
+      templateType: Suspend
+      deadline: 10m
+    - name: pod-kill
+      templateType: PodChaos
+      deadline: 10s
+      podChaos:
+        action: pod-kill
+        mode: one
+        selector:
+          namespaces:
+            - {{ .Release.Namespace | quote }}
+          labelSelectors:
+            app.kubernetes.io/name: oxia-cluster
+            app.kubernetes.io/component: server
+            app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    - name: pod-kill-spacing
+      templateType: Suspend
+      deadline: 110s
+    - name: pod-kill-recovery
+      templateType: Suspend
+      deadline: 10m
+    - name: health-check
+      templateType: Task
+      task:
+        container:
+          name: oxia-health
+          image: {{ printf "%s:%s" (index .Values "oxia-cluster").image.repository (index .Values "oxia-cluster").image.tag | quote }}
+          imagePullPolicy: {{ (index .Values "oxia-cluster").image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - for ordinal in 0 1 2; do until oxia health --host={{ .Release.Name }}-$ordinal.{{ .Release.Name }}-svc --port=6649; do sleep 2; done; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+    - name: network-partition
+      templateType: NetworkChaos
+      deadline: 2m
+      networkChaos:
+        action: partition
+        mode: all
+        direction: both
+        selector:
+          namespaces:
+            - {{ .Release.Namespace | quote }}
+          pods:
+            {{ .Release.Namespace }}:
+              - {{ printf "%s-0" .Release.Name | quote }}
+        target:
+          mode: all
+          selector:
+            namespaces:
+              - {{ .Release.Namespace | quote }}
+            pods:
+              {{ .Release.Namespace }}:
+                - {{ printf "%s-1" .Release.Name | quote }}
+                - {{ printf "%s-2" .Release.Name | quote }}
+    - name: network-recovery
+      templateType: Suspend
+      deadline: 10m
+    - name: pressure
+      templateType: Parallel
+      deadline: 5m
+      children:
+        - cpu-pressure
+        - memory-pressure
+        - network-latency
+    - name: cpu-pressure
+      templateType: StressChaos
+      deadline: 5m
+      stressChaos:
+        mode: all
+        containerNames:
+          - server
+        selector:
+          namespaces:
+            - {{ .Release.Namespace | quote }}
+          pods:
+            {{ .Release.Namespace }}:
+              - {{ printf "%s-0" .Release.Name | quote }}
+        stressors:
+          cpu:
+            workers: 1
+            load: 80
+    - name: memory-pressure
+      templateType: StressChaos
+      deadline: 5m
+      stressChaos:
+        mode: all
+        containerNames:
+          - server
+        selector:
+          namespaces:
+            - {{ .Release.Namespace | quote }}
+          pods:
+            {{ .Release.Namespace }}:
+              - {{ printf "%s-0" .Release.Name | quote }}
+        stressors:
+          memory:
+            workers: 1
+            size: 128MiB
+    - name: network-latency
+      templateType: NetworkChaos
+      deadline: 5m
+      networkChaos:
+        action: delay
+        mode: all
+        direction: to
+        selector:
+          namespaces:
+            - {{ .Release.Namespace | quote }}
+          pods:
+            {{ .Release.Namespace }}:
+              - {{ printf "%s-0" .Release.Name | quote }}
+        delay:
+          latency: 100ms
+          jitter: 20ms
+          correlation: "25"
+    - name: pressure-recovery
+      templateType: Suspend
+      deadline: 10m
+    - name: cycle-observation
+      templateType: Suspend
+      deadline: 2m30s
+    - name: final-observation
+      templateType: Suspend
+      deadline: 45m
+{{- end }}
+{{- end }}

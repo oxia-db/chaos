@@ -10,7 +10,7 @@ runners:
     image:
       repository: oxia/chaos-java
       tag: latest
-      pullPolicy: IfNotPresent
+      pullPolicy: Always
     env: []
     resources:
       requests:
@@ -26,6 +26,11 @@ cases:
     rate: 258
     batchSize: 100
     checkpointInterval: 1m
+
+chaosWorkflow:
+  enabled: false
+  # Supported profiles: quick, five-cycle.
+  profile: five-cycle
 
 runnerJob:
   imagePullSecrets: []
