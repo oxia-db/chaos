@@ -1,0 +1,182 @@
+# Copyright © 2026 The Oxia Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Quick Chaos Test
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/chaos-test.yaml"
+      - "charts/**"
+      - "deploy/**"
+      - "runner-java/**"
+      - "Makefile"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/chaos-test.yaml"
+      - "charts/**"
+      - "deploy/**"
+      - "runner-java/**"
+      - "Makefile"
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: Quick workload duration
+        required: true
+        type: choice
+        default: 2m
+        options:
+          - 1m
+          - 2m
+          - 5m
+
+concurrency:
+  group: quick-chaos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CLUSTER_NAME: oxia-chaos
+  KUBE_CONTEXT: kind-oxia-chaos
+  NAMESPACE: oxia-chaos
+  RELEASE_NAME: oxia-chaos
+  RUNNER_IMAGE_REPOSITORY: oxia/chaos-java
+  RUNNER_IMAGE_TAG: ci-${{ github.sha }}
+  TEST_DURATION: ${{ inputs.duration || '2m' }}
+
+jobs:
+  basic-kv:
+    name: Java basic-kv with pod kill
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Verify runner and chart
+        run: make check
+
+      - name: Build runner image
+        uses: docker/build-push-action@v7
+        with:
+          context: runner-java
+          load: true
+          push: false
+          tags: ${{ env.RUNNER_IMAGE_REPOSITORY }}:${{ env.RUNNER_IMAGE_TAG }}
+          cache-from: type=gha,scope=runner-java-ci
+          cache-to: type=gha,mode=max,scope=runner-java-ci
+          provenance: false
+          sbom: false
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.14.0
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          wait: 120s
+
+      - name: Load runner image
+        run: kind load docker-image "$RUNNER_IMAGE_REPOSITORY:$RUNNER_IMAGE_TAG" --name "$CLUSTER_NAME"
+
+      - name: Preload Oxia and Chaos Mesh images
+        run: make -C deploy dependency-images CLUSTER_NAME="$CLUSTER_NAME"
+
+      - name: Install Oxia and Chaos Mesh
+        run: |
+          kubectl --context "$KUBE_CONTEXT" apply --filename deploy/namespaces.yaml
+          helm upgrade --install "$RELEASE_NAME" charts/oxia-chaos \
+            --kube-context "$KUBE_CONTEXT" \
+            --namespace "$NAMESPACE" \
+            --set runners.java.enabled=false \
+            --wait \
+            --timeout 10m
+
+      - name: Start quick runner
+        run: |
+          helm upgrade --install "$RELEASE_NAME" charts/oxia-chaos \
+            --kube-context "$KUBE_CONTEXT" \
+            --namespace "$NAMESPACE" \
+            --set runners.java.enabled=true \
+            --set-string runners.java.image.repository="$RUNNER_IMAGE_REPOSITORY" \
+            --set-string runners.java.image.tag="$RUNNER_IMAGE_TAG" \
+            --set runners.java.image.pullPolicy=Never \
+            --set-string cases.basic-kv.duration="$TEST_DURATION" \
+            --set cases.basic-kv.keyCount=1000 \
+            --set cases.basic-kv.rate=500 \
+            --set cases.basic-kv.batchSize=100 \
+            --set-string cases.basic-kv.checkpointInterval=30s \
+            --set runnerJob.activeDeadlineSeconds=420 \
+            --wait \
+            --timeout 5m
+          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" wait \
+            --for=condition=Ready pod \
+            --selector=app.kubernetes.io/instance=oxia-chaos,app.kubernetes.io/component=runner \
+            --timeout=3m
+
+      - name: Inject pod kill
+        run: |
+          sleep 20
+          kubectl --context "$KUBE_CONTEXT" apply --filename deploy/chaos/quick-pod-kill.yaml
+          for _ in $(seq 1 45); do
+            injected=$(kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+              get podchaos quick-pod-kill --output=json | \
+              jq '[.status.experiment.containerRecords[]?.injectedCount] | add // 0')
+            if [ "$injected" -gt 0 ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Chaos Mesh did not report a pod-kill injection" >&2
+          exit 1
+
+      - name: Wait for runner result
+        run: |
+          make -C deploy test \
+            KUBE_CONTEXT="$KUBE_CONTEXT" \
+            RUNNER_TIMEOUT_SECONDS=480 \
+            RUNNER_POLL_INTERVAL=5
+
+      - name: Collect cluster diagnostics
+        if: always()
+        run: |
+          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get \
+            pods,jobs,podchaos --output=wide || true
+          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get events \
+            --sort-by=.lastTimestamp || true
+          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" logs \
+            --selector=app.kubernetes.io/instance=oxia-chaos,app.kubernetes.io/component=runner \
+            --all-containers=true --prefix=true --tail=500 || true
+          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" logs \
+            --selector=app.kubernetes.io/name=oxia-cluster,app.kubernetes.io/component=server \
+            --all-containers=true --prefix=true --tail=200 || true
+          kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" describe \
+            podchaos quick-pod-kill || true

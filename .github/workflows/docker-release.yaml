@@ -1,0 +1,113 @@
+# Copyright © 2026 The Oxia Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Docker Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: Architecture to publish; all creates a multi-platform image
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - amd64
+          - arm64
+      image_tag:
+        description: Manual image tag; single-architecture builds append the architecture
+        required: true
+        type: string
+        default: edge
+
+concurrency:
+  group: docker-release-${{ github.ref }}-${{ inputs.architecture || 'all' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish-java:
+    name: Publish Java runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Verify Java runner
+        run: make java-check
+
+      - name: Resolve target platforms
+        id: platforms
+        env:
+          ARCHITECTURE: ${{ inputs.architecture || 'all' }}
+        run: |
+          case "$ARCHITECTURE" in
+            all) echo "value=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT" ;;
+            amd64|arm64) echo "value=linux/$ARCHITECTURE" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unsupported architecture: $ARCHITECTURE" >&2; exit 1 ;;
+          esac
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
+
+      - name: Generate image metadata
+        id: metadata
+        uses: docker/metadata-action@v6
+        with:
+          images: oxia/chaos-java
+          tags: |
+            type=semver,pattern={{version}},enable=${{ github.event_name == 'push' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'push' }}
+            type=raw,value=${{ inputs.image_tag }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.architecture == 'all' }}
+            type=raw,value=${{ inputs.image_tag }}-${{ inputs.architecture }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.architecture != 'all' }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and publish image
+        uses: docker/build-push-action@v7
+        with:
+          context: runner-java
+          platforms: ${{ steps.platforms.outputs.value }}
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha,scope=runner-java
+          cache-to: type=gha,mode=max,scope=runner-java
+          provenance: true
+          sbom: true

@@ -3,13 +3,14 @@ KUBE_CONTEXT ?= kind-$(CLUSTER_NAME)
 KIND ?= kind
 KUBECTL ?= kubectl
 HELM ?= helm
+DOCKER ?= docker
 JAVA_IMAGE ?= oxia/chaos-java:latest
 HELM_ARGS ?=
 RUNNER_TIMEOUT_SECONDS ?= 25200
 RUNNER_POLL_INTERVAL ?= 10
 
 .NOTPARALLEL:
-.PHONY: up down cluster namespaces dependencies runner-image release test status
+.PHONY: up down cluster namespaces dependencies dependency-images runner-image release test status
 
 up: release status
 
@@ -26,11 +27,34 @@ namespaces: cluster
 dependencies:
 	$(MAKE) -C .. chart-deps
 
+dependency-images: cluster dependencies
+	@set -eu; \
+	node=$$($(KIND) get nodes --name $(CLUSTER_NAME) | head -n 1); \
+	case "$$($(DOCKER) exec "$$node" uname -m)" in \
+		x86_64) platform=linux/amd64 ;; \
+		aarch64|arm64) platform=linux/arm64 ;; \
+		*) echo "Unsupported kind node architecture" >&2; exit 1 ;; \
+	esac; \
+	nodes=$$($(KIND) get nodes --name $(CLUSTER_NAME)); \
+	images=$$($(HELM) template oxia-chaos ../charts/oxia-chaos \
+		--namespace oxia-chaos \
+		--set runners.java.enabled=false | \
+		awk '$$1 == "image:" { gsub(/"/, "", $$2); print $$2 }' | sort -u); \
+	for image in $$images; do \
+		$(DOCKER) pull --platform "$$platform" "$$image"; \
+		for node in $$nodes; do \
+			$(DOCKER) save "$$image" | \
+				$(DOCKER) exec --privileged --interactive "$$node" \
+				ctr --namespace=k8s.io images import \
+				--platform="$$platform" --digests --snapshotter=overlayfs -; \
+		done; \
+	done
+
 runner-image: cluster
 	$(MAKE) -C .. java-image JAVA_IMAGE=$(JAVA_IMAGE)
 	$(KIND) load docker-image $(JAVA_IMAGE) --name $(CLUSTER_NAME)
 
-release: namespaces dependencies runner-image
+release: namespaces dependency-images runner-image
 	$(HELM) upgrade --install oxia-chaos ../charts/oxia-chaos \
 		--kube-context $(KUBE_CONTEXT) \
 		--namespace oxia-chaos \
