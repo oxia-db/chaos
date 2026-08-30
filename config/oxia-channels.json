@@ -8,10 +8,5 @@
     "imageTag": "0.17.1",
     "serverVersion": "0.17.1",
     "resolveDigest": false
-  },
-  "alpha": {
-    "imageTag": "main",
-    "serverVersion": "main",
-    "resolveDigest": true
   }
 }

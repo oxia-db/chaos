@@ -59,7 +59,7 @@ env:
   KUBE_CONTEXT: kind-oxia-chaos
   NAMESPACE: oxia-chaos
   RELEASE_NAME: oxia-chaos
-  CHANNELS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') && 'stable beta alpha' || 'stable' }}
+  CHANNELS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') && 'stable beta' || 'stable' }}
   WORKLOAD_PROFILE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || 'quick' }}
   RUNNER_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '23400' || '600' }}
   WORKFLOW_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '21600' || '240' }}

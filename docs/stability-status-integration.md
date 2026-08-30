@@ -109,7 +109,6 @@ Channel IDs and tested server versions are:
 
 - `stable`: the official `0.16.8` release.
 - `beta`: the official `0.17.1` release.
-- `alpha`: the exact image digest or commit built from `main`.
 
 The source tags and displayed fallback versions are defined once in
 `config/oxia-channels.json`. Update that file when a channel advances; both the
@@ -153,7 +152,7 @@ publication without rerunning the six-hour test. Automatic publication accepts
 scheduled Correctness runs only. Quick results never affect stability history.
 
 For end-to-end validation, manually dispatch Correctness with the
-`status-smoke` profile. It runs the short pipeline for all three channels and
+`status-smoke` profile. It runs the short pipeline for both channels and
 uploads an isolated `status-smoke-result-all` artifact. The status workflow then
 downloads those artifacts, merges and validates a temporary 90-day document,
 and packages a Pages artifact. It deliberately does not update `status-data` or
@@ -240,7 +239,7 @@ site is statically exported, so do not depend on a server-only runtime fetch.
 
 The integration must:
 
-- validate `schemaVersion === 1`, the three channel IDs, testcase IDs, dates,
+- validate `schemaVersion === 1`, the two channel IDs, testcase IDs, dates,
   and the `passed | failed | not_run` result enum;
 - sort and keep the latest 90 UTC days, padding absent dates as `not_run`;
 - calculate pass rate in the browser instead of trusting a JSON percentage;

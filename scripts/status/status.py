@@ -21,8 +21,8 @@ def load_channel_versions() -> dict[str, str]:
         channels = json.loads(CHANNELS_CONFIG.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise RuntimeError(f"cannot load channel configuration from {CHANNELS_CONFIG}: {error}") from error
-    if not isinstance(channels, dict) or list(channels) != ["stable", "beta", "alpha"]:
-        raise RuntimeError("channel configuration must define stable, beta, and alpha in order")
+    if not isinstance(channels, dict) or list(channels) != ["stable", "beta"]:
+        raise RuntimeError("channel configuration must define stable and beta in order")
     versions: dict[str, str] = {}
     for channel_id, channel in channels.items():
         if not isinstance(channel, dict):
@@ -177,7 +177,7 @@ def validate_summary(summary: dict[str, Any]) -> None:
     dates = expected_dates(generated_at)
     channels = summary["channels"]
     if not isinstance(channels, list) or [item.get("id") for item in channels if isinstance(item, dict)] != list(CHANNEL_VERSIONS):
-        raise StatusValidationError("channels must contain stable, beta, and alpha exactly once in order")
+        raise StatusValidationError("channels must contain stable and beta exactly once in order")
     for channel in channels:
         location = f"channel[{channel['id']}]"
         if set(channel) != {"id", "serverVersion", "updatedAt", "testCases", "chaos"}:

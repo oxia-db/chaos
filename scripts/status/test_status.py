@@ -51,7 +51,7 @@ data:
                 )
             )
             validate_summary(summary)
-            self.assertEqual([channel["id"] for channel in summary["channels"]], ["stable", "beta", "alpha"])
+            self.assertEqual([channel["id"] for channel in summary["channels"]], ["stable", "beta"])
             for channel in summary["channels"]:
                 self.assertEqual([case["id"] for case in channel["testCases"]], list(TEST_CASES))
                 for test_case in channel["testCases"]:
@@ -91,7 +91,6 @@ data:
                     expected_result=[
                         "stable,0.16.8,basic-kv",
                         "beta,0.17.1,basic-kv",
-                        "alpha,main,basic-kv",
                     ],
                 )
             )

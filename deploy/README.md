@@ -25,7 +25,7 @@ The environment contains one `oxia-chaos` namespace with:
 - one runner Job for every enabled runner/testcase pair on each channel.
 
 Local deployment selects only the stable channel by default. Set
-`CHANNELS='stable beta alpha'` to reproduce the scheduled CI topology. Channel
+`CHANNELS='stable beta'` to reproduce the scheduled CI topology. Channel
 image sources are defined in `config/oxia-channels.json`; testcase enablement
 and workload parameters are defined in `charts/oxia-chaos/values.yaml`.
 
