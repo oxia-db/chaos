@@ -3,6 +3,8 @@ JAVA_IMAGE ?= oxia/chaos-java:latest
 DOCKER ?= docker
 HELM ?= helm
 CHART := charts/oxia-chaos
+OXIA_CHART_REPOSITORY := https://oxia-db.github.io/helm-charts/
+CHAOS_MESH_CHART_REPOSITORY := https://charts.chaos-mesh.org
 
 .PHONY: build test e2e-test check format clean java-build java-test java-e2e-test java-check java-format java-clean java-image run-java chart-deps chart-lint chart-template deploy-up deploy-down
 
@@ -43,7 +45,9 @@ run-java:
 	$(JAVA_GRADLE) run --args='$(ARGS)'
 
 chart-deps:
-	$(HELM) dependency build $(CHART)
+	$(HELM) repo add oxia-chaos-oxia $(OXIA_CHART_REPOSITORY) --force-update
+	$(HELM) repo add oxia-chaos-chaos-mesh $(CHAOS_MESH_CHART_REPOSITORY) --force-update
+	$(HELM) dependency build --skip-refresh $(CHART)
 
 chart-lint: chart-deps
 	$(HELM) lint --strict $(CHART)
