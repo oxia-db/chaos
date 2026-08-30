@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.basic;
+package io.oxia.chaos.testcase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentelemetry.api.OpenTelemetry;
-import io.oxia.chaos.runner.RunnerConfig;
-import io.oxia.chaos.runner.RunnerMetrics;
-import io.oxia.chaos.state.MemoryStateStore;
+import io.oxia.chaos.cmd.Options;
+import io.oxia.chaos.inference.InferenceStore;
+import io.oxia.chaos.inference.MemoryInferenceStore;
+import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import java.time.Duration;
@@ -34,7 +35,7 @@ import org.testcontainers.utility.DockerImageName;
 
 @Tag("e2e")
 @Testcontainers(disabledWithoutDocker = true)
-class BasicKvCaseE2ETest {
+class BasicKvE2ETest {
 
   private static final int OXIA_PORT = 6648;
 
@@ -58,9 +59,9 @@ class BasicKvCaseE2ETest {
   void runsBasicKvAgainstOxiaAndCleansUpItsKeys() throws Exception {
     String runId = "testcontainers-e2e";
     String serviceAddress = OXIA.getHost() + ":" + OXIA.getMappedPort(OXIA_PORT);
-    RunnerConfig config =
-        new RunnerConfig(
-            RunnerConfig.BASIC_KV,
+    Options options =
+        new Options(
+            Options.BASIC_KV,
             serviceAddress,
             Duration.ofSeconds(3),
             100,
@@ -68,17 +69,17 @@ class BasicKvCaseE2ETest {
             100,
             Duration.ofMillis(500),
             7L);
-    MemoryStateStore state = new MemoryStateStore();
+    InferenceStore inference = new MemoryInferenceStore();
     OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
     try (RunnerMetrics metrics =
-            new RunnerMetrics(openTelemetry, RunnerConfig.BASIC_KV, state::size);
+            new RunnerMetrics(openTelemetry, Options.BASIC_KV, inference::size);
         SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
-      new BasicKvCase(config, runId, client, openTelemetry, state, metrics).run();
+      new BasicKv(options, runId, client, openTelemetry, inference, metrics).run();
 
       String runPrefix = "/oxia-chaos/runs/" + runId + "/keys/key-";
-      assertThat(state.size()).isZero();
+      assertThat(inference.size()).isZero();
       assertThat(client.list(runPrefix, runPrefix + "zz")).isEmpty();
     }
   }

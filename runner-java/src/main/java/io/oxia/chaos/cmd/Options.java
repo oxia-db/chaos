@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.runner;
+package io.oxia.chaos.cmd;
 
 import java.time.Duration;
 import java.util.Objects;
 
 /** Immutable configuration shared by the selected chaos case. */
-public record RunnerConfig(
+public record Options(
     String caseName,
     String serviceAddress,
     Duration duration,
@@ -36,7 +36,7 @@ public record RunnerConfig(
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final Duration DEFAULT_CHECKPOINT_INTERVAL = Duration.ofMinutes(1);
 
-  public RunnerConfig {
+  public Options {
     caseName = requireText(caseName, "--case");
     serviceAddress = requireText(serviceAddress, "--service-address");
     duration = requirePositive(duration, "--duration");

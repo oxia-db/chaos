@@ -13,12 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.runner;
+package io.oxia.chaos.cmd;
 
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
-import io.oxia.chaos.basic.BasicKvCase;
-import io.oxia.chaos.state.MemoryStateStore;
+import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.inference.InferenceStore;
+import io.oxia.chaos.inference.MemoryInferenceStore;
+import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.testcase.BasicKv;
 import io.oxia.chaos.util.DurationConverter;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -112,16 +115,16 @@ public final class OxiaChaosRunner implements Callable<Integer> {
 
   @Override
   public Integer call() {
-    final RunnerConfig config;
+    final Options options;
     try {
-      config = configuration();
+      options = options();
     } catch (IllegalArgumentException error) {
       throw new ParameterException(spec.commandLine(), error.getMessage(), error);
     }
 
     try {
-      return run(config);
-    } catch (BasicKvCase.CorrectnessViolation error) {
+      return run(options);
+    } catch (CorrectnessViolationException error) {
       LOGGER.error("basic-kv correctness violation", error);
       return CORRECTNESS_VIOLATION_EXIT_CODE;
     } catch (InterruptedException error) {
@@ -134,8 +137,8 @@ public final class OxiaChaosRunner implements Callable<Integer> {
     }
   }
 
-  RunnerConfig configuration() {
-    return new RunnerConfig(
+  Options options() {
+    return new Options(
         caseName,
         serviceAddress,
         duration,
@@ -146,42 +149,43 @@ public final class OxiaChaosRunner implements Callable<Integer> {
         ThreadLocalRandom.current().nextLong());
   }
 
-  private int run(RunnerConfig config) throws Exception {
+  private int run(Options options) throws Exception {
     String runId = UUID.randomUUID().toString();
     AutoConfiguredOpenTelemetrySdk configuredTelemetry = configureOpenTelemetry();
     OpenTelemetrySdk openTelemetry = configuredTelemetry.getOpenTelemetrySdk();
-    MemoryStateStore state = new MemoryStateStore();
+    InferenceStore inference = new MemoryInferenceStore();
 
     LOGGER
         .atInfo()
-        .addKeyValue("case", config.caseName())
-        .addKeyValue("namespace", config.namespace())
+        .addKeyValue("case", options.caseName())
+        .addKeyValue("namespace", options.namespace())
         .addKeyValue("run_id", runId)
-        .addKeyValue("seed", config.seed())
-        .addKeyValue("duration", config.duration())
-        .addKeyValue("key_count", config.keyCount())
-        .addKeyValue("rate", config.rate())
-        .addKeyValue("batch_size", config.batchSize())
-        .addKeyValue("checkpoint_interval", config.checkpointInterval())
+        .addKeyValue("seed", options.seed())
+        .addKeyValue("duration", options.duration())
+        .addKeyValue("key_count", options.keyCount())
+        .addKeyValue("rate", options.rate())
+        .addKeyValue("batch_size", options.batchSize())
+        .addKeyValue("checkpoint_interval", options.checkpointInterval())
         .log("starting chaos case");
 
     try (openTelemetry;
-        RunnerMetrics metrics = new RunnerMetrics(openTelemetry, config.caseName(), state::size);
+        RunnerMetrics metrics =
+            new RunnerMetrics(openTelemetry, options.caseName(), inference::size);
         SyncOxiaClient client =
-            OxiaClientBuilder.create(config.serviceAddress())
-                .namespace(config.namespace())
-                .clientIdentifier("oxia-chaos-java/" + config.caseName() + "/" + runId)
+            OxiaClientBuilder.create(options.serviceAddress())
+                .namespace(options.namespace())
+                .clientIdentifier("oxia-chaos-java/" + options.caseName() + "/" + runId)
                 .requestTimeout(REQUEST_TIMEOUT)
                 .openTelemetry(openTelemetry)
                 .syncClient()) {
-      switch (config.caseName()) {
-        case RunnerConfig.BASIC_KV ->
+      switch (options.caseName()) {
+        case Options.BASIC_KV ->
             runOnVirtualThread(
                 () -> {
-                  new BasicKvCase(config, runId, client, openTelemetry, state, metrics).run();
+                  new BasicKv(options, runId, client, openTelemetry, inference, metrics).run();
                   return null;
                 });
-        default -> throw new IllegalArgumentException("unsupported case: " + config.caseName());
+        default -> throw new IllegalArgumentException("unsupported case: " + options.caseName());
       }
     }
 

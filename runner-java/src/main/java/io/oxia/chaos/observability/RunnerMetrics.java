@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.runner;
+package io.oxia.chaos.observability;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.Attributes;
@@ -25,7 +25,7 @@ import java.util.function.LongSupplier;
 /** Shared, low-cardinality metric instruments used by all runner cases. */
 public final class RunnerMetrics implements AutoCloseable {
 
-  private static final String INSTRUMENTATION_SCOPE = "io.oxia.chaos.runner";
+  private static final String INSTRUMENTATION_SCOPE = "io.oxia.chaos.observability";
 
   private final Attributes caseAttributes;
   private final LongCounter operations;
@@ -73,7 +73,7 @@ public final class RunnerMetrics implements AutoCloseable {
         meter
             .gaugeBuilder("oxia.chaos.reference.keys")
             .ofLongs()
-            .setDescription("Keys currently held by the in-memory reference state")
+            .setDescription("Keys currently held by the inference store")
             .setUnit("{key}")
             .buildWithCallback(
                 measurement -> measurement.record(referenceKeyCount.getAsLong(), caseAttributes));

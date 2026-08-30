@@ -13,66 +13,66 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.state;
+package io.oxia.chaos.inference;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.oxia.chaos.state.MemoryStateStore.KeyValue;
+import io.oxia.chaos.inference.InferenceStore.KeyValue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class MemoryStateStoreTest {
+class MemoryInferenceStoreTest {
 
-  private MemoryStateStore state;
+  private InferenceStore inference;
 
   @BeforeEach
   void setUp() {
-    state = new MemoryStateStore();
-    state.put("b", bytes("two"));
-    state.put("d", bytes("four"));
-    state.put("f", bytes("six"));
+    inference = new MemoryInferenceStore();
+    inference.put("b", bytes("two"));
+    inference.put("d", bytes("four"));
+    inference.put("f", bytes("six"));
   }
 
   @Test
   void providesOrderedPointAndComparisonReads() {
-    assertThat(state.get("d")).contains(new KeyValue("d", bytes("four")));
-    assertThat(state.get("c")).isEmpty();
-    assertThat(state.floor("c")).contains(new KeyValue("b", bytes("two")));
-    assertThat(state.ceiling("c")).contains(new KeyValue("d", bytes("four")));
-    assertThat(state.lower("d")).contains(new KeyValue("b", bytes("two")));
-    assertThat(state.higher("d")).contains(new KeyValue("f", bytes("six")));
+    assertThat(inference.get("d")).contains(new KeyValue("d", bytes("four")));
+    assertThat(inference.get("c")).isEmpty();
+    assertThat(inference.floor("c")).contains(new KeyValue("b", bytes("two")));
+    assertThat(inference.ceiling("c")).contains(new KeyValue("d", bytes("four")));
+    assertThat(inference.lower("d")).contains(new KeyValue("b", bytes("two")));
+    assertThat(inference.higher("d")).contains(new KeyValue("f", bytes("six")));
   }
 
   @Test
   void scansAndListsExclusiveEndRangesInOrder() {
-    assertThat(state.range("b", "f"))
+    assertThat(inference.range("b", "f"))
         .containsExactly(new KeyValue("b", bytes("two")), new KeyValue("d", bytes("four")));
-    assertThat(state.list("b", "f")).containsExactly("b", "d");
+    assertThat(inference.list("b", "f")).containsExactly("b", "d");
   }
 
   @Test
   void deletesPointsAndRanges() {
-    assertThat(state.delete("b")).isTrue();
-    assertThat(state.delete("b")).isFalse();
+    assertThat(inference.delete("b")).isTrue();
+    assertThat(inference.delete("b")).isFalse();
 
-    state.deleteRange("c", "g");
+    inference.deleteRange("c", "g");
 
-    assertThat(state.list("a", "z")).isEmpty();
+    assertThat(inference.list("a", "z")).isEmpty();
   }
 
   @Test
   void protectsStoredAndReturnedValuesFromMutation() {
     byte[] input = bytes("value");
-    state.put("key", input);
+    inference.put("key", input);
     input[0] = 'X';
 
-    byte[] returned = state.get("key").orElseThrow().value();
+    byte[] returned = inference.get("key").orElseThrow().value();
     returned[1] = 'X';
-    byte[] snapshotValue = state.snapshot().get("key");
+    byte[] snapshotValue = inference.snapshot().get("key");
     snapshotValue[2] = 'X';
 
-    assertThat(state.get("key").orElseThrow().value()).isEqualTo(bytes("value"));
+    assertThat(inference.get("key").orElseThrow().value()).isEqualTo(bytes("value"));
   }
 
   private static byte[] bytes(String value) {

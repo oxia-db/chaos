@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.runner;
+package io.oxia.chaos.cmd;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -27,21 +27,21 @@ class OxiaChaosRunnerTest {
 
   @Test
   void parsesTheBasicKvDefaults() {
-    RunnerConfig config = parse("--case=basic-kv", "--service-address=oxia:6648");
+    Options options = parse("--case=basic-kv", "--service-address=oxia:6648");
 
-    assertThat(config.caseName()).isEqualTo("basic-kv");
-    assertThat(config.serviceAddress()).isEqualTo("oxia:6648");
-    assertThat(config.namespace()).isEqualTo("oc-java-basic-kv");
-    assertThat(config.duration()).isEqualTo(Duration.ofMinutes(10));
-    assertThat(config.keyCount()).isEqualTo(10_000);
-    assertThat(config.rate()).isEqualTo(258);
-    assertThat(config.batchSize()).isEqualTo(100);
-    assertThat(config.checkpointInterval()).isEqualTo(Duration.ofMinutes(1));
+    assertThat(options.caseName()).isEqualTo("basic-kv");
+    assertThat(options.serviceAddress()).isEqualTo("oxia:6648");
+    assertThat(options.namespace()).isEqualTo("oc-java-basic-kv");
+    assertThat(options.duration()).isEqualTo(Duration.ofMinutes(10));
+    assertThat(options.keyCount()).isEqualTo(10_000);
+    assertThat(options.rate()).isEqualTo(258);
+    assertThat(options.batchSize()).isEqualTo(100);
+    assertThat(options.checkpointInterval()).isEqualTo(Duration.ofMinutes(1));
   }
 
   @Test
   void parsesWorkloadOverrides() {
-    RunnerConfig config =
+    Options options =
         parse(
             "--case=basic-kv",
             "--service-address=oxia:6648",
@@ -51,11 +51,11 @@ class OxiaChaosRunnerTest {
             "--batch-size=25",
             "--checkpoint-interval=30s");
 
-    assertThat(config.duration()).isEqualTo(Duration.ofMillis(1500));
-    assertThat(config.keyCount()).isEqualTo(100_000);
-    assertThat(config.rate()).isZero();
-    assertThat(config.batchSize()).isEqualTo(25);
-    assertThat(config.checkpointInterval()).isEqualTo(Duration.ofSeconds(30));
+    assertThat(options.duration()).isEqualTo(Duration.ofMillis(1500));
+    assertThat(options.keyCount()).isEqualTo(100_000);
+    assertThat(options.rate()).isZero();
+    assertThat(options.batchSize()).isEqualTo(25);
+    assertThat(options.checkpointInterval()).isEqualTo(Duration.ofSeconds(30));
   }
 
   @Test
@@ -108,9 +108,9 @@ class OxiaChaosRunnerTest {
     assertThat(caseThread.get().getName()).startsWith("oxia-chaos-case-");
   }
 
-  private static RunnerConfig parse(String... arguments) {
+  private static Options parse(String... arguments) {
     OxiaChaosRunner runner = new OxiaChaosRunner();
     OxiaChaosRunner.commandLine(runner).parseArgs(arguments);
-    return runner.configuration();
+    return runner.options();
   }
 }

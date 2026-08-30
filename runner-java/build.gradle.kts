@@ -58,7 +58,7 @@ dependencies {
 }
 
 application {
-    mainClass = "io.oxia.chaos.runner.OxiaChaosRunner"
+    mainClass = "io.oxia.chaos.cmd.OxiaChaosRunner"
     applicationName = "oxia-chaos"
 }
 
