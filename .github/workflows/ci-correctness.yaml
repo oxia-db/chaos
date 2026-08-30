@@ -103,6 +103,7 @@ jobs:
             CHANNELS="$CHANNELS" \
             WORKLOAD_PROFILE="$WORKLOAD_PROFILE" \
             REUSE_CHANNEL_PLAN=true \
+            PRELOAD_DEPENDENCY_IMAGES=false \
             RUNNER_IMAGE_PULL_POLICY=Always
 
       - name: Run all Helm testcases under chaos

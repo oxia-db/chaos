@@ -14,6 +14,7 @@ CHANNELS ?= stable
 WORKLOAD_PROFILE ?= five-cycle
 REUSE_CHANNEL_PLAN ?= false
 RUNNER_IMAGE_PULL_POLICY ?= IfNotPresent
+PRELOAD_DEPENDENCY_IMAGES ?= true
 WORK_DIR ?= .work
 CHANNEL_PLAN ?= $(WORK_DIR)/oxia-channels.json
 CORRECTNESS_VICTIM_ORDINAL ?=
@@ -89,6 +90,10 @@ channel-plan: dependencies
 
 dependency-images: cluster channel-plan
 	@set -eu; \
+	if [ '$(PRELOAD_DEPENDENCY_IMAGES)' != true ]; then \
+		echo "Skipping dependency image preload; kind nodes will pull pinned images directly"; \
+		exit 0; \
+	fi; \
 	node=$$($(KIND) get nodes --name $(CLUSTER_NAME) | head -n 1); \
 	case "$$($(DOCKER) exec "$$node" uname -m)" in \
 		x86_64) platform=linux/amd64 ;; \

@@ -42,6 +42,10 @@ make -C deploy correctness-test
 make -C deploy test
 ```
 
+CI sets `PRELOAD_DEPENDENCY_IMAGES=false`, allowing kind to pull immutable
+image references directly. This preserves OCI digest names that would
+otherwise be rewritten during a host Docker-to-containerd import.
+
 The default profile runs for six hours. Use the chart-defined quick profile for
 a shorter local run:
 
