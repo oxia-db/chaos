@@ -31,14 +31,16 @@ import io.oxia.chaos.inference.InferenceStore.KeyValue;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.util.GuardUtils;
 import io.oxia.chaos.util.KeyGenerator;
+import io.oxia.chaos.util.RangeUtils;
 import io.oxia.chaos.util.RatePacer;
+import io.oxia.chaos.util.SummaryUtils;
 import io.oxia.chaos.util.ValueGenerator;
 import io.oxia.client.api.CloseableIterable;
 import io.oxia.client.api.GetResult;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.client.api.options.GetOption;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -148,14 +150,14 @@ public final class BasicKv {
     Span span = tracer.spanBuilder("basic-kv.warmup").startSpan();
     long started = System.nanoTime();
     try (Scope ignored = span.makeCurrent()) {
-      putReferenceGuard(keyGenerator.lowerGuardKey(), "lower");
+      GuardUtils.putReferenceGuard(client, inference, keyGenerator.lowerGuardKey(), "lower");
       for (int index = 0; index < options.keyCount(); index++) {
         String key = keyGenerator.key(index);
         byte[] value = valueGenerator.warmup(index);
         client.put(key, value);
         inference.put(key, value);
       }
-      putReferenceGuard(keyGenerator.upperGuardKey(), "upper");
+      GuardUtils.putReferenceGuard(client, inference, keyGenerator.upperGuardKey(), "upper");
       span.setAttribute("test.keys", options.keyCount()).setStatus(StatusCode.OK);
       LOGGER
           .atInfo()
@@ -169,12 +171,6 @@ public final class BasicKv {
     } finally {
       span.end();
     }
-  }
-
-  private void putReferenceGuard(String key, String name) {
-    byte[] value = ("guard-" + name).getBytes(StandardCharsets.UTF_8);
-    client.put(key, value);
-    inference.put(key, value);
   }
 
   private void executeWorkload() throws InterruptedException {
@@ -231,7 +227,7 @@ public final class BasicKv {
           observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonHigher));
       case DELETE -> observe(operation, key, () -> executeDelete(operation, key));
       case DELETE_RANGE, RANGE_SCAN, LIST -> {
-        String endKey = keyGenerator.key(nextRangeEnd(random, index));
+        String endKey = keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
         switch (operation) {
           case DELETE_RANGE ->
               observe(
@@ -315,7 +311,7 @@ public final class BasicKv {
     }
     if (!expected.equals(actual)) {
       throw CorrectnessViolationException.operationMismatch(
-          operation, key, summarize(expected), summarize(actual));
+          operation, key, SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
     }
   }
 
@@ -324,7 +320,7 @@ public final class BasicKv {
     List<String> actual = client.list(key, endKey);
     if (!expected.equals(actual)) {
       throw CorrectnessViolationException.operationMismatch(
-          operation, key, summarize(expected), summarize(actual));
+          operation, key, SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
     }
   }
 
@@ -349,7 +345,7 @@ public final class BasicKv {
       }
       if (!expected.equals(actual)) {
         throw CorrectnessViolationException.checkpointMismatch(
-            summarize(expected), summarize(actual));
+            SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
       }
       checkpointCount++;
       span.setAttribute("checkpoint.keys", expected.size()).setStatus(StatusCode.OK);
@@ -406,20 +402,5 @@ public final class BasicKv {
       return Operation.RANGE_SCAN;
     }
     return Operation.LIST;
-  }
-
-  private int nextRangeEnd(SplittableRandom random, int start) {
-    int maximumLength = maximumRangeLength(options.keyCount());
-    int length = 1 + random.nextInt(maximumLength);
-    return Math.min(options.keyCount(), start + length);
-  }
-
-  static int maximumRangeLength(int keyCount) {
-    return Math.max(1, keyCount / 100);
-  }
-
-  private static String summarize(List<?> values) {
-    int displayed = Math.min(values.size(), 5);
-    return "size=" + values.size() + ", first=" + values.subList(0, displayed);
   }
 }

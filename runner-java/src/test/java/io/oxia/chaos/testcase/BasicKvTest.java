@@ -49,14 +49,6 @@ class BasicKvTest {
     assertShare(counts, samples, Operation.LIST, 0.0293);
   }
 
-  @Test
-  void capsRangesAtOnePercentWithAOneKeyMinimum() {
-    assertThat(BasicKv.maximumRangeLength(1)).isEqualTo(1);
-    assertThat(BasicKv.maximumRangeLength(99)).isEqualTo(1);
-    assertThat(BasicKv.maximumRangeLength(10_000)).isEqualTo(100);
-    assertThat(BasicKv.maximumRangeLength(100_000)).isEqualTo(1_000);
-  }
-
   private static void assertShare(
       Map<Operation, Integer> counts, int samples, Operation operation, double expected) {
     double actual = counts.getOrDefault(operation, 0) / (double) samples;
