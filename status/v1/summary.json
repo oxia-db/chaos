@@ -1,0 +1,4455 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-30T18:26:17Z",
+  "windowDays": 90,
+  "channels": [
+    {
+      "id": "stable",
+      "serverVersion": "0.16",
+      "updatedAt": "2026-08-30T18:26:17Z",
+      "testCases": [
+        {
+          "id": "basic-kv",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "ephemeral",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "notification",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "sequences",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "secondary-index",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "versioning",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        }
+      ],
+      "chaos": {
+        "profile": "five-cycle",
+        "duration": "6h",
+        "expectedInjections": 50,
+        "injections": [
+          {
+            "type": "pod-kill",
+            "count": 30
+          },
+          {
+            "type": "network-partition",
+            "count": 5
+          },
+          {
+            "type": "cpu-pressure",
+            "count": 5
+          },
+          {
+            "type": "memory-pressure",
+            "count": 5
+          },
+          {
+            "type": "network-latency",
+            "count": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "beta",
+      "serverVersion": "0.17",
+      "updatedAt": "2026-08-30T18:26:17Z",
+      "testCases": [
+        {
+          "id": "basic-kv",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "ephemeral",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "notification",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "sequences",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "secondary-index",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        },
+        {
+          "id": "versioning",
+          "history": [
+            {
+              "date": "2026-06-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-06-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-07-31",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-01",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-02",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-03",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-04",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-05",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-06",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-07",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-08",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-09",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-10",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-11",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-12",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-13",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-14",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-16",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-17",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-18",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-19",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-20",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-21",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-22",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-23",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-24",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-25",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-26",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-27",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-28",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-29",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-30",
+              "result": "not_run"
+            }
+          ]
+        }
+      ],
+      "chaos": {
+        "profile": "five-cycle",
+        "duration": "6h",
+        "expectedInjections": 50,
+        "injections": [
+          {
+            "type": "pod-kill",
+            "count": 30
+          },
+          {
+            "type": "network-partition",
+            "count": 5
+          },
+          {
+            "type": "cpu-pressure",
+            "count": 5
+          },
+          {
+            "type": "memory-pressure",
+            "count": 5
+          },
+          {
+            "type": "network-latency",
+            "count": 5
+          }
+        ]
+      }
+    }
+  ]
+}
