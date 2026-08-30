@@ -33,7 +33,7 @@ on:
         description: Manual image tag; single-architecture builds append the architecture
         required: true
         type: string
-        default: edge
+        default: latest
 
 concurrency:
   group: docker-release-${{ github.ref }}-${{ inputs.architecture || 'all' }}
