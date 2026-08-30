@@ -30,7 +30,7 @@ on:
           - amd64
           - arm64
       image_tag:
-        description: Manual image tag; single-architecture builds append the architecture
+        description: Manual image tag; single-architecture builds also publish an architecture alias
         required: true
         type: string
         default: latest
@@ -90,7 +90,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},enable=${{ github.event_name == 'push' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'push' }}
-            type=raw,value=${{ inputs.image_tag }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.architecture == 'all' }}
+            type=raw,value=${{ inputs.image_tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=${{ inputs.image_tag }}-${{ inputs.architecture }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.architecture != 'all' }}
 
       - name: Log in to Docker Hub
