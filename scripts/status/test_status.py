@@ -71,6 +71,7 @@ data:
                     generated_at="2026-08-31T06:15:00Z",
                     fallback_date="2026-08-31",
                     fallback_run_url="https://github.com/oxia-db/chaos/actions/runs/456",
+                    expected_result=["stable,0.16,basic-kv"],
                 )
             )
             latest = summary["channels"][0]["testCases"][0]["history"][-1]
@@ -98,6 +99,23 @@ data:
                 self.assertEqual(channel["testCases"][0]["history"][-1]["result"], "failed")
                 for test_case in channel["testCases"][1:]:
                     self.assertEqual(test_case["history"][-1]["result"], "not_run")
+
+    def test_empty_merge_bootstraps_not_run_history(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            summary = merge_summary(
+                argparse.Namespace(
+                    existing=str(root / "missing.json"),
+                    results=str(root / "missing-results"),
+                    output=str(root / "summary.json"),
+                    generated_at="2026-08-31T06:15:00Z",
+                    fallback_date="2026-08-31",
+                    fallback_run_url="https://github.com/oxia-db/chaos/actions",
+                )
+            )
+            for channel in summary["channels"]:
+                for test_case in channel["testCases"]:
+                    self.assertTrue(all(entry["result"] == "not_run" for entry in test_case["history"]))
 
     def test_result_reports_failed_phase(self) -> None:
         phases = {phase: "success" for phase in ("image", "verify", "cluster", "preload", "install")}
@@ -127,6 +145,7 @@ data:
                     generated_at="2026-08-31T06:15:00Z",
                     fallback_date="2026-08-31",
                     fallback_run_url="https://github.com/oxia-db/chaos/actions/runs/456",
+                    expected_result=["stable,0.16,basic-kv"],
                 )
             )
             del summary["channels"][0]["testCases"][0]["history"][-1]["detail"]

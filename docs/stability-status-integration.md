@@ -149,9 +149,12 @@ The chaos repository has three top-level CI workflows with separate ownership:
    `actions/download-artifact@v8`, merges the 90-day history, validates it,
    commits it to `status-data`, and deploys the same JSON with GitHub Pages.
 
-The status workflow also supports a manual source run ID for recovering a
-publication without rerunning the six-hour test. Automatic publication accepts
-scheduled Correctness runs only. Quick results never affect stability history.
+The status workflow's manual `bootstrap` mode initializes the public endpoint
+with 90 days of honest `not_run` history before the first scheduled result. Its
+manual `replay` mode accepts the source run ID of a completed scheduled run for
+recovering a publication without rerunning the six-hour test. Automatic and
+replayed result publication accepts scheduled Correctness runs only. Quick
+results never affect stability history.
 
 For end-to-end validation, manually dispatch Correctness with the
 `status-smoke` profile. It runs the short pipeline for both channels and

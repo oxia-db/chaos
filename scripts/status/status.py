@@ -293,8 +293,6 @@ def merge_summary(args: argparse.Namespace) -> dict[str, Any]:
         seen.add(key)
         normalized_results.append(result)
     expected_results = getattr(args, "expected_result", [])
-    if not expected_results and not normalized_results:
-        expected_results = [f"stable,{CHANNEL_VERSIONS['stable']},basic-kv"]
     for expected in expected_results:
         parts = expected.split(",", 2)
         if len(parts) != 3:

@@ -22,9 +22,17 @@ on:
       - completed
   workflow_dispatch:
     inputs:
-      source_run_id:
-        description: Completed Correctness workflow run ID to publish
+      mode:
+        description: Initialize empty history or replay a scheduled run
         required: true
+        type: choice
+        default: bootstrap
+        options:
+          - bootstrap
+          - replay
+      source_run_id:
+        description: Completed scheduled Correctness run ID (replay only)
+        required: false
         type: string
 
 concurrency:
@@ -50,11 +58,13 @@ jobs:
           fetch-depth: 1
 
       - name: Resolve source correctness run
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.mode != 'bootstrap' }}
         id: source
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_RUN_ID: ${{ github.event.workflow_run.id || inputs.source_run_id }}
         run: |
+          test -n "$REQUESTED_RUN_ID"
           run_json=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$REQUESTED_RUN_ID")
           test "$(jq -r '.name' <<< "$run_json")" = "Correctness"
           test "$(jq -r '.status' <<< "$run_json")" = "completed"
@@ -66,6 +76,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Download normalized testcase results
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.mode != 'bootstrap' }}
         id: download
         continue-on-error: true
         uses: actions/download-artifact@v8
@@ -86,19 +97,25 @@ jobs:
           fi
 
       - name: Merge and validate 90-day status document
+        env:
+          BOOTSTRAP: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'bootstrap' }}
+          RUN_DATE: ${{ steps.source.outputs.run_date }}
+          RUN_URL: ${{ steps.source.outputs.run_url }}
         run: |
           expected_results=()
-          while IFS= read -r expected_result; do
-            expected_results+=(--expected-result "$expected_result")
-          done < <(jq --raw-output \
-            'to_entries[] | [.key, .value.serverVersion, "basic-kv"] | join(",")' \
-            config/oxia-channels.json)
+          if [ "$BOOTSTRAP" != "true" ]; then
+            while IFS= read -r expected_result; do
+              expected_results+=(--expected-result "$expected_result")
+            done < <(jq --raw-output \
+              'to_entries[] | [.key, .value.serverVersion, "basic-kv"] | join(",")' \
+              config/oxia-channels.json)
+          fi
           python3 scripts/status/status.py merge \
             --existing status-data/status/v1/summary.json \
             --results status-results \
             --output status-data/status/v1/summary.json \
-            --fallback-date "${{ steps.source.outputs.run_date }}" \
-            --fallback-run-url "${{ steps.source.outputs.run_url }}" \
+            --fallback-date "${RUN_DATE:-$(date -u +%F)}" \
+            --fallback-run-url "${RUN_URL:-https://github.com/$GITHUB_REPOSITORY/actions}" \
             "${expected_results[@]}"
           python3 scripts/status/status.py validate status-data/status/v1/summary.json
 
