@@ -275,8 +275,8 @@ correctness-test:
 		injected=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
 			get workflownodes --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
 			jq '[.items[] | select(any(.status.conditions[]?; .type == "ChaosInjected" and .status == "True"))] | length'); \
-		if [ "$$failed_tasks" -gt 0 ] || [ "$$injected" -lt $(EXPECTED_CHAOS_INJECTIONS) ]; then \
-			echo "Correctness workflow $$workflow_name failed validation: failedTasks=$$failed_tasks injections=$$injected" >&2; \
+		if [ "$$failed_tasks" -gt 0 ] || [ "$$injected" -ne $(EXPECTED_CHAOS_INJECTIONS) ]; then \
+			echo "Correctness workflow $$workflow_name failed validation: failedTasks=$$failed_tasks injections=$$injected expectedInjections=$(EXPECTED_CHAOS_INJECTIONS)" >&2; \
 			result=1; \
 		else \
 			echo "Correctness workflow $$workflow_name completed with $$injected chaos injections"; \
