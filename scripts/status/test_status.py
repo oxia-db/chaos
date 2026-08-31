@@ -5,7 +5,16 @@ import unittest
 from pathlib import Path
 
 from collect import parse_execution_plan
-from status import CHAOS, TEST_CASES, WINDOW_DAYS, StatusValidationError, create_result, merge_summary, validate_summary
+from status import (
+    CHAOS,
+    PHASE_FAILURES,
+    TEST_CASES,
+    WINDOW_DAYS,
+    StatusValidationError,
+    create_result,
+    merge_summary,
+    validate_summary,
+)
 
 
 class StatusDataTest(unittest.TestCase):
@@ -133,6 +142,23 @@ data:
         )
         self.assertEqual(result["result"], "failed")
         self.assertEqual(result["title"], "Correctness workload failed to start")
+
+    def test_result_reports_runner_failure_after_successful_chaos(self) -> None:
+        phases = {phase: "success" for phase in PHASE_FAILURES}
+        phases["result"] = "failure"
+        result = create_result(
+            argparse.Namespace(
+                channel="stable",
+                server_version="0.16.8",
+                test_case="basic-kv",
+                run_date="2026-08-31",
+                run_url="https://github.com/oxia-db/chaos/actions/runs/790",
+                job_status="failure",
+                phases_json=json.dumps(phases),
+            )
+        )
+        self.assertEqual(result["result"], "failed")
+        self.assertEqual(result["title"], "Correctness workload failed")
 
     def test_summary_rejects_missing_failure_detail(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

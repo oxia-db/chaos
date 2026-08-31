@@ -17,6 +17,7 @@ package io.oxia.chaos.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.grpc.Status;
 import io.oxia.client.grpc.OxiaStatusCode;
 import io.oxia.client.grpc.OxiaStatusException;
 import org.junit.jupiter.api.Test;
@@ -37,9 +38,33 @@ class OxiaExceptionUtilsTest {
 
   @Test
   void leavesUnknownApplicationFailureNonRetryable() {
-    final RuntimeException error = new RuntimeException("application failure");
+    final RuntimeException error = new RuntimeException("resource is already closed");
 
     assertThat(OxiaExceptionUtils.isRetryable(error)).isFalse();
     assertThat(OxiaExceptionUtils.status(error).getStatusCode()).isEqualTo(OxiaStatusCode.UNKNOWN);
+  }
+
+  @Test
+  void classifiesCancelledGrpcFailureAsRetryable() {
+    final OxiaStatusException error =
+        OxiaStatusException.from(
+            Status.CANCELLED.withDescription("context canceled").asRuntimeException());
+
+    assertThat(error.getStatusCode()).isEqualTo(OxiaStatusCode.UNKNOWN);
+    assertThat(OxiaExceptionUtils.isRetryable(error)).isTrue();
+  }
+
+  @Test
+  void classifiesWrappedClosedResourceFailureAsRetryable() {
+    final OxiaStatusException error =
+        OxiaStatusException.from(
+            Status.UNKNOWN
+                .withDescription(
+                    "oxia: failed to append to wal: rpc error: "
+                        + "code = Code(104) desc = oxia: resource is already closed")
+                .asRuntimeException());
+
+    assertThat(error.getStatusCode()).isEqualTo(OxiaStatusCode.UNKNOWN);
+    assertThat(OxiaExceptionUtils.isRetryable(error)).isTrue();
   }
 }

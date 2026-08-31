@@ -35,6 +35,7 @@ import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.GuardUtils;
 import io.oxia.chaos.util.KeyGenerator;
 import io.oxia.chaos.util.OxiaExceptionUtils;
@@ -172,7 +173,7 @@ public final class BasicKv {
         cleanup();
       } catch (final RuntimeException cleanupError) {
         if (failure != null) {
-          failure.addSuppressed(cleanupError);
+          ExceptionUtils.addSuppressedIfDistinct(failure, cleanupError);
         } else {
           throw cleanupError;
         }
@@ -410,7 +411,7 @@ public final class BasicKv {
         if (failure == null) {
           failure = cause;
         } else {
-          failure.addSuppressed(cause);
+          ExceptionUtils.addSuppressedIfDistinct(failure, cause);
         }
       }
     }

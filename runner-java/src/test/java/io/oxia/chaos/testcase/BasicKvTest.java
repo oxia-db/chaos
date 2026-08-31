@@ -16,6 +16,7 @@
 package io.oxia.chaos.testcase;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Operation;
@@ -93,6 +94,24 @@ class BasicKvTest {
         release.countDown();
       }
       batch.get();
+    }
+  }
+
+  @Test
+  void preservesASharedBatchFailureWithoutSelfSuppression() {
+    final RuntimeException failure = new RuntimeException("shared client failure");
+    final List<Callable<Void>> operations =
+        List.of(
+            () -> {
+              throw failure;
+            },
+            () -> {
+              throw failure;
+            });
+
+    try (final var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      assertThatThrownBy(() -> BasicKv.executeConcurrentBatch(executor, operations))
+          .isSameAs(failure);
     }
   }
 

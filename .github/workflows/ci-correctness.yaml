@@ -107,15 +107,28 @@ jobs:
             PRELOAD_DEPENDENCY_IMAGES=false \
             RUNNER_IMAGE_PULL_POLICY=Always
 
-      - name: Run all Helm testcases under chaos
-        id: pipeline
+      - name: Submit chaos workflows
+        id: workflow
         run: |
-          make -C deploy correctness correctness-test test \
+          make -C deploy correctness \
+            CHANNELS="$CHANNELS" \
+            WORKLOAD_PROFILE="$WORKLOAD_PROFILE"
+
+      - name: Run chaos workflows
+        id: chaos
+        run: |
+          make -C deploy correctness-test \
             CHANNELS="$CHANNELS" \
             WORKLOAD_PROFILE="$WORKLOAD_PROFILE" \
-            RUNNER_TIMEOUT_SECONDS="$RUNNER_TIMEOUT_SECONDS" \
             WORKFLOW_TIMEOUT_SECONDS="$WORKFLOW_TIMEOUT_SECONDS" \
             EXPECTED_CHAOS_INJECTIONS="$EXPECTED_CHAOS_INJECTIONS"
+
+      - name: Validate runner results
+        id: test
+        run: |
+          make -C deploy test \
+            CHANNELS="$CHANNELS" \
+            RUNNER_TIMEOUT_SECONDS="$RUNNER_TIMEOUT_SECONDS"
 
       - name: Collect diagnostics
         if: always()
@@ -133,8 +146,8 @@ jobs:
             VERIFY_OUTCOME="${{ steps.verify.outcome }}" \
             CLUSTER_OUTCOME="${{ steps.cluster.outcome }}" \
             INSTALL_OUTCOME="${{ steps.install.outcome }}" \
-            WORKFLOW_OUTCOME="${{ steps.pipeline.outcome }}" \
-            CHAOS_OUTCOME="${{ steps.pipeline.outcome }}"
+            WORKFLOW_OUTCOME="${{ steps.workflow.outcome }}" \
+            CHAOS_OUTCOME="${{ steps.chaos.outcome }}"
 
       - name: Upload normalized status results
         if: ${{ always() && (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') }}
