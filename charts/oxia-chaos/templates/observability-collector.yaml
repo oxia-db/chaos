@@ -87,7 +87,7 @@ data:
         config:
           scrape_configs:
             - job_name: oxia-chaos-pods
-              scrape_interval: 15s
+              scrape_interval: 60s
               kubernetes_sd_configs:
                 - role: pod
                   namespaces:
@@ -125,11 +125,11 @@ data:
                   target_label: channel
       k8s_cluster:
         auth_type: serviceAccount
-        collection_interval: 15s
+        collection_interval: 60s
         namespaces: [{{ .Release.Namespace | quote }}]
       kubelet_stats:
         auth_type: serviceAccount
-        collection_interval: 15s
+        collection_interval: 60s
         endpoint: https://${env:K8S_NODE_IP}:10250
         insecure_skip_verify: true
         metric_groups: [node, pod, container]
