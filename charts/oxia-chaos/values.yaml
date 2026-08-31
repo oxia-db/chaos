@@ -95,7 +95,7 @@ oxia-cluster:
   # Add oc-<runner>-<case> for every enabled pair.
   namespaces:
     - name: oc-java-basic-kv
-      initialShardCount: 1
+      initialShardCount: 3
       replicationFactor: 3
   image:
     repository: oxia/oxia
