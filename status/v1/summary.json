@@ -1,20 +1,16 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-30T18:26:17Z",
+  "generatedAt": "2026-08-31T08:09:06Z",
   "windowDays": 90,
   "channels": [
     {
       "id": "stable",
-      "serverVersion": "0.16",
-      "updatedAt": "2026-08-30T18:26:17Z",
+      "serverVersion": "sha256:07fdee7b639f7ea9d02e8c129e4fa71275992072c8317be7058a191d9e57aea3",
+      "updatedAt": "2026-08-31T08:09:06Z",
       "testCases": [
         {
           "id": "basic-kv",
           "history": [
-            {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
             {
               "date": "2026-06-03",
               "result": "not_run"
@@ -370,6 +366,13 @@
             {
               "date": "2026-08-30",
               "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
+              "result": "failed",
+              "title": "Chaos workflow failed to start",
+              "detail": "The five-cycle Chaos Mesh Workflow could not be submitted to the test cluster.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/33349862614"
             }
           ]
         },
@@ -377,10 +380,6 @@
           "id": "ephemeral",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -734,6 +733,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -742,10 +745,6 @@
           "id": "notification",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -1099,6 +1098,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -1107,10 +1110,6 @@
           "id": "sequences",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -1464,6 +1463,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -1472,10 +1475,6 @@
           "id": "secondary-index",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -1829,6 +1828,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -1837,10 +1840,6 @@
           "id": "versioning",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -2194,6 +2193,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -2229,16 +2232,12 @@
     },
     {
       "id": "beta",
-      "serverVersion": "0.17",
-      "updatedAt": "2026-08-30T18:26:17Z",
+      "serverVersion": "sha256:1fbab92295514c96b785c732de92fa50835c3d2b27e04d000c492a91206472ff",
+      "updatedAt": "2026-08-31T08:09:06Z",
       "testCases": [
         {
           "id": "basic-kv",
           "history": [
-            {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
             {
               "date": "2026-06-03",
               "result": "not_run"
@@ -2594,6 +2593,13 @@
             {
               "date": "2026-08-30",
               "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
+              "result": "failed",
+              "title": "Chaos workflow failed to start",
+              "detail": "The five-cycle Chaos Mesh Workflow could not be submitted to the test cluster.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/33349862614"
             }
           ]
         },
@@ -2601,10 +2607,6 @@
           "id": "ephemeral",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -2958,6 +2960,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -2966,10 +2972,6 @@
           "id": "notification",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -3323,6 +3325,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -3331,10 +3337,6 @@
           "id": "sequences",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -3688,6 +3690,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -3696,10 +3702,6 @@
           "id": "secondary-index",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -4053,6 +4055,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
@@ -4061,10 +4067,6 @@
           "id": "versioning",
           "history": [
             {
-              "date": "2026-06-02",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-03",
               "result": "not_run"
             },
@@ -4418,6 +4420,10 @@
             },
             {
               "date": "2026-08-30",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-08-31",
               "result": "not_run"
             }
           ]
