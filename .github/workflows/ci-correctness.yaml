@@ -38,7 +38,7 @@ on:
   schedule:
     # Oxia refreshes the nightly Stable and Beta images at 18:00 UTC.
     # Use an off-peak minute so GitHub does not delay a top-of-hour cron.
-    - cron: "25 2 * * *"
+    - cron: "17 2 * * *"
   workflow_dispatch:
     inputs:
       profile:
