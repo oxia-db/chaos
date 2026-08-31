@@ -78,7 +78,6 @@ channel-plan: dependencies
 				awk '$$1 == "Digest:" { print $$2; exit }'); \
 			case "$$digest" in sha256:*) ;; *) echo "Unable to resolve oxia/oxia:$$source_tag" >&2; exit 1 ;; esac; \
 			resolved_tag="$$source_tag@$$digest"; \
-			server_version="$$digest"; \
 		fi; \
 		entry=$$(printf '%s' "$$entry" | jq --compact-output \
 			--arg sourceTag "$$source_tag" \
