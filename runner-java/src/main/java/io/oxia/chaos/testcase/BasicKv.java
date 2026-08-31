@@ -22,6 +22,8 @@ import static io.oxia.chaos.util.Timing.elapsedSeconds;
 
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import dev.failsafe.Timeout;
+import dev.failsafe.TimeoutExceededException;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
@@ -71,6 +73,7 @@ public final class BasicKv {
   private static final String INSTRUMENTATION_SCOPE = "io.oxia.chaos.basic-kv";
   private static final Duration INITIAL_RETRY_DELAY = Duration.ofMillis(100);
   private static final Duration MAX_RETRY_DELAY = Duration.ofSeconds(5);
+  private static final Duration OPERATION_ATTEMPT_TIMEOUT = Duration.ofSeconds(10);
   private static final double PUT_THRESHOLD = 0.20;
   private static final double GET_THRESHOLD = PUT_THRESHOLD + 0.15;
   private static final double FLOOR_THRESHOLD = GET_THRESHOLD + 0.05;
@@ -89,6 +92,7 @@ public final class BasicKv {
   private final RunnerMetrics metrics;
   private final Tracer tracer;
   private final RetryPolicy<Object> retryPolicy;
+  private final Timeout<Object> attemptTimeout;
   private final KeyGenerator keyGenerator;
   private final ValueGenerator valueGenerator;
 
@@ -109,32 +113,8 @@ public final class BasicKv {
     this.inference = inference;
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
-    this.retryPolicy =
-        RetryPolicy.builder()
-            .handleIf(OxiaExceptionUtils::isRetryable)
-            .withBackoff(INITIAL_RETRY_DELAY, MAX_RETRY_DELAY)
-            .withMaxAttempts(-1)
-            .withMaxDuration(retryTimeout)
-            .onRetry(
-                (final var event) -> {
-                  final OxiaStatusException error =
-                      OxiaExceptionUtils.status(event.getLastException());
-                  LOGGER
-                      .atWarn()
-                      .addKeyValue("attempt", event.getAttemptCount())
-                      .addKeyValue("status", error.getStatusCode())
-                      .log("Retrying current Oxia operation");
-                })
-            .onRetriesExceeded(
-                (final var event) -> {
-                  final OxiaStatusException error = OxiaExceptionUtils.status(event.getException());
-                  LOGGER
-                      .atError()
-                      .addKeyValue("attempts", event.getAttemptCount())
-                      .addKeyValue("status", error.getStatusCode())
-                      .log("Current Oxia operation exhausted its retry window");
-                })
-            .build();
+    this.retryPolicy = createRetryPolicy(retryTimeout);
+    this.attemptTimeout = createAttemptTimeout(minimum(OPERATION_ATTEMPT_TIMEOUT, retryTimeout));
     this.keyGenerator = new KeyGenerator(runId);
     this.valueGenerator = new ValueGenerator(options.seed());
   }
@@ -195,27 +175,24 @@ public final class BasicKv {
     final Span span = tracer.spanBuilder("basic-kv.warmup").setNoParent().startSpan();
     final long started = System.nanoTime();
     try (final Scope ignored = Context.root().makeCurrent()) {
-      Failsafe.with(retryPolicy)
-          .run(
-              () ->
-                  GuardUtils.putReferenceGuard(
-                      client, inference, keyGenerator.lowerGuardKey(), "lower"));
+      runWithRetry(
+          () ->
+              GuardUtils.putReferenceGuard(
+                  client, inference, keyGenerator.lowerGuardKey(), "lower"));
       for (int index = 0; index < options.keyCount(); index++) {
         final int keyIndex = index;
         final String key = keyGenerator.key(keyIndex);
         final byte[] value = valueGenerator.warmup(keyIndex);
-        Failsafe.with(retryPolicy)
-            .run(
-                () -> {
-                  client.put(key, value);
-                  inference.put(key, value);
-                });
+        runWithRetry(
+            () -> {
+              client.put(key, value);
+              inference.put(key, value);
+            });
       }
-      Failsafe.with(retryPolicy)
-          .run(
-              () ->
-                  GuardUtils.putReferenceGuard(
-                      client, inference, keyGenerator.upperGuardKey(), "upper"));
+      runWithRetry(
+          () ->
+              GuardUtils.putReferenceGuard(
+                  client, inference, keyGenerator.upperGuardKey(), "upper"));
       span.setAttribute("test.keys", options.keyCount()).setStatus(StatusCode.OK);
       LOGGER
           .atInfo()
@@ -440,7 +417,7 @@ public final class BasicKv {
             .setAttribute("db.key", key)
             .startSpan();
     try (final Scope ignored = span.makeCurrent()) {
-      Failsafe.with(retryPolicy).run(action::run);
+      runWithRetry(action);
       span.setStatus(StatusCode.OK);
     } catch (final RuntimeException error) {
       outcome = "error";
@@ -521,17 +498,16 @@ public final class BasicKv {
       final String afterLastKey = keyGenerator.afterUpperGuardKey();
       final List<KeyValue> expected = sortedByKey(inference.range(firstKey, afterLastKey));
       final List<KeyValue> unorderedActual = new ArrayList<>();
-      Failsafe.with(retryPolicy)
-          .run(
-              () -> {
-                unorderedActual.clear();
-                try (final CloseableIterable<GetResult> results =
-                    client.rangeScan(firstKey, afterLastKey)) {
-                  for (final GetResult result : results) {
-                    unorderedActual.add(new KeyValue(result.key(), result.value()));
-                  }
-                }
-              });
+      runWithRetry(
+          () -> {
+            unorderedActual.clear();
+            try (final CloseableIterable<GetResult> results =
+                client.rangeScan(firstKey, afterLastKey)) {
+              for (final GetResult result : results) {
+                unorderedActual.add(new KeyValue(result.key(), result.value()));
+              }
+            }
+          });
       final List<KeyValue> actual = sortedByKey(unorderedActual);
       if (!expected.equals(actual)) {
         throw CorrectnessViolationException.checkpointMismatch(
@@ -558,17 +534,62 @@ public final class BasicKv {
   }
 
   private void cleanup() {
-    Failsafe.with(retryPolicy)
-        .run(
-            () ->
-                client.deleteRange(
-                    keyGenerator.lowerGuardKey(), keyGenerator.afterUpperGuardKey()));
+    runWithRetry(
+        () -> client.deleteRange(keyGenerator.lowerGuardKey(), keyGenerator.afterUpperGuardKey()));
     inference.clear();
     LOGGER.atInfo().addKeyValue("run_id", runId).log("basic-kv cleanup completed");
   }
 
   static BatchType selectBatch(final double selected) {
     return batchType(selectOperation(selected));
+  }
+
+  static RetryPolicy<Object> createRetryPolicy(final Duration retryTimeout) {
+    return RetryPolicy.builder()
+        .handleIf(
+            (final Throwable error) ->
+                error instanceof TimeoutExceededException || OxiaExceptionUtils.isRetryable(error))
+        .withBackoff(INITIAL_RETRY_DELAY, MAX_RETRY_DELAY)
+        .withMaxAttempts(-1)
+        .withMaxDuration(retryTimeout)
+        .onRetry(
+            (final var event) -> {
+              final OxiaStatusException error = OxiaExceptionUtils.status(event.getLastException());
+              LOGGER
+                  .atWarn()
+                  .addKeyValue("attempt", event.getAttemptCount())
+                  .addKeyValue("status", error.getStatusCode())
+                  .log("Retrying current Oxia operation");
+            })
+        .onRetriesExceeded(
+            (final var event) -> {
+              final OxiaStatusException error = OxiaExceptionUtils.status(event.getException());
+              LOGGER
+                  .atError()
+                  .addKeyValue("attempts", event.getAttemptCount())
+                  .addKeyValue("status", error.getStatusCode())
+                  .log("Current Oxia operation exhausted its retry window");
+            })
+        .build();
+  }
+
+  static Timeout<Object> createAttemptTimeout(final Duration timeout) {
+    return Timeout.builder(timeout).withInterrupt().build();
+  }
+
+  static void runWithRetry(
+      final RetryPolicy<Object> retryPolicy,
+      final Timeout<Object> attemptTimeout,
+      final Runnable action) {
+    Failsafe.with(retryPolicy, attemptTimeout).run(action::run);
+  }
+
+  private void runWithRetry(final Runnable action) {
+    runWithRetry(retryPolicy, attemptTimeout, action);
+  }
+
+  private static Duration minimum(final Duration first, final Duration second) {
+    return first.compareTo(second) <= 0 ? first : second;
   }
 
   private static Operation selectOperationForBatch(

@@ -18,8 +18,11 @@ package io.oxia.chaos.testcase;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.Timeout;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Operation;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 
@@ -113,6 +118,31 @@ class BasicKvTest {
       assertThatThrownBy(() -> BasicKv.executeConcurrentBatch(executor, operations))
           .isSameAs(failure);
     }
+  }
+
+  @Test
+  void interruptsAStuckAttemptAndRetriesTheWholeOperation() {
+    final RetryPolicy<Object> retryPolicy = BasicKv.createRetryPolicy(Duration.ofSeconds(1));
+    final Timeout<Object> attemptTimeout = BasicKv.createAttemptTimeout(Duration.ofMillis(50));
+    final AtomicInteger attempts = new AtomicInteger();
+    final AtomicBoolean interrupted = new AtomicBoolean();
+
+    BasicKv.runWithRetry(
+        retryPolicy,
+        attemptTimeout,
+        () -> {
+          if (attempts.incrementAndGet() == 1) {
+            try {
+              Thread.sleep(Duration.ofMinutes(1));
+            } catch (final InterruptedException error) {
+              interrupted.set(true);
+              Thread.currentThread().interrupt();
+            }
+          }
+        });
+
+    assertThat(interrupted).isTrue();
+    assertThat(attempts).hasValue(2);
   }
 
   private static <T> void assertShare(
