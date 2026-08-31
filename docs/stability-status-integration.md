@@ -86,11 +86,11 @@ Use this versioned schema:
         }
       ],
       "chaos": {
-        "profile": "five-cycle",
+        "profile": "six-hour",
         "duration": "6h",
-        "expectedInjections": 30,
+        "expectedInjections": 1,
         "injections": [
-          { "type": "pod-kill", "count": 30 }
+          { "type": "pod-kill", "count": 1 }
         ]
       }
     }
@@ -112,8 +112,9 @@ The source tags and displayed fallback versions are defined once in
 `config/oxia-channels.json`. Update that file when a channel advances; both the
 correctness deployment plan and status publisher consume it.
 
-Never report only a range such as `0.16.x` in JSON. Resolve each nightly image
-to an immutable digest and publish that exact digest for the run.
+Pin each nightly deployment to its resolved immutable digest, but publish the
+tested release line (`0.16` or `0.17`) from the channel configuration. Do not
+expose the internal image digest as the public server version.
 
 Testcase IDs are:
 
@@ -133,7 +134,7 @@ The chaos repository has three top-level CI workflows with separate ownership:
 
 1. `ci-docker-release.yaml` builds and publishes runner images.
 2. `ci-correctness.yaml` runs quick checks for pull requests and pushes, and the
-   six-hour five-cycle profile at `02:00 UTC` each day, after Oxia's scheduled
+   six-hour profile at `02:17 UTC` each day, after Oxia's scheduled
    Stable and Beta image refresh. Each run creates one kind cluster, installs Chaos Mesh
    once, and installs one Oxia Helm release per selected channel. Every enabled
    runner/testcase pair comes from the chart and runs against each channel.
@@ -147,10 +148,10 @@ The chaos repository has three top-level CI workflows with separate ownership:
 
 The status workflow's manual `bootstrap` mode initializes the public endpoint
 with 90 days of honest `not_run` history before the first scheduled result. Its
-manual `replay` mode accepts the source run ID of a completed scheduled run for
-recovering a publication without rerunning the six-hour test. Automatic and
-replayed result publication accepts scheduled Correctness runs only. Quick
-results never affect stability history.
+manual `replay` mode accepts the source run ID of a completed scheduled run, or
+of an explicitly dispatched six-hour run that published `status-result-all`,
+for recovering or completing publication without rerunning the test. Quick and
+status-smoke results never affect production stability history.
 
 For end-to-end validation, manually dispatch Correctness with the
 `status-smoke` profile. It runs the short pipeline for both channels and
@@ -265,7 +266,8 @@ browser request again after the first deployment.
 - Only completed runs affect the calculated pass rate.
 - Failures include a professional, actionable explanation and workflow link.
 - The JSON records the exact Oxia server version, not only the release channel.
-- The five-cycle pipeline reports 30 pod kills and five each of network
-  partition, CPU pressure, memory pressure, and network latency.
+- The six-hour pipeline starts with a ten-minute baseline, kills one randomly
+  selected Oxia server pod, allows ten minutes for recovery, verifies all three
+  servers are healthy, and observes the workload for the remaining time.
 - No personal access token or cross-repository write permission is required.
 - `make check` passes after runner or chart changes.

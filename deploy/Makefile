@@ -11,13 +11,12 @@ JAVA_IMAGE ?= oxia/chaos-java:latest
 HELM_ARGS ?=
 CHANNEL_CONFIG ?= ../config/oxia-channels.json
 CHANNELS ?= stable
-WORKLOAD_PROFILE ?= five-cycle
+WORKLOAD_PROFILE ?= six-hour
 REUSE_CHANNEL_PLAN ?= false
 RUNNER_IMAGE_PULL_POLICY ?= IfNotPresent
 PRELOAD_DEPENDENCY_IMAGES ?= true
 WORK_DIR ?= .work
 CHANNEL_PLAN ?= $(WORK_DIR)/oxia-channels.json
-CORRECTNESS_VICTIM_ORDINAL ?=
 RUNNER_TIMEOUT_SECONDS ?= 25200
 RUNNER_POLL_INTERVAL ?= 10
 WORKFLOW_TIMEOUT_SECONDS ?= 21600
@@ -233,17 +232,12 @@ correctness:
 	for channel in $$(jq --raw-output 'keys_unsorted[]' '$(CHANNEL_PLAN)'); do \
 		release="$(RELEASE_NAME)-$$channel"; \
 		image_tag=$$(jq --raw-output --arg channel "$$channel" '.[$$channel].imageTag' '$(CHANNEL_PLAN)'); \
-		victim_ordinal='$(CORRECTNESS_VICTIM_ORDINAL)'; \
-		if [ -z "$$victim_ordinal" ]; then victim_ordinal=$$(od -An -N4 -tu4 /dev/urandom | awk '{ print $$1 % 3 }'); fi; \
-		case "$$victim_ordinal" in 0|1|2) ;; *) echo "Invalid Oxia victim ordinal: $$victim_ordinal" >&2; exit 1 ;; esac; \
-		echo "Selected Oxia victim pod $$release-$$victim_ordinal for $$channel"; \
 		for attempt in $$(seq 1 30); do \
 			if $(HELM) template "$$release" ../charts/oxia-chaos \
 				--namespace $(NAMESPACE) \
 				--set runnerWorkloadsEnabled=false \
 				--set chaosWorkflow.enabled=true \
 				--set-string chaosWorkflow.profile=$(WORKLOAD_PROFILE) \
-				--set chaosWorkflow.victimOrdinal=$$victim_ordinal \
 				--set chaos-mesh.enabled=false \
 				--set-string channel="$$channel" \
 				--set-string testProfile=$(WORKLOAD_PROFILE) \

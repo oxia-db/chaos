@@ -31,7 +31,7 @@ on:
           - bootstrap
           - replay
       source_run_id:
-        description: Completed scheduled Correctness run ID (replay only)
+        description: Completed scheduled or six-hour Correctness run ID (replay only)
         required: false
         type: string
 
@@ -68,7 +68,13 @@ jobs:
           run_json=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$REQUESTED_RUN_ID")
           test "$(jq -r '.name' <<< "$run_json")" = "Correctness"
           test "$(jq -r '.status' <<< "$run_json")" = "completed"
-          test "$(jq -r '.event' <<< "$run_json")" = "schedule"
+          source_event=$(jq -r '.event' <<< "$run_json")
+          if [ "$source_event" != "schedule" ]; then
+            test "$source_event" = "workflow_dispatch"
+            artifact_count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$REQUESTED_RUN_ID/artifacts" \
+              --jq '[.artifacts[] | select(.name == "status-result-all")] | length')
+            test "$artifact_count" = "1"
+          fi
           {
             echo "run_id=$REQUESTED_RUN_ID"
             echo "run_date=$(jq -r '.created_at[0:10]' <<< "$run_json")"

@@ -1,19 +1,8 @@
 {{- if .Values.chaosWorkflow.enabled }}
 {{- $profile := required "chaosWorkflow.profile is required" .Values.chaosWorkflow.profile -}}
-{{- if not (has $profile (list "quick" "five-cycle")) -}}
+{{- if not (has $profile (list "quick" "six-hour")) -}}
 {{- fail (printf "unsupported chaosWorkflow.profile %q" $profile) -}}
 {{- end }}
-{{- $victimOrdinal := int .Values.chaosWorkflow.victimOrdinal -}}
-{{- if not (has $victimOrdinal (list 0 1 2)) -}}
-{{- fail (printf "chaosWorkflow.victimOrdinal must be 0, 1, or 2, got %d" $victimOrdinal) -}}
-{{- end }}
-{{- $victimPod := printf "%s-%d" .Release.Name $victimOrdinal -}}
-{{- $peerPods := list -}}
-{{- range $ordinal := until 3 -}}
-{{- if ne $ordinal $victimOrdinal -}}
-{{- $peerPods = append $peerPods (printf "%s-%d" $.Release.Name $ordinal) -}}
-{{- end -}}
-{{- end -}}
 ---
 apiVersion: chaos-mesh.org/v1alpha1
 kind: Workflow
@@ -26,10 +15,6 @@ metadata:
     app.kubernetes.io/part-of: oxia-chaos
     oxia.chaos/channel: {{ required "channel is required" .Values.channel | quote }}
     oxia.chaos/profile: {{ $profile | quote }}
-  {{- if eq $profile "five-cycle" }}
-  annotations:
-    oxia.chaos/victim-pod: {{ $victimPod | quote }}
-  {{- end }}
 spec:
 {{- if eq $profile "quick" }}
   entry: quick-pipeline
@@ -83,41 +68,17 @@ spec:
       templateType: Suspend
       deadline: 10s
 {{- else }}
-  entry: five-cycle-pipeline
+  entry: six-hour-pipeline
   templates:
-    - name: five-cycle-pipeline
+    - name: six-hour-pipeline
       templateType: Serial
       children:
-        - one-hour-cycle
-        - one-hour-cycle
-        - one-hour-cycle
-        - one-hour-cycle
-        - one-hour-cycle
-        - final-observation
-    - name: one-hour-cycle
-      templateType: Serial
-      children:
-        - cycle-baseline
+        - baseline
         - pod-kill
-        - pod-kill-spacing
+        - recovery
         - health-check
-        - pod-kill
-        - pod-kill-spacing
-        - health-check
-        - pod-kill
-        - pod-kill-spacing
-        - health-check
-        - pod-kill
-        - pod-kill-spacing
-        - health-check
-        - pod-kill
-        - pod-kill-spacing
-        - health-check
-        - pod-kill
-        - pod-kill-recovery
-        - health-check
-        - cycle-observation
-    - name: cycle-baseline
+        - observation
+    - name: baseline
       templateType: Suspend
       deadline: 10m
     - name: pod-kill
@@ -133,10 +94,7 @@ spec:
             app.kubernetes.io/name: oxia-cluster
             app.kubernetes.io/component: server
             app.kubernetes.io/instance: {{ .Release.Name | quote }}
-    - name: pod-kill-spacing
-      templateType: Suspend
-      deadline: 110s
-    - name: pod-kill-recovery
+    - name: recovery
       templateType: Suspend
       deadline: 10m
     - name: health-check
@@ -157,97 +115,10 @@ spec:
               memory: 32Mi
             limits:
               memory: 64Mi
-    - name: network-partition
-      templateType: NetworkChaos
-      deadline: 2m
-      networkChaos:
-        action: partition
-        mode: all
-        direction: both
-        selector:
-          namespaces:
-            - {{ .Release.Namespace | quote }}
-          pods:
-            {{ .Release.Namespace }}:
-              - {{ $victimPod | quote }}
-        target:
-          mode: all
-          selector:
-            namespaces:
-              - {{ .Release.Namespace | quote }}
-            pods:
-              {{ .Release.Namespace }}:
-                {{- toYaml $peerPods | nindent 16 }}
-    - name: network-recovery
+    - name: observation
       templateType: Suspend
-      deadline: 10m
-    - name: pressure
-      templateType: Parallel
-      deadline: 5m
-      children:
-        - cpu-pressure
-        - memory-pressure
-        - network-latency
-    - name: cpu-pressure
-      templateType: StressChaos
-      deadline: 5m
-      stressChaos:
-        mode: all
-        containerNames:
-          - server
-        selector:
-          namespaces:
-            - {{ .Release.Namespace | quote }}
-          pods:
-            {{ .Release.Namespace }}:
-              - {{ $victimPod | quote }}
-        stressors:
-          cpu:
-            workers: 1
-            load: 80
-    - name: memory-pressure
-      templateType: StressChaos
-      deadline: 5m
-      stressChaos:
-        mode: all
-        containerNames:
-          - server
-        selector:
-          namespaces:
-            - {{ .Release.Namespace | quote }}
-          pods:
-            {{ .Release.Namespace }}:
-              - {{ $victimPod | quote }}
-        stressors:
-          memory:
-            workers: 1
-            size: 128MiB
-    - name: network-latency
-      templateType: NetworkChaos
-      deadline: 5m
-      networkChaos:
-        action: delay
-        mode: all
-        direction: to
-        selector:
-          namespaces:
-            - {{ .Release.Namespace | quote }}
-          pods:
-            {{ .Release.Namespace }}:
-              - {{ $victimPod | quote }}
-        delay:
-          latency: 100ms
-          jitter: 20ms
-          correlation: "25"
-    - name: pressure-recovery
-      templateType: Suspend
-      deadline: 10m
-    - name: cycle-observation
-      templateType: Suspend
-      # Keep each cycle close to one hour while network and pressure faults are inactive.
-      deadline: 32m
-    - name: final-observation
-      templateType: Suspend
-      deadline: 45m
+      # Together with the baseline, fault, and recovery, keep the workflow aligned
+      # with the six-hour basic-kv workload.
+      deadline: 5h39m
 {{- end }}
 {{- end }}

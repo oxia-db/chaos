@@ -5,7 +5,7 @@ fullnameOverride: ""
 channel: stable
 
 # Selects one configuration from each enabled testcase.
-testProfile: five-cycle
+testProfile: six-hour
 
 # Deployment orchestration disables every runner while Oxia clusters converge.
 runnerWorkloadsEnabled: true
@@ -39,7 +39,7 @@ cases:
         rate: 500
         batchSize: 100
         checkpointInterval: 30s
-      five-cycle:
+      six-hour:
         duration: 6h
         keyCount: 10000
         rate: 258
@@ -48,10 +48,8 @@ cases:
 
 chaosWorkflow:
   enabled: false
-  # Supported profiles: quick, five-cycle.
-  profile: five-cycle
-  # Local deploy randomly overrides this for each submitted workflow.
-  victimOrdinal: 0
+  # Supported profiles: quick, six-hour.
+  profile: six-hour
 
 runnerJob:
   imagePullSecrets: []

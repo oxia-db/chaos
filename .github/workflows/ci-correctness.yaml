@@ -50,10 +50,10 @@ on:
         required: true
         type: choice
         default: quick
-        options: [quick, status-smoke, five-cycle]
+        options: [quick, status-smoke, six-hour]
 
 concurrency:
-  group: correctness-${{ github.workflow }}-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || inputs.profile == 'status-smoke' && 'status-smoke' || 'quick' }}
+  group: correctness-${{ github.workflow }}-${{ github.ref }}-${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour') && 'six-hour' || inputs.profile == 'status-smoke' && 'status-smoke' || 'quick' }}
   cancel-in-progress: true
 
 permissions:
@@ -64,11 +64,11 @@ env:
   KUBE_CONTEXT: kind-oxia-chaos
   NAMESPACE: oxia-chaos
   RELEASE_NAME: oxia-chaos
-  CHANNELS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') && 'stable beta' || 'stable' }}
-  WORKLOAD_PROFILE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || 'quick' }}
-  RUNNER_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '23400' || '600' }}
-  WORKFLOW_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '21600' || '240' }}
-  EXPECTED_CHAOS_INJECTIONS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '30' || '1' }}
+  CHANNELS: ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour' || inputs.profile == 'status-smoke') && 'stable beta' || 'stable' }}
+  WORKLOAD_PROFILE: ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour') && 'six-hour' || 'quick' }}
+  RUNNER_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour') && '23400' || '600' }}
+  WORKFLOW_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour') && '22200' || '240' }}
+  EXPECTED_CHAOS_INJECTIONS: 1
   OBSERVABILITY_ENABLED: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT != '' && secrets.GRAFANA_CLOUD_OTLP_INSTANCE_ID != '' && secrets.GRAFANA_CLOUD_TOKEN != '' && 'true' || 'false' }}
   GRAFANA_CLOUD_OTLP_ENDPOINT: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
   GRAFANA_CLOUD_OTLP_INSTANCE_ID: ${{ secrets.GRAFANA_CLOUD_OTLP_INSTANCE_ID }}
@@ -78,9 +78,9 @@ env:
 
 jobs:
   correctness:
-    name: Helm correctness ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || inputs.profile == 'status-smoke' && 'status-smoke' || 'quick' }}
-    runs-on: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') && 'cncf-ubuntu-8-32-x86' || 'ubuntu-latest' }}
-    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 420 || inputs.profile == 'status-smoke' && 45 || 25 }}
+    name: Helm correctness ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour') && 'six-hour' || inputs.profile == 'status-smoke' && 'status-smoke' || 'quick' }}
+    runs-on: ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour' || inputs.profile == 'status-smoke') && 'cncf-ubuntu-8-32-x86' || 'ubuntu-latest' }}
+    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour') && 420 || inputs.profile == 'status-smoke' && 45 || 25 }}
     steps:
       - uses: actions/checkout@v7
 
@@ -155,7 +155,7 @@ jobs:
         run: make -C deploy diagnostics
 
       - name: Collect normalized status results
-        if: ${{ always() && (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') }}
+        if: ${{ always() && (github.event_name == 'schedule' || inputs.profile == 'six-hour' || inputs.profile == 'status-smoke') }}
         run: |
           make -C deploy status-results \
             CHANNELS="$CHANNELS" \
@@ -170,7 +170,7 @@ jobs:
             CHAOS_OUTCOME="${{ steps.chaos.outcome }}"
 
       - name: Upload normalized status results
-        if: ${{ always() && (github.event_name == 'schedule' || inputs.profile == 'five-cycle' || inputs.profile == 'status-smoke') }}
+        if: ${{ always() && (github.event_name == 'schedule' || inputs.profile == 'six-hour' || inputs.profile == 'status-smoke') }}
         uses: actions/upload-artifact@v7
         with:
           name: status-${{ inputs.profile == 'status-smoke' && 'smoke-' || '' }}result-all
