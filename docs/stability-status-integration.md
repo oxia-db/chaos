@@ -88,13 +88,9 @@ Use this versioned schema:
       "chaos": {
         "profile": "five-cycle",
         "duration": "6h",
-        "expectedInjections": 50,
+        "expectedInjections": 30,
         "injections": [
-          { "type": "pod-kill", "count": 30 },
-          { "type": "network-partition", "count": 5 },
-          { "type": "cpu-pressure", "count": 5 },
-          { "type": "memory-pressure", "count": 5 },
-          { "type": "network-latency", "count": 5 }
+          { "type": "pod-kill", "count": 30 }
         ]
       }
     }

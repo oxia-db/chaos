@@ -7,6 +7,7 @@ from pathlib import Path
 from collect import parse_execution_plan
 from status import (
     CHAOS,
+    LEGACY_CHAOS,
     PHASE_FAILURES,
     TEST_CASES,
     WINDOW_DAYS,
@@ -125,6 +126,37 @@ data:
             for channel in summary["channels"]:
                 for test_case in channel["testCases"]:
                     self.assertTrue(all(entry["result"] == "not_run" for entry in test_case["history"]))
+
+    def test_merge_migrates_previous_multi_fault_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            initial = merge_summary(
+                argparse.Namespace(
+                    existing=str(root / "missing.json"),
+                    results=str(root / "missing-results"),
+                    output=str(root / "summary.json"),
+                    generated_at="2026-08-31T06:15:00Z",
+                    fallback_date="2026-08-31",
+                    fallback_run_url="https://github.com/oxia-db/chaos/actions",
+                )
+            )
+            for channel in initial["channels"]:
+                channel["chaos"] = LEGACY_CHAOS
+            existing = root / "existing.json"
+            existing.write_text(json.dumps(initial), encoding="utf-8")
+
+            migrated = merge_summary(
+                argparse.Namespace(
+                    existing=str(existing),
+                    results=str(root / "missing-results"),
+                    output=str(root / "summary.json"),
+                    generated_at="2026-08-31T07:15:00Z",
+                    fallback_date="2026-08-31",
+                    fallback_run_url="https://github.com/oxia-db/chaos/actions",
+                )
+            )
+
+            self.assertTrue(all(channel["chaos"] == CHAOS for channel in migrated["channels"]))
 
     def test_result_reports_failed_phase(self) -> None:
         phases = {phase: "success" for phase in ("image", "verify", "cluster", "preload", "install")}

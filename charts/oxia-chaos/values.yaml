@@ -62,6 +62,10 @@ runnerJob:
     enabled: true
     port: 9464
     path: /metrics
+  telemetry:
+    enabled: false
+    otlpEndpoint: ""
+    clusterName: oxia-chaos
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -71,8 +75,26 @@ serviceAccount:
   annotations: {}
   name: ""
 
+observability:
+  enabled: false
+  image:
+    repository: otel/opentelemetry-collector-contrib
+    tag: 0.153.0
+    pullPolicy: IfNotPresent
+  existingSecret: ""
+  clusterName: oxia-chaos
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+  traces:
+    successSamplingPercentage: 0.5
+
 oxia-cluster:
   enabled: true
+  monitoringEnabled: true
   # Add oc-<runner>-<case> for every enabled pair.
   namespaces:
     - name: oc-java-basic-kv

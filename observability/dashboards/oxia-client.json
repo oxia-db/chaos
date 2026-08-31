@@ -1,0 +1,136 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": false,
+        "iconColor": "red",
+        "name": "Chaos injections",
+        "target": {"limit": 100, "matchAny": false, "tags": ["oxia-chaos", "chaos"], "type": "tags"},
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {"asDropdown": false, "icon": "external link", "includeVars": true, "keepTime": true, "tags": [], "targetBlank": true, "title": "Cluster dashboard", "type": "link", "url": "/d/oxia-chaos-cluster"},
+    {"asDropdown": false, "icon": "external link", "includeVars": true, "keepTime": true, "tags": [], "targetBlank": true, "title": "Correctness workflow", "type": "link", "url": "https://github.com/oxia-db/chaos/actions/workflows/ci-correctness.yaml"}
+  ],
+  "panels": [
+    {"collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}, "id": 1, "panels": [], "title": "Client correctness", "type": "row"},
+    {
+      "datasource": {"type": "prometheus", "uid": "${metrics}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 1},
+      "id": 2,
+      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
+      "targets": [{"expr": "sum(increase(oxia_chaos_safety_violations_total{channel=~\"$channel\",case=~\"$case\"}[$__range]))", "legendFormat": "violations", "refId": "A"}],
+      "title": "Correctness violations",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${metrics}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 1},
+      "id": 3,
+      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
+      "targets": [{"expr": "sum(increase(oxia_chaos_operations_total{channel=~\"$channel\",case=~\"$case\",outcome!=\"success\"}[$__range]))", "legendFormat": "failed", "refId": "A"}],
+      "title": "Failed operations",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${metrics}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 1},
+      "id": 4,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
+      "targets": [{"expr": "sum(rate(oxia_chaos_operations_total{channel=~\"$channel\",case=~\"$case\"}[$__rate_interval]))", "legendFormat": "ops/s", "refId": "A"}],
+      "title": "Current operation rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${metrics}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 1},
+      "id": 5,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
+      "targets": [{"expr": "max(oxia_chaos_reference_keys{channel=~\"$channel\",case=~\"$case\"})", "legendFormat": "keys", "refId": "A"}],
+      "title": "Inference keys",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${metrics}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 12, "gradientMode": "none", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true, "stacking": {"group": "A", "mode": "normal"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "id": 6,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "sum by (operation) (rate(oxia_chaos_operations_total{channel=~\"$channel\",case=~\"$case\",outcome=\"success\"}[$__rate_interval]))", "legendFormat": "{{operation}}", "refId": "A"}],
+      "title": "Successful operations by type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${metrics}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 8, "gradientMode": "none", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "log", "log": 2}, "showPoints": "never", "spanNulls": true, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "id": 7,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le, operation) (rate(oxia_chaos_operation_duration_seconds_bucket{channel=~\"$channel\",case=~\"$case\"}[$__rate_interval])))", "legendFormat": "p95 {{operation}}", "refId": "A"},
+        {"expr": "histogram_quantile(0.99, sum by (le, operation) (rate(oxia_chaos_operation_duration_seconds_bucket{channel=~\"$channel\",case=~\"$case\"}[$__rate_interval])))", "legendFormat": "p99 {{operation}}", "refId": "B"}
+      ],
+      "title": "Client operation latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${metrics}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 8, "gradientMode": "none", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "id": 8,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, checkpoint_kind) (rate(oxia_chaos_checkpoint_duration_seconds_bucket{channel=~\"$channel\",case=~\"$case\"}[$__rate_interval])))", "legendFormat": "p95 {{checkpoint_kind}}", "refId": "A"}],
+      "title": "Checkpoint latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "${logs}"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "id": 9,
+      "options": {"dedupStrategy": "none", "enableInfiniteScrolling": false, "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"editorMode": "code", "expr": "{k8s_namespace_name=\"oxia-chaos\", k8s_container_name=\"runner\"}", "queryType": "range", "refId": "A"}],
+      "title": "Runner logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {"type": "tempo", "uid": "${traces}"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 22},
+      "id": 10,
+      "targets": [{"limit": 100, "query": "{ resource.service.name =~ `oxia-chaos-.*` && (status = error || duration > 1s) }", "queryType": "traceql", "refId": "A", "tableType": "traces"}],
+      "title": "Slow and failed client traces",
+      "type": "traces"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["oxia", "chaos", "correctness", "client"],
+  "templating": {
+    "list": [
+      {"current": {}, "hide": 0, "includeAll": false, "label": "Metrics", "multi": false, "name": "metrics", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "type": "datasource"},
+      {"current": {}, "hide": 0, "includeAll": false, "label": "Logs", "multi": false, "name": "logs", "options": [], "query": "loki", "refresh": 1, "regex": "", "type": "datasource"},
+      {"current": {}, "hide": 0, "includeAll": false, "label": "Traces", "multi": false, "name": "traces", "options": [], "query": "tempo", "refresh": 1, "regex": "", "type": "datasource"},
+      {"allValue": ".*", "current": {}, "datasource": {"type": "prometheus", "uid": "${metrics}"}, "definition": "label_values(oxia_chaos_operations_total, channel)", "hide": 0, "includeAll": true, "label": "Channel", "multi": true, "name": "channel", "options": [], "query": {"query": "label_values(oxia_chaos_operations_total, channel)", "refId": "StandardVariableQuery"}, "refresh": 1, "regex": "", "sort": 1, "type": "query"},
+      {"allValue": ".*", "current": {}, "datasource": {"type": "prometheus", "uid": "${metrics}"}, "definition": "label_values(oxia_chaos_operations_total{channel=~\"$channel\"}, case)", "hide": 0, "includeAll": true, "label": "Case", "multi": true, "name": "case", "options": [], "query": {"query": "label_values(oxia_chaos_operations_total{channel=~\"$channel\"}, case)", "refId": "StandardVariableQuery"}, "refresh": 1, "regex": "", "sort": 1, "type": "query"}
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "Oxia Chaos / Client",
+  "uid": "oxia-chaos-client",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,343 @@
+{{- if .Values.observability.enabled }}
+{{- $name := printf "%s-observability" (include "oxia-chaos.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- $secret := required "observability.existingSecret is required when observability is enabled" .Values.observability.existingSecret -}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+rules:
+  - apiGroups: [""]
+    resources:
+      - events
+      - namespaces
+      - nodes
+      - nodes/spec
+      - nodes/stats
+      - pods
+      - replicationcontrollers
+      - resourcequotas
+      - services
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets", "deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+data:
+  collector.yaml: |
+    extensions:
+      basicauth/grafana:
+        client_auth:
+          username: ${env:GRAFANA_CLOUD_OTLP_INSTANCE_ID}
+          password: ${env:GRAFANA_CLOUD_TOKEN}
+      health_check:
+        endpoint: 0.0.0.0:13133
+
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: oxia-chaos-pods
+              scrape_interval: 15s
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names: [{{ .Release.Namespace | quote }}]
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_phase]
+                  regex: Running
+                  action: keep
+                - source_labels: [__meta_kubernetes_pod_container_port_name]
+                  regex: metrics|ds-metrics|co-metrics
+                  action: keep
+                - source_labels: [__meta_kubernetes_namespace]
+                  target_label: namespace
+                - source_labels: [__meta_kubernetes_pod_name]
+                  target_label: pod
+                - source_labels: [__meta_kubernetes_pod_container_name]
+                  target_label: container
+                - source_labels: [__meta_kubernetes_pod_container_port_name]
+                  regex: metrics
+                  target_label: component
+                  replacement: runner
+                - source_labels: [__meta_kubernetes_pod_container_port_name]
+                  regex: ds-metrics
+                  target_label: component
+                  replacement: oxia-server
+                - source_labels: [__meta_kubernetes_pod_container_port_name]
+                  regex: co-metrics
+                  target_label: component
+                  replacement: oxia-coordinator
+                - source_labels: [__meta_kubernetes_pod_label_oxia_chaos_channel]
+                  regex: (.+)
+                  target_label: channel
+                - source_labels: [__meta_kubernetes_pod_label_oxia_cluster]
+                  regex: oxia-chaos-(.+)
+                  target_label: channel
+      k8s_cluster:
+        auth_type: serviceAccount
+        collection_interval: 15s
+        namespaces: [{{ .Release.Namespace | quote }}]
+      kubelet_stats:
+        auth_type: serviceAccount
+        collection_interval: 15s
+        endpoint: https://${env:K8S_NODE_IP}:10250
+        insecure_skip_verify: true
+        metric_groups: [node, pod, container]
+      file_log:
+        include:
+          - /var/log/pods/{{ .Release.Namespace }}_*/*/*.log
+        exclude:
+          - /var/log/pods/{{ .Release.Namespace }}_{{ $name }}-*/*/*.log
+        start_at: beginning
+        include_file_path: true
+        operators:
+          - type: container
+            id: container-parser
+      k8s_objects/events:
+        auth_type: serviceAccount
+        error_mode: ignore
+        objects:
+          - name: events
+            mode: watch
+            group: events.k8s.io
+            namespaces: [{{ .Release.Namespace | quote }}]
+
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 640
+        spike_limit_mib: 128
+      k8s_attributes:
+        auth_type: serviceAccount
+        filter:
+          namespace: {{ .Release.Namespace | quote }}
+        extract:
+          metadata:
+            - k8s.namespace.name
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.statefulset.name
+            - k8s.job.name
+            - k8s.node.name
+          labels:
+            - tag_name: oxia.chaos.channel
+              key: oxia.chaos/channel
+              from: pod
+            - tag_name: oxia.chaos.case
+              key: oxia.chaos/case
+              from: pod
+            - tag_name: oxia.chaos.runner
+              key: oxia.chaos/runner
+              from: pod
+        pod_association:
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.uid
+          - sources:
+              - from: connection
+      resource/cluster:
+        attributes:
+          - key: k8s.cluster.name
+            value: {{ .Values.observability.clusterName | quote }}
+            action: upsert
+          - key: deployment.environment.name
+            value: github-actions
+            action: upsert
+      tail_sampling:
+        decision_wait: 10s
+        num_traces: 20000
+        expected_new_traces_per_sec: 1000
+        policies:
+          - name: errors
+            type: status_code
+            status_code:
+              status_codes: [ERROR]
+          - name: slow
+            type: latency
+            latency:
+              threshold_ms: 1000
+          - name: successful-sample
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: {{ .Values.observability.traces.successSamplingPercentage }}
+      batch:
+        send_batch_size: 1024
+        timeout: 5s
+
+    exporters:
+      otlp_http/grafana:
+        endpoint: ${env:GRAFANA_CLOUD_OTLP_ENDPOINT}
+        auth:
+          authenticator: basicauth/grafana
+        compression: gzip
+        sending_queue:
+          enabled: true
+          queue_size: 10000
+        retry_on_failure:
+          enabled: true
+          max_elapsed_time: 5m
+
+    service:
+      extensions: [basicauth/grafana, health_check]
+      pipelines:
+        metrics:
+          receivers: [prometheus, k8s_cluster, kubelet_stats, otlp]
+          processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
+          exporters: [otlp_http/grafana]
+        logs:
+          receivers: [file_log, k8s_objects/events, otlp]
+          processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
+          exporters: [otlp_http/grafana]
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, k8s_attributes, resource/cluster, tail_sampling, batch]
+          exporters: [otlp_http/grafana]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+spec:
+  selector:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "oxia-chaos.labels" . | nindent 6 }}
+      app.kubernetes.io/component: observability
+  template:
+    metadata:
+      labels:
+        {{- include "oxia-chaos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: observability
+    spec:
+      serviceAccountName: {{ $name }}
+      containers:
+        - name: collector
+          image: {{ printf "%s:%s" .Values.observability.image.repository .Values.observability.image.tag | quote }}
+          imagePullPolicy: {{ .Values.observability.image.pullPolicy }}
+          args: ["--config=/etc/otelcol-contrib/collector.yaml"]
+          env:
+            - name: K8S_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: GRAFANA_CLOUD_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: endpoint
+            - name: GRAFANA_CLOUD_OTLP_INSTANCE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: instance-id
+            - name: GRAFANA_CLOUD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: token
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+            - name: health
+              containerPort: 13133
+          readinessProbe:
+            httpGet:
+              path: /
+              port: health
+          livenessProbe:
+            httpGet:
+              path: /
+              port: health
+          resources:
+            {{- toYaml .Values.observability.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol-contrib
+              readOnly: true
+            - name: pod-logs
+              mountPath: /var/log/pods
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}
+        - name: pod-logs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+{{- end }}

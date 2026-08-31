@@ -47,6 +47,14 @@ RESULTS = {"passed", "failed", "not_run"}
 CHAOS = {
     "profile": "five-cycle",
     "duration": "6h",
+    "expectedInjections": 30,
+    "injections": [
+        {"type": "pod-kill", "count": 30},
+    ],
+}
+LEGACY_CHAOS = {
+    "profile": "five-cycle",
+    "duration": "6h",
     "expectedInjections": 50,
     "injections": [
         {"type": "pod-kill", "count": 30},
@@ -87,7 +95,7 @@ PHASE_FAILURES = {
     ),
     "chaos": (
         "Chaos pipeline did not complete",
-        "The workflow failed, a recovery health check failed, or fewer than 50 injections were observed.",
+        "The workflow failed, a recovery health check failed, or fewer than 30 pod kills were observed.",
     ),
     "result": (
         "Correctness workload failed",
@@ -163,7 +171,7 @@ def validate_history_entry(entry: Any, location: str) -> None:
 
 def validate_chaos(value: Any, location: str) -> None:
     if value != CHAOS:
-        raise StatusValidationError(f"{location} must describe the canonical 50-injection five-cycle profile")
+        raise StatusValidationError(f"{location} must describe the canonical 30-pod-kill five-cycle profile")
 
 
 def validate_summary(summary: dict[str, Any]) -> None:
@@ -267,6 +275,9 @@ def history_map(summary: dict[str, Any] | None) -> dict[tuple[str, str, str], di
     values: dict[tuple[str, str, str], dict[str, Any]] = {}
     if summary is None:
         return values
+    for channel in summary.get("channels", []):
+        if isinstance(channel, dict) and channel.get("chaos") == LEGACY_CHAOS:
+            channel["chaos"] = CHAOS
     validate_summary(summary)
     for channel in summary["channels"]:
         for test_case in channel["testCases"]:

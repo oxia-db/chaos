@@ -31,9 +31,17 @@ CLUSTER_OUTCOME ?= skipped
 INSTALL_OUTCOME ?= skipped
 WORKFLOW_OUTCOME ?= skipped
 CHAOS_OUTCOME ?= skipped
+OBSERVABILITY_ENABLED ?= false
+OBSERVABILITY_SECRET_NAME ?= $(INFRA_RELEASE_NAME)-grafana-cloud
+OBSERVABILITY_COLLECTOR_ENDPOINT ?= http://$(INFRA_RELEASE_NAME)-observability.$(NAMESPACE).svc.cluster.local:4317
+GRAFANA_CLOUD_OTLP_ENDPOINT ?=
+GRAFANA_CLOUD_OTLP_INSTANCE_ID ?=
+GRAFANA_CLOUD_TOKEN ?=
+GRAFANA_CLOUD_GRAFANA_URL ?=
+GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN ?=
 
 .NOTPARALLEL:
-.PHONY: up run down cluster namespaces dependencies channel-plan dependency-images runner-image release release-infra release-clusters release-runners correctness correctness-test test status-results diagnostics status
+.PHONY: up run down cluster namespaces dependencies channel-plan dependency-images runner-image observability-secret observability-annotations release release-infra release-clusters release-runners correctness correctness-test test status-results diagnostics status
 
 up: runner-image release correctness status
 
@@ -140,7 +148,25 @@ runner-image: cluster
 	$(MAKE) -C .. java-image JAVA_IMAGE=$(JAVA_IMAGE)
 	$(KIND) load docker-image $(JAVA_IMAGE) --name $(CLUSTER_NAME)
 
-release-infra: namespaces dependency-images
+observability-secret: namespaces
+	@set -eu; \
+	if [ '$(OBSERVABILITY_ENABLED)' != true ]; then \
+		echo "Grafana Cloud observability is disabled"; \
+		exit 0; \
+	fi; \
+	if [ -z '$(GRAFANA_CLOUD_OTLP_ENDPOINT)' ] || [ -z '$(GRAFANA_CLOUD_OTLP_INSTANCE_ID)' ] || [ -z '$(GRAFANA_CLOUD_TOKEN)' ]; then \
+		echo "Grafana Cloud OTLP endpoint, instance ID, and token are required" >&2; \
+		exit 1; \
+	fi; \
+	{ \
+		printf 'endpoint=%s\n' '$(GRAFANA_CLOUD_OTLP_ENDPOINT)'; \
+		printf 'instance-id=%s\n' '$(GRAFANA_CLOUD_OTLP_INSTANCE_ID)'; \
+		printf 'token=%s\n' '$(GRAFANA_CLOUD_TOKEN)'; \
+	} | $(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) create secret generic '$(OBSERVABILITY_SECRET_NAME)' \
+		--from-env-file=/dev/stdin --dry-run=client --output=yaml | \
+		$(KUBECTL) --context $(KUBE_CONTEXT) apply --filename -
+
+release-infra: namespaces dependency-images observability-secret
 	$(HELM) upgrade --install $(INFRA_RELEASE_NAME) ../charts/oxia-chaos \
 		--kube-context $(KUBE_CONTEXT) \
 		--namespace $(NAMESPACE) \
@@ -148,6 +174,8 @@ release-infra: namespaces dependency-images
 		--set runnerWorkloadsEnabled=false \
 		--set chaosWorkflow.enabled=false \
 		--set chaos-mesh.enabled=true \
+		--set observability.enabled=$(OBSERVABILITY_ENABLED) \
+		--set-string observability.existingSecret=$(OBSERVABILITY_SECRET_NAME) \
 		--set-string channel=infra \
 		--set-string testProfile=$(WORKLOAD_PROFILE) \
 		--wait --timeout 10m $(HELM_ARGS)
@@ -177,6 +205,8 @@ release-runners: release-infra release-clusters
 			--namespace $(NAMESPACE) \
 			--set runnerWorkloadsEnabled=true \
 			--set-string runnerImagePullPolicyOverride=$(RUNNER_IMAGE_PULL_POLICY) \
+			--set runnerJob.telemetry.enabled=$(OBSERVABILITY_ENABLED) \
+			--set-string runnerJob.telemetry.otlpEndpoint=$(OBSERVABILITY_COLLECTOR_ENDPOINT) \
 			--set chaosWorkflow.enabled=false \
 			--set chaos-mesh.enabled=false \
 			--set-string channel="$$channel" \
@@ -260,6 +290,25 @@ correctness-test:
 		fi; \
 	done; \
 	exit $$result
+
+observability-annotations:
+	@set -eu; \
+	if [ -z '$(GRAFANA_CLOUD_GRAFANA_URL)' ] || [ -z '$(GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN)' ]; then \
+		echo "Skipping Grafana chaos annotations; dashboard URL or service token is unavailable"; \
+		exit 0; \
+	fi; \
+	for channel in $$(jq --raw-output 'keys_unsorted[]' '$(CHANNEL_PLAN)'); do \
+		release="$(RELEASE_NAME)-$$channel"; \
+		workflow_name=$$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
+			get workflows --selector="app.kubernetes.io/instance=$$release,app.kubernetes.io/component=correctness" \
+			--output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | head -n 1); \
+		if [ -z "$$workflow_name" ]; then continue; fi; \
+		$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
+			get podchaos,networkchaos,stresschaos --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
+			GRAFANA_CLOUD_GRAFANA_URL='$(GRAFANA_CLOUD_GRAFANA_URL)' \
+			GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN='$(GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN)' \
+			python3 ../scripts/observability/publish_annotations.py --channel "$$channel" --run-url '$(RUN_URL)'; \
+	done
 
 test:
 	@started_at=$$(date +%s); \

@@ -80,7 +80,7 @@ spec:
             - {{ printf "--rate=%v" $caseProfile.rate | quote }}
             - {{ printf "--batch-size=%v" $caseProfile.batchSize | quote }}
             - {{ printf "--checkpoint-interval=%s" $caseProfile.checkpointInterval | quote }}
-          {{- if or $root.Values.runnerJob.metrics.enabled $runner.env }}
+          {{- if or $root.Values.runnerJob.metrics.enabled $root.Values.runnerJob.telemetry.enabled $runner.env }}
           env:
             {{- if $root.Values.runnerJob.metrics.enabled }}
             - name: OTEL_SERVICE_NAME
@@ -91,6 +91,18 @@ spec:
               value: 0.0.0.0
             - name: OTEL_EXPORTER_PROMETHEUS_PORT
               value: {{ $root.Values.runnerJob.metrics.port | quote }}
+            {{- end }}
+            {{- if $root.Values.runnerJob.telemetry.enabled }}
+            - name: OTEL_TRACES_EXPORTER
+              value: otlp
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ required "runnerJob.telemetry.otlpEndpoint is required when telemetry is enabled" $root.Values.runnerJob.telemetry.otlpEndpoint | quote }}
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_TRACES_SAMPLER
+              value: always_on
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: {{ printf "k8s.cluster.name=%s,deployment.environment.name=github-actions,oxia.chaos.channel=%s,oxia.chaos.case=%s,oxia.chaos.runner=%s" $root.Values.runnerJob.telemetry.clusterName $root.Values.channel $caseName $runnerName | quote }}
             {{- end }}
             {{- with $runner.env }}
             {{- toYaml . | nindent 12 }}

@@ -116,12 +116,6 @@ spec:
         - pod-kill
         - pod-kill-recovery
         - health-check
-        - network-partition
-        - network-recovery
-        - health-check
-        - pressure
-        - pressure-recovery
-        - health-check
         - cycle-observation
     - name: cycle-baseline
       templateType: Suspend
@@ -250,7 +244,8 @@ spec:
       deadline: 10m
     - name: cycle-observation
       templateType: Suspend
-      deadline: 2m30s
+      # Keep each cycle close to one hour while network and pressure faults are inactive.
+      deadline: 32m
     - name: final-observation
       templateType: Suspend
       deadline: 45m

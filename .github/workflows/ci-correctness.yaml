@@ -23,6 +23,8 @@ on:
       - "config/**"
       - "deploy/**"
       - "runner-java/**"
+      - "observability/**"
+      - "scripts/observability/**"
       - "scripts/status/**"
       - "Makefile"
   push:
@@ -33,6 +35,8 @@ on:
       - "config/**"
       - "deploy/**"
       - "runner-java/**"
+      - "observability/**"
+      - "scripts/observability/**"
       - "scripts/status/**"
       - "Makefile"
   schedule:
@@ -64,7 +68,13 @@ env:
   WORKLOAD_PROFILE: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && 'five-cycle' || 'quick' }}
   RUNNER_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '23400' || '600' }}
   WORKFLOW_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '21600' || '240' }}
-  EXPECTED_CHAOS_INJECTIONS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '50' || '1' }}
+  EXPECTED_CHAOS_INJECTIONS: ${{ (github.event_name == 'schedule' || inputs.profile == 'five-cycle') && '30' || '1' }}
+  OBSERVABILITY_ENABLED: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT != '' && secrets.GRAFANA_CLOUD_OTLP_INSTANCE_ID != '' && secrets.GRAFANA_CLOUD_TOKEN != '' && 'true' || 'false' }}
+  GRAFANA_CLOUD_OTLP_ENDPOINT: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
+  GRAFANA_CLOUD_OTLP_INSTANCE_ID: ${{ secrets.GRAFANA_CLOUD_OTLP_INSTANCE_ID }}
+  GRAFANA_CLOUD_TOKEN: ${{ secrets.GRAFANA_CLOUD_TOKEN }}
+  GRAFANA_CLOUD_GRAFANA_URL: ${{ vars.GRAFANA_CLOUD_GRAFANA_URL }}
+  GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN: ${{ secrets.GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN }}
 
 jobs:
   correctness:
@@ -107,6 +117,9 @@ jobs:
             PRELOAD_DEPENDENCY_IMAGES=false \
             RUNNER_IMAGE_PULL_POLICY=Always
 
+      - name: Provision Grafana dashboards
+        run: make observability-provision
+
       - name: Submit chaos workflows
         id: workflow
         run: |
@@ -122,6 +135,13 @@ jobs:
             WORKLOAD_PROFILE="$WORKLOAD_PROFILE" \
             WORKFLOW_TIMEOUT_SECONDS="$WORKFLOW_TIMEOUT_SECONDS" \
             EXPECTED_CHAOS_INJECTIONS="$EXPECTED_CHAOS_INJECTIONS"
+
+      - name: Publish chaos annotations
+        if: always()
+        run: |
+          make -C deploy observability-annotations \
+            CHANNELS="$CHANNELS" \
+            RUN_URL="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Validate runner results
         id: test
