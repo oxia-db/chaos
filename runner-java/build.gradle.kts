@@ -51,6 +51,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.11.3"))
     testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
+    testImplementation("io.opentelemetry:opentelemetry-sdk-testing")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("org.testcontainers:testcontainers")

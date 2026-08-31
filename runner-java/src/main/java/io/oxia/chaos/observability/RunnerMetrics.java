@@ -20,12 +20,18 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.DoubleHistogram;
 import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.ObservableLongGauge;
+import java.util.List;
 import java.util.function.LongSupplier;
 
 /** Shared, low-cardinality metric instruments used by all runner cases. */
 public final class RunnerMetrics implements AutoCloseable {
 
   private static final String INSTRUMENTATION_SCOPE = "io.oxia.chaos.observability";
+  // Keep the Oxia data-server latency buckets, converting its milliseconds to seconds.
+  static final List<Double> OXIA_LATENCY_BUCKETS_SECONDS =
+      List.of(
+          0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0,
+          5.0, 10.0, 20.0, 50.0);
 
   private final Attributes caseAttributes;
   private final LongCounter operations;
@@ -52,6 +58,7 @@ public final class RunnerMetrics implements AutoCloseable {
             .histogramBuilder("oxia.chaos.operation.duration")
             .setDescription("Chaos runner operation duration")
             .setUnit("s")
+            .setExplicitBucketBoundariesAdvice(OXIA_LATENCY_BUCKETS_SECONDS)
             .build();
     checkpoints =
         meter
@@ -64,6 +71,7 @@ public final class RunnerMetrics implements AutoCloseable {
             .histogramBuilder("oxia.chaos.checkpoint.duration")
             .setDescription("Full-state checkpoint duration")
             .setUnit("s")
+            .setExplicitBucketBoundariesAdvice(OXIA_LATENCY_BUCKETS_SECONDS)
             .build();
     safetyViolations =
         meter
