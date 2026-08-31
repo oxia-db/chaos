@@ -74,9 +74,9 @@
       "id": 3,
       "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
       "targets": [
-        {"expr": "sum(increase(oxia_server_wal_write_errors_total{channel=~\"$channel\"}[$__range]))", "legendFormat": "errors", "refId": "A"}
+        {"expr": "sum(increase(oxia_coordinator_node_health_checks_failed_count_total{channel=~\"$channel\"}[$__range])) or vector(0)", "legendFormat": "failures", "refId": "A"}
       ],
-      "title": "WAL write errors",
+      "title": "Failed Oxia node health checks",
       "type": "stat"
     },
     {
@@ -122,8 +122,8 @@
       "id": 7,
       "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
       "targets": [
-        {"expr": "sum by (pod) (rate(oxia_server_db_puts_total{channel=~\"$channel\"}[$__rate_interval]))", "legendFormat": "put {{pod}}", "refId": "A"},
-        {"expr": "sum by (pod) (rate(oxia_server_db_gets_total{channel=~\"$channel\"}[$__rate_interval]))", "legendFormat": "get {{pod}}", "refId": "B"}
+        {"expr": "sum by (pod) (rate(oxia_server_db_puts_count_total{channel=~\"$channel\"}[$__rate_interval]))", "legendFormat": "put {{pod}}", "refId": "A"},
+        {"expr": "sum by (pod) (rate(oxia_server_db_gets_count_total{channel=~\"$channel\"}[$__rate_interval]))", "legendFormat": "get {{pod}}", "refId": "B"}
       ],
       "title": "Oxia database operations",
       "type": "timeseries"
@@ -135,8 +135,8 @@
       "id": 8,
       "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
       "targets": [
-        {"expr": "max by (pod) (oxia_server_leader_head_offset_count{channel=~\"$channel\"})", "legendFormat": "head {{pod}}", "refId": "A"},
-        {"expr": "max by (pod) (oxia_server_leader_commit_offset_count{channel=~\"$channel\"})", "legendFormat": "commit {{pod}}", "refId": "B"}
+        {"expr": "max by (pod, shard) (oxia_server_wal_entries_count{channel=~\"$channel\"})", "legendFormat": "WAL {{pod}} shard {{shard}}", "refId": "A"},
+        {"expr": "max by (pod, shard, follower) (oxia_server_follower_ack_offset_count{channel=~\"$channel\"})", "legendFormat": "ack {{follower}}", "refId": "B"}
       ],
       "title": "Replication offsets",
       "type": "timeseries"

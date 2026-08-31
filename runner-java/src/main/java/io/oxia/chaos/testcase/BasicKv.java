@@ -191,9 +191,9 @@ public final class BasicKv {
   }
 
   private void warmup() {
-    final Span span = tracer.spanBuilder("basic-kv.warmup").startSpan();
+    final Span span = tracer.spanBuilder("basic-kv.warmup").setNoParent().startSpan();
     final long started = System.nanoTime();
-    try (final Scope ignored = span.makeCurrent()) {
+    try (final Scope ignored = Context.root().makeCurrent()) {
       Failsafe.with(retryPolicy)
           .run(
               () ->
@@ -434,6 +434,7 @@ public final class BasicKv {
     final Span span =
         tracer
             .spanBuilder("basic-kv." + operationLabel)
+            .setNoParent()
             .setAttribute("db.operation.name", operationLabel)
             .setAttribute("db.key", key)
             .startSpan();
@@ -510,6 +511,7 @@ public final class BasicKv {
     final Span span =
         tracer
             .spanBuilder("basic-kv.checkpoint")
+            .setNoParent()
             .setAttribute("checkpoint.kind", checkpointLabel)
             .startSpan();
     try (final Scope ignored = span.makeCurrent()) {

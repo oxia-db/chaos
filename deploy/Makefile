@@ -304,7 +304,7 @@ observability-annotations:
 			--output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | head -n 1); \
 		if [ -z "$$workflow_name" ]; then continue; fi; \
 		$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) \
-			get podchaos,networkchaos,stresschaos --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
+			get workflownodes --selector="chaos-mesh.org/workflow=$$workflow_name" --output=json | \
 			GRAFANA_CLOUD_GRAFANA_URL='$(GRAFANA_CLOUD_GRAFANA_URL)' \
 			GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN='$(GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN)' \
 			python3 ../scripts/observability/publish_annotations.py --channel "$$channel" --run-url '$(RUN_URL)'; \
@@ -353,6 +353,13 @@ status-results:
 		--chaos-outcome '$(CHAOS_OUTCOME)'
 
 diagnostics:
+	-@for pod in $$($(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get pods \
+		--selector=app.kubernetes.io/part-of=oxia-chaos,app.kubernetes.io/component=runner \
+		--field-selector=status.phase=Running --output=name); do \
+		$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) exec "$$pod" -- \
+			/bin/sh -c 'kill -3 1'; \
+	done
+	-@sleep 2
 	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get \
 		pods,jobs,statefulsets,workflows,workflownodes,podchaos,networkchaos,stresschaos \
 		--output=wide

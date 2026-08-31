@@ -35,13 +35,22 @@ def annotation_for(
     resource: dict[str, Any], channel: str, run_url: str
 ) -> dict[str, Any]:
     metadata = resource.get("metadata", {})
-    kind = str(resource.get("kind", "Chaos"))
-    name = str(metadata.get("name", "unknown"))
+    if resource.get("kind") == "WorkflowNode":
+        spec = resource.get("spec", {})
+        kind = str(spec.get("type", "Chaos"))
+        name = str(spec.get("templateName", metadata.get("name", "unknown")))
+        started = timestamp_milliseconds(spec["startTime"])
+        ended = timestamp_milliseconds(spec.get("deadline", spec["startTime"]))
+        chaos_spec = spec.get(f"{kind[0].lower()}{kind[1:]}", {})
+        action = str(chaos_spec.get("action", kind))
+    else:
+        kind = str(resource.get("kind", "Chaos"))
+        name = str(metadata.get("name", "unknown"))
+        started = timestamp_milliseconds(metadata["creationTimestamp"])
+        configured_duration = str(resource.get("spec", {}).get("duration", "10s"))
+        ended = started + int(duration_seconds(configured_duration) * 1000)
+        action = str(resource.get("spec", {}).get("action", kind))
     uid = str(metadata.get("uid", name))
-    started = timestamp_milliseconds(metadata["creationTimestamp"])
-    configured_duration = str(resource.get("spec", {}).get("duration", "10s"))
-    ended = started + int(duration_seconds(configured_duration) * 1000)
-    action = str(resource.get("spec", {}).get("action", kind))
     text = f"{kind} {name}: {action} on {channel}"
     if run_url:
         text = f"{text} — {run_url}"
@@ -57,6 +66,15 @@ def annotation_for(
             f"oxia-chaos-event:{uid}",
         ],
     }
+
+
+def is_injected_workflow_node(resource: dict[str, Any]) -> bool:
+    if resource.get("kind") != "WorkflowNode":
+        return True
+    return any(
+        condition.get("type") == "ChaosInjected" and condition.get("status") == "True"
+        for condition in resource.get("status", {}).get("conditions", [])
+    )
 
 
 class GrafanaAnnotations:
@@ -120,6 +138,8 @@ def main() -> int:
     client = GrafanaAnnotations(args.grafana_url, args.token)
     published = 0
     for resource in items:
+        if not is_injected_workflow_node(resource):
+            continue
         annotation = annotation_for(resource, args.channel, args.run_url)
         if client.publish_once(annotation):
             published += 1

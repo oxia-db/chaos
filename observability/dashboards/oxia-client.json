@@ -29,7 +29,7 @@
       "gridPos": {"h": 5, "w": 6, "x": 0, "y": 1},
       "id": 2,
       "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
-      "targets": [{"expr": "sum(increase(oxia_chaos_safety_violations_total{channel=~\"$channel\",case=~\"$case\"}[$__range]))", "legendFormat": "violations", "refId": "A"}],
+      "targets": [{"expr": "sum(increase(oxia_chaos_safety_violations_total{channel=~\"$channel\",case=~\"$case\"}[$__range])) or vector(0)", "legendFormat": "violations", "refId": "A"}],
       "title": "Correctness violations",
       "type": "stat"
     },
@@ -39,7 +39,7 @@
       "gridPos": {"h": 5, "w": 6, "x": 6, "y": 1},
       "id": 3,
       "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto", "wideLayout": true},
-      "targets": [{"expr": "sum(increase(oxia_chaos_operations_total{channel=~\"$channel\",case=~\"$case\",outcome!=\"success\"}[$__range]))", "legendFormat": "failed", "refId": "A"}],
+      "targets": [{"expr": "sum(increase(oxia_chaos_operations_total{channel=~\"$channel\",case=~\"$case\",outcome!=\"success\"}[$__range])) or vector(0)", "legendFormat": "failed", "refId": "A"}],
       "title": "Failed operations",
       "type": "stat"
     },
