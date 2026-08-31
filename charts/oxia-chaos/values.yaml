@@ -94,7 +94,6 @@ observability:
 
 oxia-cluster:
   enabled: true
-  monitoringEnabled: true
   # Add oc-<runner>-<case> for every enabled pair.
   namespaces:
     - name: oc-java-basic-kv
