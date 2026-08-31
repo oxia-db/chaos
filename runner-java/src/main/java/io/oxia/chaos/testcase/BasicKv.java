@@ -37,6 +37,7 @@ import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.GuardUtils;
 import io.oxia.chaos.util.KeyGenerator;
+import io.oxia.chaos.util.OxiaExceptionUtils;
 import io.oxia.chaos.util.RangeUtils;
 import io.oxia.chaos.util.RatePacer;
 import io.oxia.chaos.util.SummaryUtils;
@@ -108,14 +109,14 @@ public final class BasicKv {
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.retryPolicy =
         RetryPolicy.builder()
-            .handleIf((final Throwable error) -> OxiaStatusException.from(error).isRetryable())
+            .handleIf(OxiaExceptionUtils::isRetryable)
             .withBackoff(INITIAL_RETRY_DELAY, MAX_RETRY_DELAY)
             .withMaxAttempts(-1)
             .withMaxDuration(retryTimeout)
             .onRetry(
                 (final var event) -> {
                   final OxiaStatusException error =
-                      OxiaStatusException.from(event.getLastException());
+                      OxiaExceptionUtils.status(event.getLastException());
                   LOGGER
                       .atWarn()
                       .addKeyValue("attempt", event.getAttemptCount())
@@ -124,7 +125,7 @@ public final class BasicKv {
                 })
             .onRetriesExceeded(
                 (final var event) -> {
-                  final OxiaStatusException error = OxiaStatusException.from(event.getException());
+                  final OxiaStatusException error = OxiaExceptionUtils.status(event.getException());
                   LOGGER
                       .atError()
                       .addKeyValue("attempts", event.getAttemptCount())
