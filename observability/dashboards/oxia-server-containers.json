@@ -203,18 +203,18 @@
       "pluginVersion": "8.3.3",
       "targets": [
         {
-          "expr": "100 * sum by (k8s_pod_name) (container_cpu_usage{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{{{k8s_pod_name}}}} usage",
+          "expr": "100 * sum by (k8s_pod_name, k8s_container_name) (container_cpu_usage{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · usage",
           "refId": "A"
         },
         {
-          "expr": "100 * sum by (k8s_pod_name) (k8s_container_cpu_request{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{{{k8s_pod_name}}}} request",
+          "expr": "100 * sum by (k8s_pod_name, k8s_container_name) (k8s_container_cpu_request{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · request",
           "refId": "B"
         },
         {
-          "expr": "100 * sum by (k8s_pod_name) (k8s_container_cpu_limit{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{{{k8s_pod_name}}}} limit",
+          "expr": "100 * sum by (k8s_pod_name, k8s_container_name) (k8s_container_cpu_limit{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · limit",
           "refId": "C"
         }
       ],
@@ -304,33 +304,33 @@
       "pluginVersion": "9.3.1",
       "targets": [
         {
-          "expr": "sum by (k8s_pod_name) (container_memory_rss_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} RSS",
+          "expr": "sum by (k8s_pod_name, k8s_container_name) (container_memory_rss_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · rss",
           "refId": "A"
         },
         {
-          "expr": "sum by (k8s_pod_name) (container_memory_usage_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} Usage",
+          "expr": "sum by (k8s_pod_name, k8s_container_name) (container_memory_usage_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · usage",
           "refId": "B"
         },
         {
-          "expr": "sum by (k8s_pod_name) (k8s_container_memory_limit_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} Limit",
+          "expr": "sum by (k8s_pod_name, k8s_container_name) (k8s_container_memory_limit_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · limit",
           "refId": "C"
         },
         {
-          "expr": "sum by (k8s_pod_name) (k8s_container_memory_request_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} Request",
+          "expr": "sum by (k8s_pod_name, k8s_container_name) (k8s_container_memory_request_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · request",
           "refId": "D"
         },
         {
-          "expr": "sum by (k8s_pod_name) (container_memory_working_set_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} Working set",
+          "expr": "sum by (k8s_pod_name, k8s_container_name) (container_memory_working_set_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · working set",
           "refId": "E"
         },
         {
-          "expr": "sum by (k8s_pod_name) (container_memory_available_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} Available",
+          "expr": "sum by (k8s_pod_name, k8s_container_name) (container_memory_available_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · available",
           "refId": "F"
         }
       ],
@@ -460,13 +460,13 @@
       "pluginVersion": "9.3.1",
       "targets": [
         {
-          "expr": "8 * sum by (k8s_pod_name) (rate(k8s_pod_network_io_bytes_total{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\",direction=\"receive\"}[$__rate_interval]))",
-          "legendFormat": "{{k8s_pod_name}} in",
+          "expr": "8 * sum by (k8s_pod_name) (rate(k8s_pod_network_io_bytes_total{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\",direction=\"receive\"}[$__rate_interval]))",
+          "legendFormat": "{{k8s_pod_name}} / network · in",
           "refId": "A"
         },
         {
-          "expr": "-8 * sum by (k8s_pod_name) (rate(k8s_pod_network_io_bytes_total{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\",direction=\"transmit\"}[$__rate_interval]))",
-          "legendFormat": "{{k8s_pod_name}} out",
+          "expr": "-8 * sum by (k8s_pod_name) (rate(k8s_pod_network_io_bytes_total{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\",direction=\"transmit\"}[$__rate_interval]))",
+          "legendFormat": "{{k8s_pod_name}} / network · out",
           "refId": "B"
         }
       ],
@@ -536,18 +536,18 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (k8s_pod_name) (k8s_pod_filesystem_usage_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} used",
+          "expr": "sum by (k8s_pod_name) (k8s_pod_filesystem_usage_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / filesystem · used",
           "refId": "A"
         },
         {
-          "expr": "sum by (k8s_pod_name) (k8s_pod_filesystem_available_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} available",
+          "expr": "sum by (k8s_pod_name) (k8s_pod_filesystem_available_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / filesystem · available",
           "refId": "B"
         },
         {
-          "expr": "sum by (k8s_pod_name) (k8s_pod_filesystem_capacity_bytes{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\"})",
-          "legendFormat": "{{k8s_pod_name}} capacity",
+          "expr": "sum by (k8s_pod_name) (k8s_pod_filesystem_capacity_bytes{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_pod_name=~\"$pod\"})",
+          "legendFormat": "{{k8s_pod_name}} / filesystem · capacity",
           "refId": "C"
         }
       ],
@@ -648,7 +648,7 @@
           "type": "prometheus",
           "uid": "${metrics}"
         },
-        "definition": "label_values(container_cpu_time_seconds_total{k8s_statefulset_name=\"oxia-chaos-$channel\"}, k8s_namespace_name)",
+        "definition": "label_values(container_cpu_time_seconds_total{k8s_pod_name=~\"oxia-chaos-$channel-.*\"}, k8s_namespace_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Kubernetes namespace",
@@ -656,7 +656,7 @@
         "name": "k8s_namespace",
         "options": [],
         "query": {
-          "query": "label_values(container_cpu_time_seconds_total{k8s_statefulset_name=\"oxia-chaos-$channel\"}, k8s_namespace_name)",
+          "query": "label_values(container_cpu_time_seconds_total{k8s_pod_name=~\"oxia-chaos-$channel-.*\"}, k8s_namespace_name)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -675,7 +675,7 @@
           "type": "prometheus",
           "uid": "${metrics}"
         },
-        "definition": "label_values(container_cpu_time_seconds_total{k8s_statefulset_name=\"oxia-chaos-$channel\"}, k8s_container_name)",
+        "definition": "label_values(container_cpu_time_seconds_total{k8s_pod_name=~\"oxia-chaos-$channel-.*\"}, k8s_container_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Component",
@@ -683,7 +683,7 @@
         "name": "component",
         "options": [],
         "query": {
-          "query": "label_values(container_cpu_time_seconds_total{k8s_statefulset_name=\"oxia-chaos-$channel\"}, k8s_container_name)",
+          "query": "label_values(container_cpu_time_seconds_total{k8s_pod_name=~\"oxia-chaos-$channel-.*\"}, k8s_container_name)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -702,7 +702,7 @@
           "type": "prometheus",
           "uid": "${metrics}"
         },
-        "definition": "label_values(container_cpu_time_seconds_total{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\"}, k8s_pod_name)",
+        "definition": "label_values(container_cpu_time_seconds_total{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\"}, k8s_pod_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Pod",
@@ -710,7 +710,7 @@
         "name": "pod",
         "options": [],
         "query": {
-          "query": "label_values(container_cpu_time_seconds_total{k8s_statefulset_name=\"oxia-chaos-$channel\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\"}, k8s_pod_name)",
+          "query": "label_values(container_cpu_time_seconds_total{k8s_pod_name=~\"oxia-chaos-$channel-.*\",k8s_namespace_name=~\"$k8s_namespace\",k8s_container_name=~\"$component\"}, k8s_pod_name)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -754,5 +754,5 @@
   "uid": "oxia-chaos-server-containers",
   "version": 1,
   "weekStart": "",
-  "description": "Adapted from the upstream Oxia dashboard at oxia-db/oxia@2b47825b558dab15230c2315aa9476da6ff679d3. Queries are translated for the chaos Grafana Cloud OTLP metric schema and isolated by Stable/Beta channel."
+  "description": "Adapted from the upstream Oxia dashboard at oxia-db/oxia@2b47825b558dab15230c2315aa9476da6ff679d3. Queries are translated for the chaos Grafana Cloud OTLP metric schema and isolated by Stable/Beta channel. Includes Oxia server, coordinator, and testcase client containers."
 }

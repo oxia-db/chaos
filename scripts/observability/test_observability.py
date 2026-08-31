@@ -129,7 +129,19 @@ class DashboardTest(unittest.TestCase):
         annotation_tags = overview["annotations"]["list"][0]["target"]["tags"]
         self.assertIn("channel:$channel", annotation_tags)
 
-    def test_client_dashboard_exposes_sdk_metrics_and_all_sampled_traces(self) -> None:
+    def test_container_dashboard_includes_servers_and_clients(self) -> None:
+        container = self.servers["containers"]
+        expressions = "\n".join(self.expressions(container))
+        self.assertIn('k8s_pod_name=~"oxia-chaos-$channel-.*"', expressions)
+        self.assertIn("k8s_container_name", expressions)
+        legends = [
+            target.get("legendFormat", "")
+            for panel in self.panels(container["panels"])
+            for target in panel.get("targets", [])
+        ]
+        self.assertTrue(any("{{k8s_container_name}}" in legend for legend in legends))
+
+    def test_client_dashboard_exposes_sdk_metrics_without_resource_or_log_panels(self) -> None:
         expressions = "\n".join(self.expressions(self.client))
         for metric in (
             "oxia_client_ops_seconds_bucket",
@@ -139,10 +151,22 @@ class DashboardTest(unittest.TestCase):
             "oxia_client_shard_assignments_count_total",
         ):
             self.assertIn(metric, expressions)
-        trace_panel = next(
-            panel for panel in self.client["panels"] if panel["title"] == "All sampled client traces"
-        )
-        self.assertNotIn("status = error", trace_panel["targets"][0]["query"])
+        panel_titles = {panel["title"] for panel in self.panels(self.client["panels"])}
+        for removed_title in (
+            "Runner resources",
+            "Runner CPU",
+            "Runner resident memory",
+            "Logs and traces",
+            "Runner logs",
+            "Slow and failed client traces",
+            "All sampled client traces",
+        ):
+            self.assertNotIn(removed_title, panel_titles)
+        variable_names = {
+            variable["name"] for variable in self.client["templating"]["list"]
+        }
+        self.assertNotIn("logs", variable_names)
+        self.assertNotIn("traces", variable_names)
         annotation_tags = self.client["annotations"]["list"][0]["target"]["tags"]
         self.assertIn("channel:$channel", annotation_tags)
 

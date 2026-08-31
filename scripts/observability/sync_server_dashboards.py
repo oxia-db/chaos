@@ -164,19 +164,19 @@ def dashboard_variables(name: str) -> list[dict[str, Any]]:
                     "k8s_namespace",
                     "Kubernetes namespace",
                     'label_values(container_cpu_time_seconds_total{'
-                    'k8s_statefulset_name="oxia-chaos-$channel"}, k8s_namespace_name)',
+                    'k8s_pod_name=~"oxia-chaos-$channel-.*"}, k8s_namespace_name)',
                 ),
                 query_variable(
                     "component",
                     "Component",
                     'label_values(container_cpu_time_seconds_total{'
-                    'k8s_statefulset_name="oxia-chaos-$channel"}, k8s_container_name)',
+                    'k8s_pod_name=~"oxia-chaos-$channel-.*"}, k8s_container_name)',
                 ),
                 query_variable(
                     "pod",
                     "Pod",
                     'label_values(container_cpu_time_seconds_total{'
-                    'k8s_statefulset_name="oxia-chaos-$channel",'
+                    'k8s_pod_name=~"oxia-chaos-$channel-.*",'
                     'k8s_namespace_name=~"$k8s_namespace",'
                     'k8s_container_name=~"$component"}, k8s_pod_name)',
                 ),
@@ -317,12 +317,12 @@ def panel_by_title(dashboard: dict[str, Any], title: str) -> dict[str, Any]:
 
 def adapt_container_panels(dashboard: dict[str, Any]) -> None:
     selector = (
-        'k8s_statefulset_name="oxia-chaos-$channel",'
+        'k8s_pod_name=~"oxia-chaos-$channel-.*",'
         'k8s_namespace_name=~"$k8s_namespace",'
         'k8s_container_name=~"$component",k8s_pod_name=~"$pod"'
     )
     pod_selector = (
-        'k8s_statefulset_name="oxia-chaos-$channel",'
+        'k8s_pod_name=~"oxia-chaos-$channel-.*",'
         'k8s_namespace_name=~"$k8s_namespace",k8s_pod_name=~"$pod"'
     )
 
@@ -330,18 +330,21 @@ def adapt_container_panels(dashboard: dict[str, Any]) -> None:
     cpu_panel["title"] = "CPU usage and allocation"
     cpu_panel["targets"] = [
         {
-            "expr": f"100 * sum by (k8s_pod_name) (container_cpu_usage{{{selector}}})",
-            "legendFormat": "{{{{k8s_pod_name}}}} usage",
+            "expr": "100 * sum by (k8s_pod_name, k8s_container_name) "
+            f"(container_cpu_usage{{{selector}}})",
+            "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · usage",
             "refId": "A",
         },
         {
-            "expr": f"100 * sum by (k8s_pod_name) (k8s_container_cpu_request{{{selector}}})",
-            "legendFormat": "{{{{k8s_pod_name}}}} request",
+            "expr": "100 * sum by (k8s_pod_name, k8s_container_name) "
+            f"(k8s_container_cpu_request{{{selector}}})",
+            "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · request",
             "refId": "B",
         },
         {
-            "expr": f"100 * sum by (k8s_pod_name) (k8s_container_cpu_limit{{{selector}}})",
-            "legendFormat": "{{{{k8s_pod_name}}}} limit",
+            "expr": "100 * sum by (k8s_pod_name, k8s_container_name) "
+            f"(k8s_container_cpu_limit{{{selector}}})",
+            "legendFormat": "{{k8s_pod_name}} / {{k8s_container_name}} · limit",
             "refId": "C",
         },
     ]
@@ -357,8 +360,11 @@ def adapt_container_panels(dashboard: dict[str, Any]) -> None:
     )
     memory_panel["targets"] = [
         {
-            "expr": f"sum by (k8s_pod_name) ({metric}{{{selector}}})",
-            "legendFormat": f"{{{{k8s_pod_name}}}} {legend}",
+            "expr": "sum by (k8s_pod_name, k8s_container_name) "
+            f"({metric}{{{selector}}})",
+            "legendFormat": (
+                "{{k8s_pod_name}} / {{k8s_container_name}} · " + legend.lower()
+            ),
             "refId": chr(ord("A") + index),
         }
         for index, (metric, legend) in enumerate(memory_metrics)
@@ -370,14 +376,14 @@ def adapt_container_panels(dashboard: dict[str, Any]) -> None:
             "expr": "8 * sum by (k8s_pod_name) (rate("
             f'k8s_pod_network_io_bytes_total{{{pod_selector},direction="receive"}}'
             "[$__rate_interval]))",
-            "legendFormat": "{{k8s_pod_name}} in",
+            "legendFormat": "{{k8s_pod_name}} / network · in",
             "refId": "A",
         },
         {
             "expr": "-8 * sum by (k8s_pod_name) (rate("
             f'k8s_pod_network_io_bytes_total{{{pod_selector},direction="transmit"}}'
             "[$__rate_interval]))",
-            "legendFormat": "{{k8s_pod_name}} out",
+            "legendFormat": "{{k8s_pod_name}} / network · out",
             "refId": "B",
         },
     ]
@@ -391,7 +397,7 @@ def adapt_container_panels(dashboard: dict[str, Any]) -> None:
     disk_panel["targets"] = [
         {
             "expr": f"sum by (k8s_pod_name) ({metric}{{{pod_selector}}})",
-            "legendFormat": f"{{{{k8s_pod_name}}}} {legend}",
+            "legendFormat": f"{{{{k8s_pod_name}}}} / filesystem · {legend}",
             "refId": chr(ord("A") + index),
         }
         for index, (metric, legend) in enumerate(
@@ -611,6 +617,10 @@ def adapt_dashboard(
         f"oxia-db/oxia@{source_ref}. Queries are translated for the chaos "
         "Grafana Cloud OTLP metric schema and isolated by Stable/Beta channel."
     )
+    if name == "containers":
+        adapted["description"] += (
+            " Includes Oxia server, coordinator, and testcase client containers."
+        )
     adapted["tags"] = sorted(
         set(adapted.get("tags", []))
         | {"oxia", "oxia-chaos", "oxia-chaos-server", "upstream-oxia"}
