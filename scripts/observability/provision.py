@@ -15,6 +15,7 @@ from typing import Any
 
 FOLDER_UID = "oxia-chaos"
 FOLDER_TITLE = "Oxia Chaos"
+OBSOLETE_DASHBOARD_UIDS = ("oxia-chaos-cluster",)
 
 
 class GrafanaClient:
@@ -71,6 +72,15 @@ class GrafanaClient:
         )
         return str(response.get("url", f"/d/{dashboard['uid']}"))
 
+    def delete_dashboard(self, uid: str) -> bool:
+        try:
+            self.request("DELETE", f"/api/dashboards/uid/{uid}")
+            return True
+        except RuntimeError as error:
+            if "HTTP 404" in str(error):
+                return False
+            raise
+
 
 def load_dashboard(path: Path) -> dict[str, Any]:
     with path.open(encoding="utf-8") as dashboard_file:
@@ -117,6 +127,9 @@ def main() -> int:
         dashboard = load_dashboard(dashboard_path)
         url = client.provision_dashboard(dashboard)
         print(f"Provisioned {dashboard['title']}: {args.grafana_url.rstrip('/')}{url}")
+    for uid in OBSOLETE_DASHBOARD_UIDS:
+        if client.delete_dashboard(uid):
+            print(f"Removed obsolete Grafana dashboard: {uid}")
     return 0
 
 

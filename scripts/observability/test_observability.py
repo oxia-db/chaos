@@ -32,20 +32,33 @@ class ProvisionTest(unittest.TestCase):
 class DashboardTest(unittest.TestCase):
     def setUp(self) -> None:
         dashboard_dir = Path(__file__).resolve().parents[2] / "observability" / "dashboards"
-        self.cluster = json.loads((dashboard_dir / "oxia-cluster.json").read_text(encoding="utf-8"))
         self.client = json.loads((dashboard_dir / "oxia-client.json").read_text(encoding="utf-8"))
+        self.servers = {
+            path.stem.removeprefix("oxia-server-"): json.loads(
+                path.read_text(encoding="utf-8")
+            )
+            for path in dashboard_dir.glob("oxia-server-*.json")
+        }
 
     @staticmethod
     def expressions(dashboard: dict[str, object]) -> list[str]:
         return [
             target["expr"]
-            for panel in dashboard["panels"]
+            for panel in DashboardTest.panels(dashboard["panels"])
             for target in panel.get("targets", [])
             if "expr" in target
         ]
 
+    @staticmethod
+    def panels(panels: list[dict[str, object]]) -> list[dict[str, object]]:
+        flattened = []
+        for panel in panels:
+            flattened.append(panel)
+            flattened.extend(DashboardTest.panels(panel.get("panels", [])))
+        return flattened
+
     def test_dashboards_keep_stable_and_beta_separate(self) -> None:
-        for dashboard in (self.cluster, self.client):
+        for dashboard in (*self.servers.values(), self.client):
             channel = next(
                 variable
                 for variable in dashboard["templating"]["list"]
@@ -56,16 +69,65 @@ class DashboardTest(unittest.TestCase):
             self.assertEqual(channel["query"], "stable,beta")
             self.assertTrue(all("$channel" in expression for expression in self.expressions(dashboard)))
 
-    def test_cluster_dashboard_covers_server_subsystems(self) -> None:
-        expressions = "\n".join(self.expressions(self.cluster))
+    def test_server_dashboard_suite_matches_upstream(self) -> None:
+        self.assertEqual(
+            {
+                "containers",
+                "coordinator",
+                "golang",
+                "grpc",
+                "nodes",
+                "overview",
+                "shards",
+            },
+            self.servers.keys(),
+        )
+        for name, dashboard in self.servers.items():
+            self.assertEqual(f"oxia-chaos-server-{name}", dashboard["uid"])
+            self.assertIn("upstream Oxia dashboard", dashboard["description"])
+            self.assertIn("upstream-oxia", dashboard["tags"])
+
+    def test_server_dashboards_cover_upstream_subsystems(self) -> None:
+        expressions = "\n".join(
+            expression
+            for dashboard in self.servers.values()
+            for expression in self.expressions(dashboard)
+        )
         for metric in (
             "oxia_server_db_puts_count_total",
-            "oxia_server_follower_ack_offset_count",
             "oxia_server_wal_sync_latency_milliseconds_bucket",
             "oxia_server_kv_pebble_compaction_debt_bytes",
             "oxia_coordinator_leader_election_latency_milliseconds_bucket",
+            "grpc_server_handled_total",
+            "go_gc_duration_seconds_sum",
+            "container_cpu_usage",
         ):
             self.assertIn(metric, expressions)
+
+    def test_server_dashboards_remove_incompatible_upstream_schema(self) -> None:
+        expressions = "\n".join(
+            expression
+            for dashboard in self.servers.values()
+            for expression in self.expressions(dashboard)
+        )
+        for legacy_token in (
+            "oxia_cluster",
+            "$cluster",
+            "kubernetes_pod_name",
+            "app_kubernetes_io_component",
+            "grpc_server_client_total",
+            "oxia_server_db_puts_total",
+            "[1m]",
+        ):
+            self.assertNotIn(legacy_token, expressions)
+
+    def test_server_overview_keeps_logs_and_channel_annotations(self) -> None:
+        overview = self.servers["overview"]
+        panel_titles = {panel["title"] for panel in self.panels(overview["panels"])}
+        self.assertIn("Errors, elections, and recovery", panel_titles)
+        self.assertIn("All server and coordinator logs", panel_titles)
+        annotation_tags = overview["annotations"]["list"][0]["target"]["tags"]
+        self.assertIn("channel:$channel", annotation_tags)
 
     def test_client_dashboard_exposes_sdk_metrics_and_all_sampled_traces(self) -> None:
         expressions = "\n".join(self.expressions(self.client))
@@ -81,6 +143,8 @@ class DashboardTest(unittest.TestCase):
             panel for panel in self.client["panels"] if panel["title"] == "All sampled client traces"
         )
         self.assertNotIn("status = error", trace_panel["targets"][0]["query"])
+        annotation_tags = self.client["annotations"]["list"][0]["target"]["tags"]
+        self.assertIn("channel:$channel", annotation_tags)
 
 
 class AnnotationTest(unittest.TestCase):

@@ -16,7 +16,8 @@
           "matchAny": false,
           "tags": [
             "oxia-chaos",
-            "chaos"
+            "chaos",
+            "channel:$channel"
           ],
           "type": "tags"
         },
@@ -37,9 +38,9 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Stable Cluster",
+      "title": "Stable Server Overview",
       "type": "link",
-      "url": "/d/oxia-chaos-cluster/oxia-chaos-cluster?var-channel=stable"
+      "url": "/d/oxia-chaos-server-overview/oxia-chaos-server-overview?var-channel=stable"
     },
     {
       "asDropdown": false,
@@ -48,9 +49,9 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Beta Cluster",
+      "title": "Beta Server Overview",
       "type": "link",
-      "url": "/d/oxia-chaos-cluster/oxia-chaos-cluster?var-channel=beta"
+      "url": "/d/oxia-chaos-server-overview/oxia-chaos-server-overview?var-channel=beta"
     },
     {
       "asDropdown": false,

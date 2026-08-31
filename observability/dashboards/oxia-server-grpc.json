@@ -1,0 +1,1050 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "red",
+        "name": "Chaos injections",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [
+            "oxia-chaos",
+            "chaos",
+            "channel:$channel"
+          ],
+          "type": "tags"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [
+        "oxia-chaos-server"
+      ],
+      "targetBlank": false,
+      "title": "Server dashboards",
+      "type": "dashboards"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Stable overview",
+      "type": "link",
+      "url": "/d/oxia-chaos-server-overview/oxia-chaos-server-overview?var-channel=stable"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Beta overview",
+      "type": "link",
+      "url": "/d/oxia-chaos-server-overview/oxia-chaos-server-overview?var-channel=beta"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Stable client",
+      "type": "link",
+      "url": "/d/oxia-chaos-client/oxia-chaos-client?var-channel=stable&var-runner=java&var-case=basic-kv"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Beta client",
+      "type": "link",
+      "url": "/d/oxia-chaos-client/oxia-chaos-client?var-channel=beta&var-runner=java&var-case=basic-kv"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 73,
+      "panels": [],
+      "repeat": "pod",
+      "repeatDirection": "h",
+      "title": "Pod -  $pod",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "wps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 61,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(\n    rate(grpc_server_handled_total{\n        channel=\"$channel\", component=~\"$component\", pod=~\"$pod\", grpc_service=~\"$grpc_service\", grpc_method=~\"$grpc_method\"\n    }[$__rate_interval])) \n\nby (grpc_service, grpc_method)\n\n\n",
+          "interval": "",
+          "legendFormat": "{{grpc_service}} - {{grpc_method}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "gRPC Server - Completed requests /s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "id": 139,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(\n    rate(grpc_server_handled_total{\n        channel=\"$channel\", component=~\"$component\", pod=~\"$pod\", grpc_service=~\"$grpc_service\", grpc_method=~\"$grpc_method\", grpc_code!=\"OK\"\n    }[$__rate_interval])) \n\nby (grpc_service, grpc_method, grpc_code) > 0\n\n\n or on() vector(0)",
+          "interval": "",
+          "legendFormat": "{{grpc_method}} - {{ grpc_code }}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "gRPC Server - Failed requests /s",
+      "type": "timeseries",
+      "description": "Zero means no failed RPCs matched the interval."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "wps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "id": 81,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(\n    rate(grpc_server_msg_sent_total{\n        channel=\"$channel\", component=~\"$component\", pod=~\"$pod\", grpc_service=~\"$grpc_service\", grpc_method=~\"$grpc_method\"\n    }[$__rate_interval])\n) \nby (grpc_service, grpc_method)\n\n\n",
+          "interval": "",
+          "legendFormat": "{{grpc_service}} - {{grpc_method}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "gRPC Server - Msgs sent/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "id": 82,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(\n    rate(grpc_server_msg_received_total{\n        channel=\"$channel\", component=~\"$component\", pod=~\"$pod\", grpc_service=~\"$grpc_service\", grpc_method=~\"$grpc_method\"\n    }[$__rate_interval])) \n\nby (grpc_service, grpc_method)\n\n\n",
+          "interval": "",
+          "legendFormat": "{{grpc_service}} - {{grpc_method}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "gRPC Server - Msgs received/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "wps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 9
+      },
+      "id": 93,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(\n    rate(grpc_client_handled_total{\n        channel=\"$channel\", component=~\"$component\", pod=~\"$pod\", grpc_service=~\"$grpc_service\", grpc_method=~\"$grpc_method\", grpc_code=\"OK\"\n    }[$__rate_interval])) \n\nby (grpc_service, grpc_method)\n\n\n",
+          "interval": "",
+          "legendFormat": "{{grpc_service}} - {{grpc_method}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "gRPC Client - Completed requests /s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 9
+      },
+      "id": 140,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(\n    rate(grpc_client_handled_total{\n        channel=\"$channel\", component=~\"$component\", pod=~\"$pod\", grpc_service=~\"$grpc_service\", grpc_method=~\"$grpc_method\", grpc_code!=\"OK\"\n    }[$__rate_interval])) \n\nby (grpc_service, grpc_method, grpc_code) > 0\n\n\n or on() vector(0)",
+          "interval": "",
+          "legendFormat": "{{grpc_method}} - {{ grpc_code }}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "gRPC Client - Failed requests /s",
+      "type": "timeseries",
+      "description": "Zero means no failed RPCs matched the interval."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "wps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 9
+      },
+      "id": 95,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(\n    rate(grpc_client_msg_sent_total{\n        channel=\"$channel\", component=~\"$component\", pod=~\"$pod\", grpc_service=~\"$grpc_service\", grpc_method=~\"$grpc_method\"\n    }[$__rate_interval])\n) \nby (grpc_service, grpc_method)\n\n\n",
+          "interval": "",
+          "legendFormat": "{{grpc_service}} - {{grpc_method}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "gRPC Client - Msgs sent/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${metrics}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 9
+      },
+      "id": 120,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${metrics}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(\n    rate(grpc_client_msg_received_total{\n        channel=\"$channel\", component=~\"$component\", pod=~\"$pod\", grpc_service=~\"$grpc_service\", grpc_method=~\"$grpc_method\"\n    }[$__rate_interval])) \n\nby (grpc_service, grpc_method)\n\n\n",
+          "interval": "",
+          "legendFormat": "{{grpc_service}} - {{grpc_method}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "gRPC Client - Msgs received/s",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 37,
+  "style": "dark",
+  "tags": [
+    "oxia",
+    "oxia-chaos",
+    "oxia-chaos-server",
+    "upstream-oxia"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Metrics",
+        "multi": false,
+        "name": "metrics",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "stable",
+          "value": "stable"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Channel",
+        "multi": false,
+        "name": "channel",
+        "options": [
+          {
+            "selected": true,
+            "text": "stable",
+            "value": "stable"
+          },
+          {
+            "selected": false,
+            "text": "beta",
+            "value": "beta"
+          }
+        ],
+        "query": "stable,beta",
+        "type": "custom"
+      },
+      {
+        "allValue": "oxia-server|oxia-coordinator",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metrics}"
+        },
+        "definition": "label_values(grpc_server_handled_total{channel=\"$channel\",component=~\"oxia-server|oxia-coordinator\"}, component)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Component",
+        "multi": true,
+        "name": "component",
+        "options": [],
+        "query": {
+          "query": "label_values(grpc_server_handled_total{channel=\"$channel\",component=~\"oxia-server|oxia-coordinator\"}, component)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metrics}"
+        },
+        "definition": "label_values(grpc_server_handled_total{channel=\"$channel\",component=~\"$component\"}, pod)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Pod",
+        "multi": true,
+        "name": "pod",
+        "options": [],
+        "query": {
+          "query": "label_values(grpc_server_handled_total{channel=\"$channel\",component=~\"$component\"}, pod)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metrics}"
+        },
+        "definition": "label_values(grpc_server_handled_total{channel=\"$channel\",component=~\"$component\",pod=~\"$pod\"}, grpc_service)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "gRPC service",
+        "multi": true,
+        "name": "grpc_service",
+        "options": [],
+        "query": {
+          "query": "label_values(grpc_server_handled_total{channel=\"$channel\",component=~\"$component\",pod=~\"$pod\"}, grpc_service)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metrics}"
+        },
+        "definition": "label_values(grpc_server_handled_total{channel=\"$channel\",component=~\"$component\",pod=~\"$pod\",grpc_service=~\"$grpc_service\"}, grpc_method)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "gRPC method",
+        "multi": true,
+        "name": "grpc_method",
+        "options": [],
+        "query": {
+          "query": "label_values(grpc_server_handled_total{channel=\"$channel\",component=~\"$component\",pod=~\"$pod\",grpc_service=~\"$grpc_service\"}, grpc_method)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Oxia Chaos / Server / gRPC",
+  "uid": "oxia-chaos-server-grpc",
+  "version": 1,
+  "weekStart": "",
+  "description": "Adapted from the upstream Oxia dashboard at oxia-db/oxia@2b47825b558dab15230c2315aa9476da6ff679d3. Queries are translated for the chaos Grafana Cloud OTLP metric schema and isolated by Stable/Beta channel."
+}
