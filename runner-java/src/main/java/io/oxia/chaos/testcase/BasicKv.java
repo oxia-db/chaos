@@ -15,6 +15,7 @@
  */
 package io.oxia.chaos.testcase;
 
+import static io.oxia.chaos.util.KeyValueUtils.sortedByKey;
 import static io.oxia.chaos.util.Timing.addSaturated;
 import static io.oxia.chaos.util.Timing.elapsedMillis;
 import static io.oxia.chaos.util.Timing.elapsedSeconds;
@@ -482,13 +483,14 @@ public final class BasicKv {
   }
 
   private void verifyRangeScan(final Operation operation, final String key, final String endKey) {
-    final List<KeyValue> expected = inference.range(key, endKey);
-    final List<KeyValue> actual = new ArrayList<>();
+    final List<KeyValue> expected = sortedByKey(inference.range(key, endKey));
+    final List<KeyValue> unorderedActual = new ArrayList<>();
     try (final CloseableIterable<GetResult> results = client.rangeScan(key, endKey)) {
       for (final GetResult result : results) {
-        actual.add(new KeyValue(result.key(), result.value()));
+        unorderedActual.add(new KeyValue(result.key(), result.value()));
       }
     }
+    final List<KeyValue> actual = sortedByKey(unorderedActual);
     if (!expected.equals(actual)) {
       throw CorrectnessViolationException.operationMismatch(
           operation, key, SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
@@ -517,19 +519,20 @@ public final class BasicKv {
     try (final Scope ignored = span.makeCurrent()) {
       final String firstKey = keyGenerator.lowerGuardKey();
       final String afterLastKey = keyGenerator.afterUpperGuardKey();
-      final List<KeyValue> expected = inference.range(firstKey, afterLastKey);
-      final List<KeyValue> actual = new ArrayList<>();
+      final List<KeyValue> expected = sortedByKey(inference.range(firstKey, afterLastKey));
+      final List<KeyValue> unorderedActual = new ArrayList<>();
       Failsafe.with(retryPolicy)
           .run(
               () -> {
-                actual.clear();
+                unorderedActual.clear();
                 try (final CloseableIterable<GetResult> results =
                     client.rangeScan(firstKey, afterLastKey)) {
                   for (final GetResult result : results) {
-                    actual.add(new KeyValue(result.key(), result.value()));
+                    unorderedActual.add(new KeyValue(result.key(), result.value()));
                   }
                 }
               });
+      final List<KeyValue> actual = sortedByKey(unorderedActual);
       if (!expected.equals(actual)) {
         throw CorrectnessViolationException.checkpointMismatch(
             SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));

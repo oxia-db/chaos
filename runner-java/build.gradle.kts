@@ -54,6 +54,7 @@ dependencies {
     testImplementation("io.opentelemetry:opentelemetry-sdk-testing")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")
+    testImplementation("io.github.oxia-db:oxia-testcontainers:0.7.4")
     testImplementation("org.testcontainers:testcontainers")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")

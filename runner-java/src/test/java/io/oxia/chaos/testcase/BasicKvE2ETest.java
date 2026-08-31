@@ -25,12 +25,11 @@ import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
+import io.oxia.testcontainers.OxiaContainer;
 import java.time.Duration;
 import java.util.SplittableRandom;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -39,32 +38,19 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers(disabledWithoutDocker = true)
 class BasicKvE2ETest {
 
-  private static final int OXIA_PORT = 6648;
   private static final long SEED = 211L;
 
   @Container
-  private static final GenericContainer<?> OXIA =
-      new GenericContainer<>(DockerImageName.parse("oxia/oxia:0.16.8"))
-          .withExposedPorts(OXIA_PORT)
-          .withCommand(
-              "/oxia/bin/oxia",
-              "standalone",
-              "--public-addr",
-              "0.0.0.0:" + OXIA_PORT,
-              "--data-dir",
-              "/tmp/oxia/data",
-              "--wal-dir",
-              "/tmp/oxia/wal")
-          .waitingFor(Wait.forListeningPort())
-          .withStartupTimeout(Duration.ofMinutes(2));
+  private static final OxiaContainer OXIA =
+      new OxiaContainer(DockerImageName.parse("oxia/oxia:0.16.8"), 3);
 
   @Test
-  void runsBasicKvAgainstOxiaAndCleansUpItsKeys() throws Exception {
+  void runsBasicKvAgainstThreeShardOxiaAndCleansUpItsKeys() throws Exception {
     assertThat(BasicKv.selectBatch(new SplittableRandom(SEED).nextDouble(BasicKv.TOTAL_WEIGHT)))
         .isEqualTo(BatchType.DELETE_RANGE);
 
     final String runId = "testcontainers-e2e";
-    final String serviceAddress = OXIA.getHost() + ":" + OXIA.getMappedPort(OXIA_PORT);
+    final String serviceAddress = OXIA.getServiceAddress();
     final Options options =
         new Options(
             Options.BASIC_KV,
