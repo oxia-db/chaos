@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-02T02:58:15Z",
+  "generatedAt": "2026-09-02T10:10:59Z",
   "windowDays": 90,
   "channels": [
     {
       "id": "stable",
       "serverVersion": "0.16",
-      "updatedAt": "2026-09-02T02:58:15Z",
+      "updatedAt": "2026-09-02T10:10:59Z",
       "testCases": [
         {
           "id": "basic-kv",
@@ -2219,7 +2219,7 @@
     {
       "id": "beta",
       "serverVersion": "0.17",
-      "updatedAt": "2026-09-02T02:58:15Z",
+      "updatedAt": "2026-09-02T10:10:59Z",
       "testCases": [
         {
           "id": "basic-kv",
