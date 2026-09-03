@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-03T04:03:16Z",
+  "generatedAt": "2026-09-03T17:41:43Z",
   "windowDays": 90,
   "channels": [
     {
       "id": "stable",
       "serverVersion": "0.16",
-      "updatedAt": "2026-09-03T04:03:16Z",
+      "updatedAt": "2026-09-03T17:41:43Z",
       "testCases": [
         {
           "id": "basic-kv",
@@ -367,16 +367,12 @@
             },
             {
               "date": "2026-09-02",
-              "result": "failed",
-              "title": "Scheduled correctness run did not complete",
-              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/33584825294"
             },
             {
               "date": "2026-09-03",
-              "result": "failed",
-              "title": "Scheduled correctness run did not complete",
-              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/33711505042"
             }
           ]
@@ -2222,7 +2218,7 @@
     {
       "id": "beta",
       "serverVersion": "0.17",
-      "updatedAt": "2026-09-03T04:03:16Z",
+      "updatedAt": "2026-09-03T17:41:43Z",
       "testCases": [
         {
           "id": "basic-kv",
@@ -2583,16 +2579,12 @@
             },
             {
               "date": "2026-09-02",
-              "result": "failed",
-              "title": "Scheduled correctness run did not complete",
-              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/33584825294"
             },
             {
               "date": "2026-09-03",
-              "result": "failed",
-              "title": "Scheduled correctness run did not complete",
-              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/33711505042"
             }
           ]
