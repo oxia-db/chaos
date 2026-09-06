@@ -33,7 +33,11 @@ public final class OxiaExceptionUtils {
           Status.Code.RESOURCE_EXHAUSTED,
           Status.Code.UNAVAILABLE);
   private static final List<String> RETRYABLE_MESSAGE_FRAGMENTS =
-      List.of("context canceled", "operation was cancelled", "resource is already closed");
+      List.of(
+          "context canceled",
+          "operation was cancelled",
+          "resource is already closed",
+          "in fenced, should be leader");
 
   private OxiaExceptionUtils() {}
 

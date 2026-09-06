@@ -118,6 +118,7 @@ jobs:
             RUNNER_IMAGE_PULL_POLICY=Always
 
       - name: Provision Grafana dashboards
+        continue-on-error: true
         run: make observability-provision
 
       - name: Submit chaos workflows
@@ -138,6 +139,7 @@ jobs:
 
       - name: Publish chaos annotations
         if: always()
+        continue-on-error: true
         run: |
           make -C deploy observability-annotations \
             CHANNELS="$CHANNELS" \
