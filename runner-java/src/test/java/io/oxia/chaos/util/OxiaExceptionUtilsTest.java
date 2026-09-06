@@ -67,4 +67,17 @@ class OxiaExceptionUtilsTest {
     assertThat(error.getStatusCode()).isEqualTo(OxiaStatusCode.UNKNOWN);
     assertThat(OxiaExceptionUtils.isRetryable(error)).isTrue();
   }
+
+  @Test
+  void classifiesFencedLeaderTransitionAsRetryable() {
+    final OxiaStatusException error =
+        OxiaStatusException.from(
+            Status.UNKNOWN
+                .withDescription(
+                    "Received message in the wrong state. In FENCED, should be LEADER.")
+                .asRuntimeException());
+
+    assertThat(error.getStatusCode()).isEqualTo(OxiaStatusCode.UNKNOWN);
+    assertThat(OxiaExceptionUtils.isRetryable(error)).isTrue();
+  }
 }
