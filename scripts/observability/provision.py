@@ -7,10 +7,10 @@ import argparse
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
+
+from grafana import GrafanaClient as GrafanaHttpClient
 
 
 FOLDER_UID = "oxia-chaos"
@@ -18,37 +18,7 @@ FOLDER_TITLE = "Oxia Chaos"
 OBSOLETE_DASHBOARD_UIDS = ("oxia-chaos-cluster",)
 
 
-class GrafanaClient:
-    def __init__(self, base_url: str, token: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.token = token
-
-    def request(
-        self, method: str, path: str, body: dict[str, Any] | None = None
-    ) -> tuple[int, dict[str, Any]]:
-        payload = None if body is None else json.dumps(body).encode("utf-8")
-        request = urllib.request.Request(
-            f"{self.base_url}{path}",
-            data=payload,
-            method=method,
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                response_body = response.read()
-                return response.status, (
-                    json.loads(response_body) if response_body else {}
-                )
-        except urllib.error.HTTPError as error:
-            error_body = error.read().decode("utf-8", errors="replace")
-            raise RuntimeError(
-                f"Grafana API {method} {path} failed with HTTP {error.code}: {error_body}"
-            ) from error
-
+class GrafanaClient(GrafanaHttpClient):
     def ensure_folder(self) -> None:
         try:
             self.request("GET", f"/api/folders/{FOLDER_UID}")

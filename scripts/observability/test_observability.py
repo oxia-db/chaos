@@ -1,10 +1,125 @@
 import json
 import tempfile
 import unittest
+import urllib.error
+from email.message import Message
+from io import BytesIO
 from pathlib import Path
 
+from grafana import GrafanaClient
 from provision import load_dashboard
 from publish_annotations import annotation_for, duration_seconds, is_injected_workflow_node
+
+
+class GrafanaClientTest(unittest.TestCase):
+    @staticmethod
+    def response(status: int = 200, body: bytes = b"{}") -> object:
+        class Response:
+            def __enter__(self) -> object:
+                return self
+
+            def __exit__(self, *_: object) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return body
+
+        response = Response()
+        response.status = status
+        return response
+
+    @staticmethod
+    def http_error(
+        status: int, body: bytes, retry_after: str | None = None
+    ) -> urllib.error.HTTPError:
+        headers = Message()
+        if retry_after is not None:
+            headers["Retry-After"] = retry_after
+        return urllib.error.HTTPError(
+            "https://grafana.example/api/folders/oxia-chaos",
+            status,
+            "error",
+            headers,
+            BytesIO(body),
+        )
+
+    def test_retries_loading_instance_and_recovers(self) -> None:
+        responses = iter(
+            [
+                self.http_error(
+                    503,
+                    b'{"code":"Loading","message":"Your instance is loading"}',
+                    retry_after="7",
+                ),
+                self.response(body=b'{"uid":"oxia-chaos"}'),
+            ]
+        )
+        delays = []
+
+        def open_next(*_args: object, **_kwargs: object) -> object:
+            response = next(responses)
+            if isinstance(response, BaseException):
+                raise response
+            return response
+
+        client = GrafanaClient(
+            "https://grafana.example",
+            "token",
+            opener=open_next,
+            sleep=delays.append,
+        )
+
+        status, body = client.request("GET", "/api/folders/oxia-chaos")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"uid": "oxia-chaos"})
+        self.assertEqual(delays, [7.0])
+
+    def test_retries_server_error_with_exponential_backoff(self) -> None:
+        attempts = []
+        delays = []
+
+        def unavailable(*_args: object, **_kwargs: object) -> object:
+            attempts.append(1)
+            raise self.http_error(525, b'{"error":"ssl_handshake_failed"}')
+
+        client = GrafanaClient(
+            "https://grafana.example",
+            "token",
+            max_attempts=3,
+            retry_delay_seconds=2,
+            opener=unavailable,
+            sleep=delays.append,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "HTTP 525"):
+            client.request("POST", "/api/annotations", {"text": "chaos"})
+
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(delays, [2, 4])
+
+    def test_does_not_retry_authentication_failure(self) -> None:
+        attempts = []
+
+        def reject(*_args: object, **_kwargs: object) -> object:
+            attempts.append(1)
+            raise self.http_error(401, b'{"message":"Unauthorized"}')
+
+        client = GrafanaClient(
+            "https://grafana.example",
+            "token",
+            opener=reject,
+            sleep=lambda _delay: self.fail("authentication failures must not be retried"),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "HTTP 401"):
+            client.request("GET", "/api/folders/oxia-chaos")
+
+        self.assertEqual(len(attempts), 1)
+
+    def test_rejects_negative_retry_configuration(self) -> None:
+        with self.assertRaisesRegex(ValueError, "retry_delay_seconds"):
+            GrafanaClient("https://grafana.example", "token", retry_delay_seconds=-1)
 
 
 class ProvisionTest(unittest.TestCase):

@@ -9,10 +9,10 @@ import json
 import os
 import re
 import sys
-import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
+
+from grafana import GrafanaClient
 
 
 DURATION_PATTERN = re.compile(r"^(?P<value>[0-9]+(?:\.[0-9]+)?)(?P<unit>ms|s|m|h)$")
@@ -79,32 +79,13 @@ def is_injected_workflow_node(resource: dict[str, Any]) -> bool:
 
 class GrafanaAnnotations:
     def __init__(self, base_url: str, token: str) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.token = token
+        self.client = GrafanaClient(base_url, token)
 
     def request(
         self, method: str, path: str, body: dict[str, Any] | None = None
     ) -> Any:
-        payload = None if body is None else json.dumps(body).encode("utf-8")
-        request = urllib.request.Request(
-            f"{self.base_url}{path}",
-            data=payload,
-            method=method,
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                response_body = response.read()
-                return json.loads(response_body) if response_body else {}
-        except urllib.error.HTTPError as error:
-            error_body = error.read().decode("utf-8", errors="replace")
-            raise RuntimeError(
-                f"Grafana annotations API failed with HTTP {error.code}: {error_body}"
-            ) from error
+        _, response = self.client.request(method, path, body)
+        return response
 
     def publish_once(self, annotation: dict[str, Any]) -> bool:
         event_tag = next(
