@@ -386,9 +386,7 @@
             },
             {
               "date": "2026-09-11",
-              "result": "failed",
-              "title": "Correctness workload failed",
-              "detail": "The basic-kv workload reported a correctness, retry, timeout, or final checkpoint failure.",
+              "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/34555267057"
             }
           ]
@@ -2614,9 +2612,7 @@
             },
             {
               "date": "2026-09-11",
-              "result": "failed",
-              "title": "Scheduled correctness run did not complete",
-              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/34555267057"
             }
           ]
