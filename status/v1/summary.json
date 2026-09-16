@@ -1,20 +1,16 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-15T08:45:06Z",
+  "generatedAt": "2026-09-16T08:42:49Z",
   "windowDays": 90,
   "channels": [
     {
       "id": "stable",
       "serverVersion": "0.16",
-      "updatedAt": "2026-09-15T08:45:06Z",
+      "updatedAt": "2026-09-16T08:42:49Z",
       "testCases": [
         {
           "id": "basic-kv",
           "history": [
-            {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
             {
               "date": "2026-06-19",
               "result": "not_run"
@@ -394,16 +390,17 @@
               "date": "2026-09-15",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/34921879954"
+            },
+            {
+              "date": "2026-09-16",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/35048647996"
             }
           ]
         },
         {
           "id": "ephemeral",
           "history": [
-            {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
             {
               "date": "2026-06-19",
               "result": "not_run"
@@ -758,6 +755,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -766,10 +767,6 @@
           "id": "notification",
           "history": [
             {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-19",
               "result": "not_run"
             },
@@ -1123,6 +1120,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -1131,10 +1132,6 @@
           "id": "sequences",
           "history": [
             {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-19",
               "result": "not_run"
             },
@@ -1488,6 +1485,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -1496,10 +1497,6 @@
           "id": "secondary-index",
           "history": [
             {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-19",
               "result": "not_run"
             },
@@ -1853,6 +1850,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -1861,10 +1862,6 @@
           "id": "versioning",
           "history": [
             {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-19",
               "result": "not_run"
             },
@@ -2218,6 +2215,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -2238,15 +2239,11 @@
     {
       "id": "beta",
       "serverVersion": "0.17",
-      "updatedAt": "2026-09-15T08:45:06Z",
+      "updatedAt": "2026-09-16T08:42:49Z",
       "testCases": [
         {
           "id": "basic-kv",
           "history": [
-            {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
             {
               "date": "2026-06-19",
               "result": "not_run"
@@ -2626,16 +2623,17 @@
               "date": "2026-09-15",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/34921879954"
+            },
+            {
+              "date": "2026-09-16",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/35048647996"
             }
           ]
         },
         {
           "id": "ephemeral",
           "history": [
-            {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
             {
               "date": "2026-06-19",
               "result": "not_run"
@@ -2990,6 +2988,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -2998,10 +3000,6 @@
           "id": "notification",
           "history": [
             {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-19",
               "result": "not_run"
             },
@@ -3355,6 +3353,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -3363,10 +3365,6 @@
           "id": "sequences",
           "history": [
             {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-19",
               "result": "not_run"
             },
@@ -3720,6 +3718,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -3728,10 +3730,6 @@
           "id": "secondary-index",
           "history": [
             {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-19",
               "result": "not_run"
             },
@@ -4085,6 +4083,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
@@ -4093,10 +4095,6 @@
           "id": "versioning",
           "history": [
             {
-              "date": "2026-06-18",
-              "result": "not_run"
-            },
-            {
               "date": "2026-06-19",
               "result": "not_run"
             },
@@ -4450,6 +4448,10 @@
             },
             {
               "date": "2026-09-15",
+              "result": "not_run"
+            },
+            {
+              "date": "2026-09-16",
               "result": "not_run"
             }
           ]
