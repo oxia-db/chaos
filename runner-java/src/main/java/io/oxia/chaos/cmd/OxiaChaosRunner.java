@@ -18,10 +18,12 @@ package io.oxia.chaos.cmd;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.inference.EphemeralModel;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.MemoryInferenceStore;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.testcase.BasicKv;
+import io.oxia.chaos.testcase.Ephemeral;
 import io.oxia.chaos.util.DurationConverter;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -32,6 +34,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.LongSupplier;
 import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +64,7 @@ public final class OxiaChaosRunner implements Callable<Integer> {
       names = "--case",
       required = true,
       paramLabel = "NAME",
-      description = "Correctness case to run. Supported: basic-kv.")
+      description = "Correctness case to run. Supported: basic-kv, ephemeral.")
   private String caseName;
 
   @Option(
@@ -125,7 +128,11 @@ public final class OxiaChaosRunner implements Callable<Integer> {
     try {
       return run(options);
     } catch (final CorrectnessViolationException error) {
-      LOGGER.error("basic-kv correctness violation", error);
+      LOGGER
+          .atError()
+          .addKeyValue("case", options.caseName())
+          .setCause(error)
+          .log("correctness violation");
       return CORRECTNESS_VIOLATION_EXIT_CODE;
     } catch (final InterruptedException error) {
       Thread.currentThread().interrupt();
@@ -154,6 +161,9 @@ public final class OxiaChaosRunner implements Callable<Integer> {
     final AutoConfiguredOpenTelemetrySdk configuredTelemetry = configureOpenTelemetry();
     final OpenTelemetrySdk openTelemetry = configuredTelemetry.getOpenTelemetrySdk();
     final InferenceStore inference = new MemoryInferenceStore();
+    final EphemeralModel ephemeralModel = new EphemeralModel();
+    final LongSupplier referenceKeyCount =
+        Options.EPHEMERAL.equals(options.caseName()) ? ephemeralModel::size : inference::size;
 
     LOGGER
         .atInfo()
@@ -170,7 +180,7 @@ public final class OxiaChaosRunner implements Callable<Integer> {
 
     try (openTelemetry;
         final RunnerMetrics metrics =
-            new RunnerMetrics(openTelemetry, options.caseName(), inference::size);
+            new RunnerMetrics(openTelemetry, options.caseName(), referenceKeyCount);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(options.serviceAddress())
                 .namespace(options.namespace())
@@ -190,6 +200,22 @@ public final class OxiaChaosRunner implements Callable<Integer> {
                           inference,
                           metrics,
                           REQUEST_TIMEOUT)
+                      .run();
+                  return null;
+                });
+        case Options.EPHEMERAL ->
+            runOnVirtualThread(
+                () -> {
+                  new Ephemeral(
+                          options,
+                          runId,
+                          options.namespace(),
+                          client,
+                          openTelemetry,
+                          ephemeralModel,
+                          metrics,
+                          REQUEST_TIMEOUT,
+                          Ephemeral.Settings.DEFAULT)
                       .run();
                   return null;
                 });

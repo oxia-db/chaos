@@ -46,6 +46,32 @@ minute. Override these settings with:
 
 The Oxia namespace is derived internally as `oc-java-basic-kv`.
 
+## Run ephemeral
+
+```shell
+make run-java ARGS='--case=ephemeral --service-address=localhost:6648'
+```
+
+The ephemeral case checks that an ephemeral record lives exactly as long as the
+client session that owns it. The runner starts two owner child processes from
+its own image and classpath, each holding ephemeral records for half of
+`--key-count` keys, and verifies them with a separate observer client. Every
+two minutes one owner is ended, alternating between the two, either by closing
+its client or by `SIGKILL`, and then replaced. The case fails when:
+
+- a record disappears while the session that wrote it is still alive
+- a crashed owner's records disappear before half of the 30-second session
+  timeout
+- an ended owner's records remain longer than two session timeouts plus 30
+  seconds
+- a record reports a value, session, or owner different from the last write
+
+When a record is missing, the owner rewrites it to learn its current session.
+A new session means the old one legitimately expired during a long fault; it is
+counted in `oxia.chaos.session.replacements` instead of failing the run.
+`--batch-size` is accepted for CLI compatibility and ignored by this case. The
+Oxia namespace is `oc-java-ephemeral`.
+
 ## Observability
 
 Logs include the generated seed, run ID, workload configuration, checkpoint

@@ -42,4 +42,37 @@ public final class CorrectnessViolationException extends RuntimeException {
     return new CorrectnessViolationException(
         "checkpoint mismatch: expected=" + expected + ", actual=" + actual);
   }
+
+  public static CorrectnessViolationException ephemeralLost(
+      final String key, final long sessionId) {
+    return new CorrectnessViolationException(
+        "ephemeral record lost while its session was alive: key="
+            + key
+            + ", sessionId="
+            + sessionId);
+  }
+
+  public static CorrectnessViolationException earlyExpiry(
+      final String owner, final int expected, final int present, final long elapsedMillis) {
+    return new CorrectnessViolationException(
+        "ephemeral records expired before the session timeout: owner="
+            + owner
+            + ", expected="
+            + expected
+            + ", present="
+            + present
+            + ", elapsedMs="
+            + elapsedMillis);
+  }
+
+  public static CorrectnessViolationException ephemeralLeaked(
+      final String owner, final String remaining, final long elapsedMillis) {
+    return new CorrectnessViolationException(
+        "ephemeral records outlived their ended owner: owner="
+            + owner
+            + ", remaining="
+            + remaining
+            + ", elapsedMs="
+            + elapsedMillis);
+  }
 }

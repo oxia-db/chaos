@@ -40,6 +40,14 @@ class OxiaChaosRunnerTest {
   }
 
   @Test
+  void parsesTheEphemeralCaseIntoItsOwnNamespace() {
+    final Options options = parse("--case=ephemeral", "--service-address=oxia:6648");
+
+    assertThat(options.caseName()).isEqualTo("ephemeral");
+    assertThat(options.namespace()).isEqualTo("oc-java-ephemeral");
+  }
+
+  @Test
   void parsesWorkloadOverrides() {
     final Options options =
         parse(
