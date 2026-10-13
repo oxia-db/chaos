@@ -132,7 +132,7 @@ class EphemeralClientE2ETest {
   void expiresACrashedOwnersRecordsOnlyAfterTheSessionTimeout() throws Exception {
     final String prefix = prefix();
     try (final SyncOxiaClient observer = observer();
-        final OwnerProcess owner = ownerProcess("crashed-owner")) {
+        final Ephemeral.Owner owner = ownerProcess("crashed-owner")) {
       for (int index = 0; index < 10; index++) {
         assertThat(owner.put(prefix + index, value("v")).sessionId()).isPresent();
       }
@@ -152,7 +152,7 @@ class EphemeralClientE2ETest {
   void deletesAGracefullyClosedOwnersRecordsBeforeTheSessionTimeout() throws Exception {
     final String prefix = prefix();
     try (final SyncOxiaClient observer = observer();
-        final OwnerProcess owner = ownerProcess("closed-owner")) {
+        final Ephemeral.Owner owner = ownerProcess("closed-owner")) {
       for (int index = 0; index < 10; index++) {
         owner.put(prefix + index, value("v"));
       }
@@ -167,8 +167,8 @@ class EphemeralClientE2ETest {
     }
   }
 
-  private static OwnerProcess ownerProcess(final String identifier) {
-    return OwnerProcess.start(
+  private static Ephemeral.Owner ownerProcess(final String identifier) {
+    return Ephemeral.Owner.start(
         OXIA.getServiceAddress(), "default", identifier, SESSION_TIMEOUT, Duration.ofSeconds(10));
   }
 

@@ -23,8 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.oxia.chaos.inference.EphemeralRecord;
 import io.oxia.chaos.ops.Operation;
-import io.oxia.chaos.testcase.OwnerProcess.OwnedValue;
-import io.oxia.chaos.testcase.OwnerProcess.OwnedVersion;
+import io.oxia.chaos.testcase.Ephemeral.OwnedValue;
+import io.oxia.chaos.testcase.Ephemeral.OwnedVersion;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
