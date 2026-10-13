@@ -48,8 +48,11 @@ cases:
 
 chaosWorkflow:
   enabled: false
-  # Supported profiles: quick, six-hour.
+  # Supported profiles: quick, six-hour, six-hour-periodic.
   profile: six-hour
+  periodicPodKill:
+    # Interval between pod kills for the six-hour-periodic profile.
+    interval: 5m
 
 runnerJob:
   imagePullSecrets: []
