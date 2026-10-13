@@ -11,6 +11,7 @@
 <p>
   <a href="https://github.com/oxia-db/oxia/releases/tag/v0.16.8"><img src="https://img.shields.io/static/v1?label=Tested%20Server&amp;message=Oxia%200.16.8&amp;color=brightgreen" alt="Tested Server: Oxia 0.16.8"></a>
   <a href="https://central.sonatype.com/artifact/io.github.oxia-db/oxia-client/0.9.4"><img src="https://img.shields.io/static/v1?label=Tested%20Java%20SDK&amp;message=0.9.4&amp;color=blue" alt="Tested Java SDK: 0.9.4"></a>
+<a href="https://app.fossa.com/projects/git%2Bgithub.com%2Foxia-db%2Fchaos?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2Foxia-db%2Fchaos.svg?type=shield"/></a>
 </p>
 
 <br clear="left">
@@ -30,3 +31,7 @@ report a problem, or propose a new runner or chaos case.
 
 If Oxia Chaos is useful to you, please
 [star the repository](https://github.com/oxia-db/chaos).
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Foxia-db%2Fchaos.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Foxia-db%2Fchaos?ref=badge_large)
