@@ -115,7 +115,7 @@ spec:
               protocol: TCP
           {{- end }}
           resources:
-            {{- toYaml (default dict $runner.resources) | nindent 12 }}
+            {{- toYaml (default (default dict $runner.resources) $case.resources) | nindent 12 }}
       {{- with $root.Values.runnerJob.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

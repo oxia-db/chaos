@@ -22,7 +22,6 @@ import static io.oxia.chaos.util.Timing.elapsedSeconds;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
-import dev.failsafe.TimeoutExceededException;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
@@ -38,15 +37,17 @@ import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnedValue;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnedVersion;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnerOperationException;
+import io.oxia.chaos.testcase.ephemeral.Owner.OwnerUnavailableException;
 import io.oxia.chaos.util.ExceptionUtils;
-import io.oxia.chaos.util.OxiaExceptionUtils;
 import io.oxia.chaos.util.RatePacer;
+import io.oxia.chaos.util.RetryUtils;
 import io.oxia.chaos.util.SummaryUtils;
 import io.oxia.chaos.util.ValueGenerator;
 import io.oxia.client.api.CloseableIterable;
 import io.oxia.client.api.GetResult;
 import io.oxia.client.api.SyncOxiaClient;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -95,6 +96,21 @@ public final class Ephemeral {
             Duration.ofMinutes(2),
             Duration.ofSeconds(30));
 
+    /** How long an owner may take to connect before it is killed and started again. */
+    public Duration startTimeout() {
+      return requestTimeout.multipliedBy(6);
+    }
+
+    /** How long an owner may take to answer one request before it is treated as lost. */
+    public Duration replyTimeout() {
+      return requestTimeout.multipliedBy(3);
+    }
+
+    /** How long a graceful close may take before the owner is killed instead. */
+    public Duration closeTimeout() {
+      return requestTimeout;
+    }
+
     /** A crashed owner's records must survive at least this long after the kill. */
     public Duration earliestExpiry() {
       return sessionTimeout.dividedBy(2);
@@ -121,10 +137,11 @@ public final class Ephemeral {
   private final RetryPolicy<Object> spawnPolicy;
   private final Timeout<Object> observerAttemptTimeout;
   private final ValueGenerator valueGenerator;
-  private final int keysPerSlot;
   private final List<Slot> slots;
 
   private boolean finishing;
+  private boolean faulted;
+  private long lastFaultNanos;
   private long operationCount;
   private long checkpointCount;
   private long rotationCount;
@@ -147,7 +164,11 @@ public final class Ephemeral {
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.settings = settings;
-    this.retryPolicy = createRetryPolicy(retryTimeout);
+    this.retryPolicy =
+        RetryUtils.retryPolicy(
+            retryTimeout,
+            (final Throwable error) ->
+                error instanceof final OwnerOperationException owner && owner.retryable());
     this.spawnPolicy =
         RetryPolicy.builder()
             .handle(IllegalStateException.class)
@@ -155,21 +176,18 @@ public final class Ephemeral {
             .withMaxAttempts(-1)
             .withMaxDuration(retryTimeout)
             .build();
-    this.observerAttemptTimeout =
-        Timeout.builder(
-                OBSERVER_ATTEMPT_TIMEOUT.compareTo(retryTimeout) <= 0
-                    ? OBSERVER_ATTEMPT_TIMEOUT
-                    : retryTimeout)
-            .withInterrupt()
-            .build();
+    this.observerAttemptTimeout = RetryUtils.attemptTimeout(OBSERVER_ATTEMPT_TIMEOUT, retryTimeout);
     this.valueGenerator = new ValueGenerator(options.seed());
-    this.keysPerSlot = Math.max(1, options.keyCount() / SLOT_NAMES.size());
-    this.slots =
-        SLOT_NAMES.stream()
-            .map(
-                (final String name) ->
-                    new Slot(name, "/oxia-chaos/runs/" + runId + "/ephemeral/" + name + "/key-"))
-            .toList();
+    final List<Slot> created = new ArrayList<>(SLOT_NAMES.size());
+    for (int index = 0; index < SLOT_NAMES.size(); index++) {
+      final String name = SLOT_NAMES.get(index);
+      created.add(
+          new Slot(
+              name,
+              "/oxia-chaos/runs/" + runId + "/ephemeral/" + name + "/key-",
+              slotKeyCount(options.keyCount(), SLOT_NAMES.size(), index)));
+    }
+    this.slots = List.copyOf(created);
   }
 
   /** Runs warmup, the timed workload, final owner expiry checks, and mandatory cleanup. */
@@ -189,11 +207,18 @@ public final class Ephemeral {
         spawn(slot);
       }
       executeWorkload();
-      awaitDrains();
-      checkpoint(Checkpoint.FINAL);
+      while (true) {
+        try {
+          awaitDrains();
+          checkpoint(Checkpoint.FINAL);
+          break;
+        } catch (final OwnerUnavailableException error) {
+          ownerLost(error);
+        }
+      }
       finishing = true;
-      endOwner(slots.get(0), Operation.OWNER_CRASH);
-      endOwner(slots.get(1), Operation.OWNER_CLOSE);
+      endOwnerAtFinish(slots.get(0), Operation.OWNER_CRASH);
+      endOwnerAtFinish(slots.get(1), Operation.OWNER_CLOSE);
       awaitDrains();
       runSpan.setStatus(StatusCode.OK);
     } catch (final CorrectnessViolationException error) {
@@ -241,28 +266,36 @@ public final class Ephemeral {
     final SplittableRandom random = new SplittableRandom(options.seed());
 
     while (System.nanoTime() < deadline) {
-      pollDrains();
-      if (System.nanoTime() >= nextRotation && slots.stream().allMatch(Slot::alive)) {
-        final Slot slot = slots.get((int) (rotationCount % slots.size()));
-        endOwner(slot, random.nextBoolean() ? Operation.OWNER_CRASH : Operation.OWNER_CLOSE);
-        rotationCount++;
-        nextRotation = addSaturated(System.nanoTime(), settings.rotationInterval().toNanos());
-      }
+      try {
+        pollDrains();
+        if (System.nanoTime() >= nextRotation && slots.stream().allMatch(Slot::alive)) {
+          final Slot slot = slots.get((int) (rotationCount % slots.size()));
+          endOwner(slot, random.nextBoolean() ? Operation.OWNER_CRASH : Operation.OWNER_CLOSE);
+          rotationCount++;
+          nextRotation = addSaturated(System.nanoTime(), settings.rotationInterval().toNanos());
+        }
 
-      pacer.beforeOperation();
-      if (System.nanoTime() >= deadline) {
-        break;
-      }
-      final List<Slot> alive = slots.stream().filter(Slot::alive).toList();
-      final Slot slot = alive.get(random.nextInt(alive.size()));
-      final int index = random.nextInt(keysPerSlot);
-      executeOperation(selectOperation(random.nextDouble(TOTAL_WEIGHT)), slot, index);
-      operationCount++;
+        final List<Slot> alive = slots.stream().filter(Slot::alive).toList();
+        if (alive.isEmpty()) {
+          Thread.sleep(DRAIN_POLL_INTERVAL);
+          continue;
+        }
+        pacer.beforeOperation();
+        if (System.nanoTime() >= deadline) {
+          break;
+        }
+        final Slot slot = alive.get(random.nextInt(alive.size()));
+        final int index = random.nextInt(slot.keyCount);
+        executeOperation(selectOperation(random.nextDouble(TOTAL_WEIGHT)), slot, index);
+        operationCount++;
 
-      final long now = System.nanoTime();
-      if (now >= nextCheckpoint && now < deadline) {
-        checkpoint(Checkpoint.PERIODIC);
-        nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
+        final long now = System.nanoTime();
+        if (now >= nextCheckpoint && now < deadline) {
+          checkpoint(Checkpoint.PERIODIC);
+          nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
+        }
+      } catch (final OwnerUnavailableException error) {
+        ownerLost(error);
       }
     }
   }
@@ -403,14 +436,24 @@ public final class Ephemeral {
       expected.put(record.key(), record);
     }
     final String owner = slot.owner.clientIdentifier();
-    final long ended = System.nanoTime();
+    final long ended;
     if (mode == Operation.OWNER_CRASH) {
+      ended = System.nanoTime();
       slot.owner.crash();
-    } else if (!slot.owner.closeGracefully(settings.expiryDeadline())) {
-      LOGGER.atWarn().addKeyValue("owner", owner).log("ephemeral owner was killed during close");
+    } else {
+      if (!slot.owner.closeGracefully(settings.closeTimeout())) {
+        LOGGER.atWarn().addKeyValue("owner", owner).log("ephemeral owner was killed during close");
+      }
+      // Measure from when the owner was gone, so a slow close cannot eat the expiry window.
+      ended = System.nanoTime();
     }
     slot.owner = null;
-    slot.drain = new Drain(mode, owner, expected, ended);
+    final boolean checkEarlyExpiry =
+        checksEarlyExpiry(
+            mode,
+            faulted ? Optional.of(Duration.ofNanos(ended - lastFaultNanos)) : Optional.empty(),
+            settings.sessionTimeout());
+    slot.drain = new Drain(mode, owner, expected, ended, checkEarlyExpiry);
     LOGGER
         .atInfo()
         .addKeyValue("owner", owner)
@@ -419,6 +462,49 @@ public final class Ephemeral {
         .log("ephemeral owner ended");
     // Scan right away so a crashed owner's records are seen before any expiry is allowed.
     pollDrain(slot);
+  }
+
+  private void endOwnerAtFinish(final Slot slot, final Operation mode) throws InterruptedException {
+    if (slot.owner == null) {
+      return;
+    }
+    try {
+      endOwner(slot, mode);
+    } catch (final OwnerUnavailableException error) {
+      ownerLost(error);
+    }
+  }
+
+  /**
+   * Handles an owner process that died or stopped responding. Its last request may or may not have
+   * been applied, so its slice drains leniently: remaining records only need to belong to it.
+   */
+  private void ownerLost(final OwnerUnavailableException error) {
+    final Slot slot =
+        slots.stream()
+            .filter(
+                (final Slot candidate) ->
+                    candidate.owner != null
+                        && candidate.owner.clientIdentifier().equals(error.clientIdentifier()))
+            .findFirst()
+            .orElseThrow(() -> error);
+    noteFault();
+    final Map<String, EphemeralRecord> expected = new LinkedHashMap<>();
+    for (final EphemeralRecord record : model.removeRange(slot.prefix, slot.end())) {
+      expected.put(record.key(), record);
+    }
+    slot.owner.close();
+    slot.owner = null;
+    slot.drain =
+        new Drain(
+            Operation.OWNER_LOST, error.clientIdentifier(), expected, System.nanoTime(), false);
+    slot.nextPoll = System.nanoTime();
+    LOGGER
+        .atWarn()
+        .addKeyValue("owner", error.clientIdentifier())
+        .addKeyValue("keys", expected.size())
+        .setCause(error)
+        .log("ephemeral owner lost");
   }
 
   private void pollDrains() {
@@ -445,7 +531,12 @@ public final class Ephemeral {
 
     for (final Map.Entry<String, OwnedValue> entry : present.entrySet()) {
       final EphemeralRecord expected = drain.records.get(entry.getKey());
-      if (expected == null || !matches(expected, entry.getValue())) {
+      if (drain.mode == Operation.OWNER_LOST) {
+        if (!entry.getValue().version().clientIdentifier().equals(Optional.of(drain.owner))) {
+          throw CorrectnessViolationException.operationMismatch(
+              drain.mode, entry.getKey(), "owner=" + drain.owner, describe(entry.getValue()));
+        }
+      } else if (expected == null || !matches(expected, entry.getValue())) {
         throw CorrectnessViolationException.operationMismatch(
             drain.mode,
             entry.getKey(),
@@ -456,7 +547,7 @@ public final class Ephemeral {
     final long elapsedMillis = elapsedMillis(drain.endedNanos);
     switch (judgeDrain(
         settings,
-        drain.mode,
+        drain.checkEarlyExpiry,
         drain.records.size(),
         present.size(),
         Duration.ofNanos(scanStarted - drain.endedNanos),
@@ -505,15 +596,17 @@ public final class Ephemeral {
                         namespace,
                         identifier,
                         settings.sessionTimeout(),
-                        settings.requestTimeout()));
-    for (int index = 0; index < keysPerSlot; index++) {
+                        settings.requestTimeout(),
+                        settings.startTimeout(),
+                        settings.replyTimeout()));
+    for (int index = 0; index < slot.keyCount; index++) {
       putOwned(slot, slot.key(index), valueGenerator.warmup(index));
     }
     LOGGER
         .atInfo()
         .addKeyValue("owner", identifier)
         .addKeyValue("pid", slot.owner.pid())
-        .addKeyValue("keys", keysPerSlot)
+        .addKeyValue("keys", slot.keyCount)
         .addKeyValue("duration_ms", elapsedMillis(started))
         .log("ephemeral owner started");
   }
@@ -535,17 +628,39 @@ public final class Ephemeral {
 
   private Optional<OwnedValue> observerGet(final String key) {
     return Failsafe.with(retryPolicy, observerAttemptTimeout)
-        .get(() -> Optional.ofNullable(observer.get(key)).map(Ephemeral::owned));
+        .get(() -> tracked(() -> Optional.ofNullable(observer.get(key)).map(Ephemeral::owned)));
   }
 
   private void observerCall(final Runnable action) {
-    Failsafe.with(retryPolicy, observerAttemptTimeout).run(action::run);
+    Failsafe.with(retryPolicy, observerAttemptTimeout)
+        .run(
+            () ->
+                tracked(
+                    () -> {
+                      action.run();
+                      return null;
+                    }));
   }
 
-  // Owner requests are not interrupted: the child bounds each attempt with its request timeout,
-  // and abandoning a pending reply would desynchronize the request/response stream.
+  // Owner requests are not interrupted by Failsafe: the owner bounds each reply itself and is
+  // treated as lost when it does not answer, since a late reply would desynchronize the stream.
   private <T> T ownerCall(final Supplier<T> action) {
-    return Failsafe.with(retryPolicy).get(action::get);
+    return Failsafe.with(retryPolicy).get(() -> tracked(action));
+  }
+
+  /** Runs one attempt and remembers when any attempt last failed. */
+  private <T> T tracked(final Supplier<T> attempt) {
+    try {
+      return attempt.get();
+    } catch (final RuntimeException error) {
+      noteFault();
+      throw error;
+    }
+  }
+
+  private void noteFault() {
+    faulted = true;
+    lastFaultNanos = System.nanoTime();
   }
 
   private void observe(final Operation operation, final String key, final Runnable action) {
@@ -586,38 +701,18 @@ public final class Ephemeral {
     LOGGER.atInfo().addKeyValue("run_id", runId).log("ephemeral cleanup completed");
   }
 
-  static RetryPolicy<Object> createRetryPolicy(final Duration retryTimeout) {
-    return RetryPolicy.builder()
-        .handleIf(
-            (final Throwable error) ->
-                error instanceof TimeoutExceededException
-                    || (error instanceof final OwnerOperationException owner && owner.retryable())
-                    || OxiaExceptionUtils.isRetryable(error))
-        .withBackoff(INITIAL_RETRY_DELAY, MAX_RETRY_DELAY)
-        .withMaxAttempts(-1)
-        .withMaxDuration(retryTimeout)
-        .onRetry(
-            (final var event) ->
-                LOGGER
-                    .atWarn()
-                    .addKeyValue("attempt", event.getAttemptCount())
-                    .addKeyValue("error", String.valueOf(event.getLastException()))
-                    .log("Retrying current ephemeral operation"))
-        .build();
-  }
-
   /**
    * Decides what one scan of an ended owner's slice means. Bounds are checked conservatively: a
    * scan proves records were already gone when it ended and were still present when it started.
    */
   static DrainVerdict judgeDrain(
       final Settings settings,
-      final Operation mode,
+      final boolean checkEarlyExpiry,
       final int expected,
       final int present,
       final Duration sinceEndAtScanStart,
       final Duration sinceEndAtScanEnd) {
-    if (mode == Operation.OWNER_CRASH
+    if (checkEarlyExpiry
         && present < expected
         && sinceEndAtScanEnd.compareTo(settings.earliestExpiry()) < 0) {
       return DrainVerdict.EARLY_EXPIRY;
@@ -629,6 +724,26 @@ public final class Ephemeral {
       return DrainVerdict.LEAKED;
     }
     return DrainVerdict.WAITING;
+  }
+
+  /**
+   * The server times a session out from its last heartbeat, not from the kill. A fault shortly
+   * before the kill may have stopped heartbeats early, so the lower bound only applies to a crash
+   * that follows a full session timeout without failed requests.
+   */
+  static boolean checksEarlyExpiry(
+      final Operation mode,
+      final Optional<Duration> sinceLastFault,
+      final Duration sessionTimeout) {
+    return mode == Operation.OWNER_CRASH
+        && sinceLastFault
+            .map((final Duration since) -> since.compareTo(sessionTimeout) > 0)
+            .orElse(true);
+  }
+
+  /** Splits the key count across slots, giving the remainder to the first slots. */
+  static int slotKeyCount(final int keyCount, final int slots, final int slot) {
+    return keyCount / slots + (slot < keyCount % slots ? 1 : 0);
   }
 
   static Operation selectOperation(final double selected) {
@@ -685,14 +800,16 @@ public final class Ephemeral {
 
     private final String name;
     private final String prefix;
+    private final int keyCount;
     private int generation;
     private Owner owner;
     private Drain drain;
     private long nextPoll;
 
-    private Slot(final String name, final String prefix) {
+    private Slot(final String name, final String prefix, final int keyCount) {
       this.name = name;
       this.prefix = prefix;
+      this.keyCount = keyCount;
     }
 
     private String key(final int index) {
@@ -709,7 +826,11 @@ public final class Ephemeral {
   }
 
   private record Drain(
-      Operation mode, String owner, Map<String, EphemeralRecord> records, long endedNanos) {
+      Operation mode,
+      String owner,
+      Map<String, EphemeralRecord> records,
+      long endedNanos,
+      boolean checkEarlyExpiry) {
 
     private Drain {
       Objects.requireNonNull(mode, "mode");

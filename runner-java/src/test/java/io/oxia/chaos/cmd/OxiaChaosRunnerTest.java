@@ -85,6 +85,10 @@ class OxiaChaosRunnerTest {
             () -> parse("--case=basic-kv", "--service-address=oxia:6648", "--key-count=0"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("--key-count");
+    assertThatThrownBy(
+            () -> parse("--case=ephemeral", "--service-address=oxia:6648", "--key-count=1"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("--key-count must be at least 2");
   }
 
   @Test

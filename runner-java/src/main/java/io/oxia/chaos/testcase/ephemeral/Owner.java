@@ -35,6 +35,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -58,27 +60,53 @@ final class Owner implements AutoCloseable {
   private static final String READY = "READY";
   private static final Set<PutOption> EPHEMERAL = Set.of(PutOption.AsEphemeralRecord);
   private static final List<String> JVM_OPTIONS = List.of("-Xmx128m", "-XX:+UseSerialGC");
+  // Marks the end of the child's stdout; compared by identity.
+  private static final String END_OF_STREAM = new String("EOF");
 
   private final String clientIdentifier;
   private final Process process;
   private final PrintStream requests;
-  private final BufferedReader responses;
+  private final BlockingQueue<String> replies = new LinkedBlockingQueue<>();
+  private final Duration replyTimeout;
 
-  private Owner(final String clientIdentifier, final Process process) {
+  private Owner(final String clientIdentifier, final Process process, final Duration replyTimeout) {
     this.clientIdentifier = clientIdentifier;
     this.process = process;
+    this.replyTimeout = replyTimeout;
     this.requests = new PrintStream(process.getOutputStream(), true, StandardCharsets.UTF_8);
-    this.responses =
-        new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+    // Read stdout on a separate thread so every wait for the child can be bounded.
+    Thread.ofVirtual()
+        .name("ephemeral-owner-reader-" + process.pid())
+        .start(
+            () -> {
+              try (final BufferedReader responses =
+                  new BufferedReader(
+                      new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = responses.readLine()) != null) {
+                  replies.add(line);
+                }
+              } catch (final IOException ignored) {
+                // The stream closes when the child exits or is killed.
+              } finally {
+                replies.add(END_OF_STREAM);
+              }
+            });
   }
 
-  /** Starts an owner on the current JVM and classpath and waits until its client is connected. */
+  /**
+   * Starts an owner on the current JVM and classpath and waits until its client is connected.
+   *
+   * @throws IllegalStateException when the owner exits or does not connect within the start timeout
+   */
   static Owner start(
       final String serviceAddress,
       final String namespace,
       final String clientIdentifier,
       final Duration sessionTimeout,
-      final Duration requestTimeout) {
+      final Duration requestTimeout,
+      final Duration startTimeout,
+      final Duration replyTimeout) {
     final List<String> command =
         new ArrayList<>(
             List.of(Path.of(System.getProperty("java.home"), "bin", "java").toString()));
@@ -99,12 +127,15 @@ final class Owner implements AutoCloseable {
     } catch (final IOException error) {
       throw new UncheckedIOException("unable to start ephemeral owner " + clientIdentifier, error);
     }
-    final Owner owner = new Owner(clientIdentifier, process);
-    final String ready = owner.readLine();
-    if (!READY.equals(ready)) {
+    final Owner owner = new Owner(clientIdentifier, process, replyTimeout);
+    try {
+      final String ready = owner.awaitReply(startTimeout, "start");
+      if (!READY.equals(ready)) {
+        throw new OwnerUnavailableException(clientIdentifier, "sent " + ready + " during start");
+      }
+    } catch (final OwnerUnavailableException error) {
       owner.close();
-      throw new IllegalStateException(
-          "ephemeral owner " + clientIdentifier + " failed to start: " + ready);
+      throw new IllegalStateException(error.getMessage(), error);
     }
     return owner;
   }
@@ -157,26 +188,21 @@ final class Owner implements AutoCloseable {
     process.destroyForcibly().waitFor();
   }
 
-  public boolean isAlive() {
-    return process.isAlive();
-  }
-
   @Override
   public void close() {
     process.destroyForcibly();
   }
 
+  /**
+   * Sends one request and waits for its reply. A child that exits or stops replying is killed and
+   * reported as unavailable, since a late reply would desynchronize the stream.
+   */
   private String[] request(final String request) {
     if (!process.isAlive()) {
-      throw new IllegalStateException("ephemeral owner " + clientIdentifier + " is not running");
+      throw new OwnerUnavailableException(clientIdentifier, "is not running");
     }
     requests.println(request);
-    final String reply = readLine();
-    if (reply == null) {
-      throw new IllegalStateException(
-          "ephemeral owner " + clientIdentifier + " exited during: " + request);
-    }
-    final String[] parts = reply.split(" ");
+    final String[] parts = awaitReply(replyTimeout, request).split(" ");
     if ("ERR".equals(parts[0])) {
       throw new OwnerOperationException(
           clientIdentifier,
@@ -186,13 +212,26 @@ final class Owner implements AutoCloseable {
     return parts;
   }
 
-  private String readLine() {
+  private String awaitReply(final Duration timeout, final String request) {
+    final String reply;
     try {
-      return responses.readLine();
-    } catch (final IOException error) {
-      throw new UncheckedIOException(
-          "unable to read from ephemeral owner " + clientIdentifier, error);
+      reply = replies.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
+    } catch (final InterruptedException error) {
+      Thread.currentThread().interrupt();
+      close();
+      throw new IllegalStateException(
+          "interrupted waiting for ephemeral owner " + clientIdentifier, error);
     }
+    if (reply == null) {
+      close();
+      throw new OwnerUnavailableException(
+          clientIdentifier, "did not reply within " + timeout + " to: " + request);
+    }
+    if (reply == END_OF_STREAM) {
+      replies.add(END_OF_STREAM);
+      throw new OwnerUnavailableException(clientIdentifier, "exited during: " + request);
+    }
+    return reply;
   }
 
   private static Optional<Long> sessionId(final String value) {
@@ -272,6 +311,21 @@ final class Owner implements AutoCloseable {
 
   /** A value read by an owner together with its session metadata. */
   record OwnedValue(byte[] value, OwnedVersion version) {}
+
+  /** The owner process died or stopped responding, so its session state is unknown. */
+  static final class OwnerUnavailableException extends RuntimeException {
+
+    private final String clientIdentifier;
+
+    OwnerUnavailableException(final String clientIdentifier, final String message) {
+      super("ephemeral owner " + clientIdentifier + " " + message);
+      this.clientIdentifier = clientIdentifier;
+    }
+
+    public String clientIdentifier() {
+      return clientIdentifier;
+    }
+  }
 
   /** An operation the owner attempted failed inside the child process. */
   static final class OwnerOperationException extends RuntimeException {

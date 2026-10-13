@@ -30,7 +30,8 @@ public enum Operation {
   EPHEMERAL_PUT("ephemeral-put"),
   OWNER_GET("owner-get"),
   OWNER_CLOSE("owner-close"),
-  OWNER_CRASH("owner-crash");
+  OWNER_CRASH("owner-crash"),
+  OWNER_LOST("owner-lost");
 
   private final String label;
 

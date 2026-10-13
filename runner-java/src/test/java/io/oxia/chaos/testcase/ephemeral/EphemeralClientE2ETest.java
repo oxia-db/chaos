@@ -16,6 +16,7 @@
 package io.oxia.chaos.testcase.ephemeral;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.oxia.client.api.GetResult;
 import io.oxia.client.api.OxiaClientBuilder;
@@ -25,8 +26,10 @@ import io.oxia.client.api.options.PutOption;
 import io.oxia.testcontainers.OxiaContainer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
@@ -40,6 +43,7 @@ class EphemeralClientE2ETest {
 
   private static final Duration SESSION_TIMEOUT = Duration.ofSeconds(5);
   private static final Set<PutOption> EPHEMERAL = Set.of(PutOption.AsEphemeralRecord);
+  private static final Duration REPLY_TIMEOUT = Duration.ofSeconds(3);
 
   @Container
   private static final OxiaContainer OXIA =
@@ -167,9 +171,63 @@ class EphemeralClientE2ETest {
     }
   }
 
+  @Test
+  void reportsAnOwnerThatStopsReplyingAsUnavailableAndKillsIt() throws Exception {
+    final String prefix = prefix();
+    try (final Owner owner = ownerProcess("stalled-owner")) {
+      owner.put(prefix + "a", value("v"));
+      final Process stop = new ProcessBuilder("kill", "-STOP", Long.toString(owner.pid())).start();
+      assertThat(stop.waitFor()).isZero();
+
+      final long started = System.nanoTime();
+      assertThatThrownBy(() -> owner.put(prefix + "b", value("v")))
+          .isInstanceOf(Owner.OwnerUnavailableException.class)
+          .hasMessageContaining("did not reply");
+      assertThat(Duration.ofNanos(System.nanoTime() - started))
+          .isGreaterThanOrEqualTo(REPLY_TIMEOUT);
+      final Optional<ProcessHandle> process = ProcessHandle.of(owner.pid());
+      if (process.isPresent()) {
+        process.get().onExit().get(10, TimeUnit.SECONDS);
+      }
+    }
+  }
+
+  @Test
+  void reportsAnOwnerThatExitedAsUnavailable() throws Exception {
+    try (final Owner owner = ownerProcess("exited-owner")) {
+      owner.crash();
+
+      assertThatThrownBy(() -> owner.get(prefix() + "a"))
+          .isInstanceOf(Owner.OwnerUnavailableException.class);
+    }
+  }
+
+  @Test
+  void failsToStartAnOwnerThatCannotConnectWithinTheStartTimeout() {
+    final long started = System.nanoTime();
+    assertThatThrownBy(
+            () ->
+                Owner.start(
+                    "127.0.0.1:1",
+                    "default",
+                    "unreachable-owner",
+                    SESSION_TIMEOUT,
+                    Duration.ofSeconds(1),
+                    Duration.ofSeconds(5),
+                    REPLY_TIMEOUT))
+        .isInstanceOf(IllegalStateException.class);
+    assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(30));
+  }
+
   private static Owner ownerProcess(final String identifier) {
     return Owner.start(
-        OXIA.getServiceAddress(), "default", identifier, SESSION_TIMEOUT, Duration.ofSeconds(10));
+        OXIA.getServiceAddress(),
+        "default",
+        identifier,
+        SESSION_TIMEOUT,
+        Duration.ofSeconds(10),
+        Duration.ofSeconds(60),
+        REPLY_TIMEOUT);
   }
 
   private static SyncOxiaClient owner(final String identifier) throws Exception {

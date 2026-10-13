@@ -51,6 +51,41 @@ class EphemeralTest {
   }
 
   @Test
+  void derivesOwnerTimeoutsFromTheRequestTimeout() {
+    assertThat(SETTINGS.startTimeout()).isEqualTo(Duration.ofMinutes(1));
+    assertThat(SETTINGS.replyTimeout()).isEqualTo(Duration.ofSeconds(30));
+    assertThat(SETTINGS.closeTimeout()).isEqualTo(Duration.ofSeconds(10));
+  }
+
+  @Test
+  void checksEarlyExpiryOnlyForCrashesWithoutARecentFault() {
+    final Duration timeout = Duration.ofSeconds(30);
+
+    assertThat(Ephemeral.checksEarlyExpiry(Operation.OWNER_CRASH, Optional.empty(), timeout))
+        .isTrue();
+    assertThat(
+            Ephemeral.checksEarlyExpiry(
+                Operation.OWNER_CRASH, Optional.of(Duration.ofSeconds(31)), timeout))
+        .isTrue();
+    assertThat(
+            Ephemeral.checksEarlyExpiry(
+                Operation.OWNER_CRASH, Optional.of(Duration.ofSeconds(29)), timeout))
+        .isFalse();
+    assertThat(Ephemeral.checksEarlyExpiry(Operation.OWNER_CLOSE, Optional.empty(), timeout))
+        .isFalse();
+    assertThat(Ephemeral.checksEarlyExpiry(Operation.OWNER_LOST, Optional.empty(), timeout))
+        .isFalse();
+  }
+
+  @Test
+  void splitsTheKeyCountExactlyAcrossSlots() {
+    assertThat(Ephemeral.slotKeyCount(1001, 2, 0)).isEqualTo(501);
+    assertThat(Ephemeral.slotKeyCount(1001, 2, 1)).isEqualTo(500);
+    assertThat(Ephemeral.slotKeyCount(2, 2, 0)).isOne();
+    assertThat(Ephemeral.slotKeyCount(2, 2, 1)).isOne();
+  }
+
+  @Test
   void followsTheEphemeralDistribution() {
     final SplittableRandom random = new SplittableRandom(7);
     final Map<Operation, Integer> counts = new HashMap<>();
@@ -112,12 +147,12 @@ class EphemeralTest {
 
   private static Ephemeral.DrainVerdict crash(
       final int expected, final int present, final Duration started, final Duration ended) {
-    return Ephemeral.judgeDrain(SETTINGS, Operation.OWNER_CRASH, expected, present, started, ended);
+    return Ephemeral.judgeDrain(SETTINGS, true, expected, present, started, ended);
   }
 
   private static Ephemeral.DrainVerdict close(
       final int expected, final int present, final Duration started, final Duration ended) {
-    return Ephemeral.judgeDrain(SETTINGS, Operation.OWNER_CLOSE, expected, present, started, ended);
+    return Ephemeral.judgeDrain(SETTINGS, false, expected, present, started, ended);
   }
 
   private static Duration seconds(final long seconds) {

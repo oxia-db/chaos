@@ -27,8 +27,7 @@ runners:
         cpu: 250m
         memory: 256Mi
       limits:
-        # The ephemeral case runs two owner JVMs (-Xmx128m each) beside the runner.
-        memory: 1Gi
+        memory: 512Mi
 
 cases:
   basic-kv:
@@ -50,6 +49,13 @@ cases:
   # also add the oc-java-ephemeral namespace to oxia-cluster.namespaces.
   ephemeral:
     enabled: false
+    # Replaces the runner resources: two owner JVMs (-Xmx128m each) run beside the runner.
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
     profiles:
       quick:
         duration: 1m

@@ -48,6 +48,9 @@ public record Options(
     if (keyCount <= 0) {
       throw new IllegalArgumentException("--key-count must be greater than zero");
     }
+    if (EPHEMERAL.equals(caseName) && keyCount < 2) {
+      throw new IllegalArgumentException("--key-count must be at least 2 for " + EPHEMERAL);
+    }
     if (rate < 0) {
       throw new IllegalArgumentException("--rate must be zero or greater");
     }
