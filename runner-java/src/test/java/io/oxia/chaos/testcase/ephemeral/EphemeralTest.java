@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.testcase;
+package io.oxia.chaos.testcase.ephemeral;
 
-import static io.oxia.chaos.testcase.Ephemeral.DrainVerdict.DRAINED;
-import static io.oxia.chaos.testcase.Ephemeral.DrainVerdict.EARLY_EXPIRY;
-import static io.oxia.chaos.testcase.Ephemeral.DrainVerdict.LEAKED;
-import static io.oxia.chaos.testcase.Ephemeral.DrainVerdict.WAITING;
+import static io.oxia.chaos.testcase.ephemeral.Ephemeral.DrainVerdict.DRAINED;
+import static io.oxia.chaos.testcase.ephemeral.Ephemeral.DrainVerdict.EARLY_EXPIRY;
+import static io.oxia.chaos.testcase.ephemeral.Ephemeral.DrainVerdict.LEAKED;
+import static io.oxia.chaos.testcase.ephemeral.Ephemeral.DrainVerdict.WAITING;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.oxia.chaos.inference.EphemeralRecord;
 import io.oxia.chaos.ops.Operation;
-import io.oxia.chaos.testcase.Ephemeral.OwnedValue;
-import io.oxia.chaos.testcase.Ephemeral.OwnedVersion;
+import io.oxia.chaos.testcase.ephemeral.Owner.OwnedValue;
+import io.oxia.chaos.testcase.ephemeral.Owner.OwnedVersion;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;

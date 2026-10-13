@@ -23,7 +23,7 @@ import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.MemoryInferenceStore;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.testcase.BasicKv;
-import io.oxia.chaos.testcase.Ephemeral;
+import io.oxia.chaos.testcase.ephemeral.Ephemeral;
 import io.oxia.chaos.util.DurationConverter;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
