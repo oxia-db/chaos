@@ -12,6 +12,7 @@ HELM_ARGS ?=
 CHANNEL_CONFIG ?= ../config/oxia-channels.json
 CHANNELS ?= stable
 WORKLOAD_PROFILE ?= six-hour
+CHAOS_PROFILE ?= $(WORKLOAD_PROFILE)
 REUSE_CHANNEL_PLAN ?= false
 RUNNER_IMAGE_PULL_POLICY ?= IfNotPresent
 PRELOAD_DEPENDENCY_IMAGES ?= true
@@ -237,7 +238,7 @@ correctness:
 				--namespace $(NAMESPACE) \
 				--set runnerWorkloadsEnabled=false \
 				--set chaosWorkflow.enabled=true \
-				--set-string chaosWorkflow.profile=$(WORKLOAD_PROFILE) \
+				--set-string chaosWorkflow.profile=$(CHAOS_PROFILE) \
 				--set chaos-mesh.enabled=false \
 				--set-string channel="$$channel" \
 				--set-string testProfile=$(WORKLOAD_PROFILE) \

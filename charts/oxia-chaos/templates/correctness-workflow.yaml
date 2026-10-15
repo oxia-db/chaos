@@ -1,6 +1,6 @@
 {{- if .Values.chaosWorkflow.enabled }}
 {{- $profile := required "chaosWorkflow.profile is required" .Values.chaosWorkflow.profile -}}
-{{- if not (has $profile (list "quick" "six-hour")) -}}
+{{- if not (has $profile (list "quick" "six-hour" "six-hour-periodic")) -}}
 {{- fail (printf "unsupported chaosWorkflow.profile %q" $profile) -}}
 {{- end }}
 ---
@@ -67,6 +67,60 @@ spec:
     - name: quick-observation
       templateType: Suspend
       deadline: 10s
+{{- else if eq $profile "six-hour-periodic" }}
+  entry: six-hour-periodic-pipeline
+  templates:
+    - name: six-hour-periodic-pipeline
+      templateType: Serial
+      children:
+        - baseline
+        - periodic-pod-kill
+        - recovery
+        - health-check
+    - name: baseline
+      templateType: Suspend
+      deadline: 5m
+    - name: periodic-pod-kill
+      templateType: Schedule
+      # Together with the baseline and recovery, keep the workflow aligned
+      # with the six-hour basic-kv workload.
+      deadline: 5h30m
+      schedule:
+        schedule: {{ printf "@every %s" (required "chaosWorkflow.periodicPodKill.interval is required" .Values.chaosWorkflow.periodicPodKill.interval) | quote }}
+        type: PodChaos
+        historyLimit: 5
+        concurrencyPolicy: Forbid
+        podChaos:
+          action: pod-kill
+          mode: one
+          selector:
+            namespaces:
+              - {{ .Release.Namespace | quote }}
+            labelSelectors:
+              app.kubernetes.io/name: oxia-cluster
+              app.kubernetes.io/component: server
+              app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    - name: recovery
+      templateType: Suspend
+      deadline: 5m
+    - name: health-check
+      templateType: Task
+      task:
+        container:
+          name: oxia-health
+          image: {{ printf "%s:%s" (index .Values "oxia-cluster").image.repository (index .Values "oxia-cluster").image.tag | quote }}
+          imagePullPolicy: {{ (index .Values "oxia-cluster").image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - for ordinal in 0 1 2; do until oxia health --host={{ .Release.Name }}-$ordinal.{{ .Release.Name }}-svc --port=6649; do sleep 2; done; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
 {{- else }}
   entry: six-hour-pipeline
   templates:

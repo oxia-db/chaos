@@ -53,6 +53,18 @@ a shorter local run:
 make -C deploy up WORKLOAD_PROFILE=quick
 ```
 
+The six-hour profile injects a single pod kill. To keep killing one random
+Oxia server every five minutes for the whole six-hour workload, select the
+six-hour-periodic chaos profile:
+
+```shell
+make -C deploy up CHAOS_PROFILE=six-hour-periodic
+```
+
+Override `chaosWorkflow.periodicPodKill.interval` through `HELM_ARGS` to change
+the interval. The correctness check counts the pod-kill schedule as one
+injection, so the default `EXPECTED_CHAOS_INJECTIONS=1` still applies.
+
 Delete the local cluster when finished:
 
 ```shell
