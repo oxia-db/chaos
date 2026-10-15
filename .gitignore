@@ -27,3 +27,6 @@ __pycache__/
 
 # IDEs
 .idea/
+
+# Eclipse / VS Code Java output
+runner-java/bin/
