@@ -38,7 +38,7 @@ dependencies {
     implementation(platform("io.opentelemetry:opentelemetry-bom-alpha:1.63.0-alpha"))
     implementation("dev.failsafe:failsafe:3.3.2")
     implementation("io.grpc:grpc-api:1.75.0")
-    implementation("io.github.oxia-db:oxia-client:0.9.4")
+    implementation("io.github.oxia-db:oxia-client:0.10.1")
     implementation("info.picocli:picocli:4.7.7")
     implementation("io.opentelemetry:opentelemetry-sdk")
     implementation("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
