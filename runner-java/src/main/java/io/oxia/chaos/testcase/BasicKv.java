@@ -63,6 +63,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -292,7 +293,8 @@ public final class BasicKv {
         final boolean expected = inference.get(key).isPresent();
         operations.add(
             () -> {
-              observe(operation, key, () -> verifyDelete(operation, key, expected));
+              final AtomicBoolean attempted = new AtomicBoolean();
+              observe(operation, key, () -> verifyDelete(operation, key, expected, attempted));
               return null;
             });
         inferenceUpdates.add(() -> inference.delete(key));
@@ -451,9 +453,16 @@ public final class BasicKv {
     };
   }
 
-  private void verifyDelete(final Operation operation, final String key, final boolean expected) {
+  private void verifyDelete(
+      final Operation operation,
+      final String key,
+      final boolean expected,
+      final AtomicBoolean attempted) {
+    final boolean retry = attempted.getAndSet(true);
     final boolean actual = client.delete(key);
-    if (expected != actual) {
+    // A failed attempt has an unknown outcome: the server may have applied it, so a retry of a
+    // delete expected to find the key may find it already deleted.
+    if (expected != actual && !(retry && expected)) {
       throw CorrectnessViolationException.operationMismatch(
           operation, key, Boolean.toString(expected), Boolean.toString(actual));
     }
