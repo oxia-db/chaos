@@ -26,7 +26,12 @@ public enum Operation {
   DELETE("delete"),
   DELETE_RANGE("delete-range"),
   RANGE_SCAN("range-scan"),
-  LIST("list");
+  LIST("list"),
+  EPHEMERAL_PUT("ephemeral-put"),
+  OWNER_GET("owner-get"),
+  OWNER_CLOSE("owner-close"),
+  OWNER_CRASH("owner-crash"),
+  OWNER_LOST("owner-lost");
 
   private final String label;
 

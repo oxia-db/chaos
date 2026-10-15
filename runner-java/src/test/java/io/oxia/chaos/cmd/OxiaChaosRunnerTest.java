@@ -40,6 +40,14 @@ class OxiaChaosRunnerTest {
   }
 
   @Test
+  void parsesTheEphemeralCaseIntoItsOwnNamespace() {
+    final Options options = parse("--case=ephemeral", "--service-address=oxia:6648");
+
+    assertThat(options.caseName()).isEqualTo("ephemeral");
+    assertThat(options.namespace()).isEqualTo("oc-java-ephemeral");
+  }
+
+  @Test
   void parsesWorkloadOverrides() {
     final Options options =
         parse(
@@ -77,6 +85,10 @@ class OxiaChaosRunnerTest {
             () -> parse("--case=basic-kv", "--service-address=oxia:6648", "--key-count=0"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("--key-count");
+    assertThatThrownBy(
+            () -> parse("--case=ephemeral", "--service-address=oxia:6648", "--key-count=1"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("--key-count must be at least 2");
   }
 
   @Test

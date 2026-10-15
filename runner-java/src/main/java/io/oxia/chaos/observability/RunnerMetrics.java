@@ -39,6 +39,7 @@ public final class RunnerMetrics implements AutoCloseable {
   private final LongCounter checkpoints;
   private final DoubleHistogram checkpointDuration;
   private final LongCounter safetyViolations;
+  private final LongCounter sessionReplacements;
   private final ObservableLongGauge referenceKeys;
 
   public RunnerMetrics(
@@ -79,6 +80,12 @@ public final class RunnerMetrics implements AutoCloseable {
             .setDescription("Detected correctness violations")
             .setUnit("{violation}")
             .build();
+    sessionReplacements =
+        meter
+            .counterBuilder("oxia.chaos.session.replacements")
+            .setDescription("Owner sessions replaced after a legitimate expiry")
+            .setUnit("{session}")
+            .build();
     referenceKeys =
         meter
             .gaugeBuilder("oxia.chaos.reference.keys")
@@ -116,6 +123,10 @@ public final class RunnerMetrics implements AutoCloseable {
 
   public void recordSafetyViolation() {
     safetyViolations.add(1, caseAttributes);
+  }
+
+  public void recordSessionReplacement() {
+    sessionReplacements.add(1, caseAttributes);
   }
 
   @Override

@@ -45,6 +45,30 @@ cases:
         rate: 258
         batchSize: 100
         checkpointInterval: 1m
+  # Ephemeral records owned by crashing and closing owner processes. When enabling it,
+  # also add the oc-java-ephemeral namespace to oxia-cluster.namespaces.
+  ephemeral:
+    enabled: false
+    # Replaces the runner resources: two owner JVMs (-Xmx128m each) run beside the runner.
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    profiles:
+      quick:
+        duration: 1m
+        keyCount: 1000
+        rate: 500
+        batchSize: 100
+        checkpointInterval: 30s
+      six-hour:
+        duration: 6h
+        keyCount: 10000
+        rate: 258
+        batchSize: 100
+        checkpointInterval: 1m
 
 chaosWorkflow:
   enabled: false

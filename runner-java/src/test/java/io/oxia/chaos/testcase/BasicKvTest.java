@@ -22,6 +22,7 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.util.RetryUtils;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -122,8 +123,9 @@ class BasicKvTest {
 
   @Test
   void interruptsAStuckAttemptAndRetriesTheWholeOperation() {
-    final RetryPolicy<Object> retryPolicy = BasicKv.createRetryPolicy(Duration.ofSeconds(1));
-    final Timeout<Object> attemptTimeout = BasicKv.createAttemptTimeout(Duration.ofMillis(50));
+    final RetryPolicy<Object> retryPolicy = RetryUtils.retryPolicy(Duration.ofSeconds(1));
+    final Timeout<Object> attemptTimeout =
+        RetryUtils.attemptTimeout(Duration.ofMillis(50), Duration.ofSeconds(1));
     final AtomicInteger attempts = new AtomicInteger();
     final AtomicBoolean interrupted = new AtomicBoolean();
 

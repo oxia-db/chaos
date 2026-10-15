@@ -30,6 +30,7 @@ public record Options(
     long seed) {
 
   public static final String BASIC_KV = "basic-kv";
+  public static final String EPHEMERAL = "ephemeral";
   public static final Duration DEFAULT_DURATION = Duration.ofMinutes(10);
   public static final int DEFAULT_KEY_COUNT = 10_000;
   public static final int DEFAULT_RATE = 258;
@@ -41,11 +42,14 @@ public record Options(
     serviceAddress = requireText(serviceAddress, "--service-address");
     duration = requirePositive(duration, "--duration");
     checkpointInterval = requirePositive(checkpointInterval, "--checkpoint-interval");
-    if (!BASIC_KV.equals(caseName)) {
+    if (!BASIC_KV.equals(caseName) && !EPHEMERAL.equals(caseName)) {
       throw new IllegalArgumentException("unsupported --case: " + caseName);
     }
     if (keyCount <= 0) {
       throw new IllegalArgumentException("--key-count must be greater than zero");
+    }
+    if (EPHEMERAL.equals(caseName) && keyCount < 2) {
+      throw new IllegalArgumentException("--key-count must be at least 2 for " + EPHEMERAL);
     }
     if (rate < 0) {
       throw new IllegalArgumentException("--rate must be zero or greater");
