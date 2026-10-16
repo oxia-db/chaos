@@ -125,8 +125,9 @@ Testcase IDs are:
 - `secondary-index`
 - `versioning`
 
-At the time of this handoff, only `basic-kv` is implemented by the Java runner.
-Publish the other cases as `not_run` until their jobs genuinely exist.
+The Java runner implements every testcase, under the same ID as `--case`, and
+the chart enables all of them. A testcase disabled in the chart is published as
+`not_run`.
 
 ## Workflow design
 
@@ -162,10 +163,10 @@ production document in the same Pages artifact. The official dashboard exposes
 that result only through `/status?preview=smoke`. It deliberately does not
 update `status-data`, so smoke results never enter the public stability history.
 
-If the implemented Stable/basic-kv job fails to upload its result, the publisher
-records that scheduled run as `failed` with an artifact error. Unsupported
-channels and test cases remain `not_run`; absence of a job is never treated as a
-failure.
+If a run fails to upload the result of a testcase the chart enables, the
+publisher records that scheduled run as `failed` for it, with an artifact error.
+Channels and testcases that are not enabled remain `not_run`; absence of a job
+is never treated as a failure.
 
 Keep write permissions job-scoped. The test jobs need only `contents: read`.
 The Pages deployment job needs `pages: write` and `id-token: write`, and should

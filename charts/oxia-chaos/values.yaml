@@ -45,10 +45,9 @@ cases:
         rate: 258
         batchSize: 100
         checkpointInterval: 1m
-  # Ephemeral records owned by crashing and closing owner processes. When enabling it,
-  # also add the oc-java-ephemeral namespace to oxia-cluster.namespaces.
+  # Ephemeral records owned by crashing and closing owner processes.
   ephemeral:
-    enabled: false
+    enabled: true
     # Replaces the runner resources: two owner JVMs (-Xmx128m each) run beside the runner.
     resources:
       requests:
@@ -69,10 +68,9 @@ cases:
         rate: 258
         batchSize: 100
         checkpointInterval: 1m
-  # Secondary index entries that must follow their records through updates and deletes. When
-  # enabling it, also add the oc-java-secondary-index namespace to oxia-cluster.namespaces.
+  # Secondary index entries that must follow their records through updates and deletes.
   secondary-index:
-    enabled: false
+    enabled: true
     profiles:
       quick:
         duration: 1m
@@ -86,10 +84,9 @@ cases:
         rate: 258
         batchSize: 100
         checkpointInterval: 1m
-  # Sequence keys assigned by the server and the sequence updates that follow them. When
-  # enabling it, also add the oc-java-sequence namespace to oxia-cluster.namespaces.
-  sequence:
-    enabled: false
+  # Sequence keys assigned by the server and the sequence updates that follow them.
+  sequences:
+    enabled: true
     profiles:
       quick:
         duration: 1m
@@ -103,10 +100,9 @@ cases:
         rate: 258
         batchSize: 100
         checkpointInterval: 1m
-  # Notifications checked against the writes that caused them. When enabling it, also add
-  # the oc-java-notification namespace to oxia-cluster.namespaces.
+  # Notifications checked against the writes that caused them.
   notification:
-    enabled: false
+    enabled: true
     profiles:
       quick:
         duration: 1m
@@ -120,10 +116,9 @@ cases:
         rate: 258
         batchSize: 100
         checkpointInterval: 1m
-  # Conditional writes racing on record versions. When enabling it, also add the
-  # oc-java-versioning namespace to oxia-cluster.namespaces.
+  # Conditional writes racing on record versions.
   versioning:
-    enabled: false
+    enabled: true
     profiles:
       quick:
         duration: 1m
@@ -190,6 +185,21 @@ oxia-cluster:
   # Add oc-<runner>-<case> for every enabled pair.
   namespaces:
     - name: oc-java-basic-kv
+      initialShardCount: 3
+      replicationFactor: 3
+    - name: oc-java-ephemeral
+      initialShardCount: 3
+      replicationFactor: 3
+    - name: oc-java-secondary-index
+      initialShardCount: 3
+      replicationFactor: 3
+    - name: oc-java-sequences
+      initialShardCount: 3
+      replicationFactor: 3
+    - name: oc-java-notification
+      initialShardCount: 3
+      replicationFactor: 3
+    - name: oc-java-versioning
       initialShardCount: 3
       replicationFactor: 3
   image:
