@@ -32,6 +32,7 @@ import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.KeyValue;
+import io.oxia.chaos.inference.NotificationChecker;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
@@ -72,7 +73,11 @@ import org.slf4j.LoggerFactory;
  * keys. At each checkpoint it stops writing and waits until every acknowledged write was notified:
  * per key in the order of the writes, once each, with the type and version of the write, and
  * nothing else. It then checks that the state the notifications describe is the one a range scan
- * reads.
+ * reads. {@link NotificationChecker} describes what each notification is matched against, and what
+ * it can't check for range deletes.
+ *
+ * <p>A notification that doesn't arrive within the retry window is reported as an execution failure
+ * rather than a violation: no history explains it, but it may still arrive later.
  */
 public final class Notifications {
 
@@ -200,7 +205,6 @@ public final class Notifications {
    */
   private void warmup() throws InterruptedException {
     final long started = System.nanoTime();
-    final long deadline = addSaturated(started, deliveryTimeout.toNanos());
     final Map<String, Long> versions = new HashMap<>();
     final Map<String, Long> putAt = new HashMap<>();
     for (int index = 0; index < keys.size(); index++) {
@@ -215,6 +219,8 @@ public final class Notifications {
       putAt.put(key, System.nanoTime());
       inference.put(key, value);
     }
+    // The initial puts of many keys can take long under faults: only waiting for them is bounded
+    final long deadline = addSaturated(System.nanoTime(), deliveryTimeout.toNanos());
     while (true) {
       final List<String> missing =
           keys.stream()
@@ -223,14 +229,15 @@ public final class Notifications {
       if (missing.isEmpty()) {
         break;
       }
-      if (System.nanoTime() >= deadline) {
-        throw new IllegalStateException(
-            "notification subscription delivered nothing for "
-                + SummaryUtils.summarize(missing)
-                + " within "
-                + deliveryTimeout);
-      }
       for (final String key : missing) {
+        if (System.nanoTime() >= deadline) {
+          throw new IllegalStateException(
+              "notification subscription delivered nothing for "
+                  + SummaryUtils.summarize(missing)
+                  + " within "
+                  + deliveryTimeout
+                  + " of the warmup puts");
+        }
         if (System.nanoTime() - putAt.get(key) >= WARMUP_REPUT_INTERVAL.toNanos()) {
           final byte[] value = valueGenerator.warmup(keys.indexOf(key));
           versions.put(
@@ -370,10 +377,13 @@ public final class Notifications {
       List<String> missing = checker.check();
       while (!missing.isEmpty()) {
         if (System.nanoTime() >= deadline) {
-          throw CorrectnessViolationException.notificationsMissing(
-              SummaryUtils.summarize(missing),
-              elapsedMillis(started),
-              faulted ? elapsedMillis(lastFaultNanos) + "ms" : "none");
+          throw new IllegalStateException(
+              "notifications still missing after their writes were acknowledged: missing="
+                  + SummaryUtils.summarize(missing)
+                  + ", waitedMs="
+                  + elapsedMillis(started)
+                  + ", sinceLastFailedAttempt="
+                  + (faulted ? elapsedMillis(lastFaultNanos) + "ms" : "none"));
         }
         Thread.sleep(POLL_INTERVAL);
         missing = checker.check();

@@ -81,15 +81,4 @@ public final class CorrectnessViolationException extends RuntimeException {
     return new CorrectnessViolationException(
         "notification mismatch: key=" + key + ", expected=" + expected + ", actual=" + actual);
   }
-
-  public static CorrectnessViolationException notificationsMissing(
-      final String missing, final long waitedMillis, final String sinceLastFault) {
-    return new CorrectnessViolationException(
-        "notifications missing after their writes were acknowledged: missing="
-            + missing
-            + ", waitedMs="
-            + waitedMillis
-            + ", sinceLastFault="
-            + sinceLastFault);
-  }
 }
