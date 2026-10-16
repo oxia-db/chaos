@@ -3,6 +3,8 @@ ERR Failed to truncate follower
 ERR Rejecting follower: it does not support features required by the shard
 WARN Connection - Connection health check failed
 WARN GrpcRpcProvider - Retrying create session after PTNS.
+WARN GrpcRpcProvider - Retrying get notifications after PTNS.
+WARN GrpcRpcProvider - Retrying get sequence updates after PTNS.
 WARN GrpcRpcProvider - Retrying get shard assignments after PTNS.
 WARN GrpcRpcProvider - Retrying keep alive after PTNS.
 WARN GrpcRpcProvider - Retrying list after PTNS.
@@ -11,9 +13,11 @@ WARN GrpcRpcProvider - Retrying read after PTNS.
 WARN RetryUtils - status=RESOURCE_UNAVAILABLE Retrying current Oxia operation
 WARN RetryUtils - status=TIMEOUT Retrying current Oxia operation
 WARN RetryUtils - status=UNKNOWN Retrying current Oxia operation
+WARN SequenceUpdates - Stream closed while receiving sequence updates
 WARN Session - Error during session keep-alive
 WARN ShardManager - Failed receiving shard assignments
 WARN ShardManager - Stream closed while receiving shard assignments
+WARN ShardNotificationReceiver - Error while receiving notifications
 WRN AddFollower failed
 WRN Connection health ping failed
 WRN Connection health ping returned unhealthy status
