@@ -55,6 +55,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -63,8 +64,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.LongStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,8 +92,11 @@ public final class Sequence {
   private static final int MAX_DELTA = 3;
   private static final Duration OPERATION_ATTEMPT_TIMEOUT = Duration.ofSeconds(10);
   private static final Duration UPDATES_POLL_INTERVAL = Duration.ofSeconds(1);
-  // Longer than the client's maximum backoff before it subscribes again, 60 seconds
-  private static final Duration UPDATES_GRACE = Duration.ofSeconds(75);
+  // Longer than the client can back off before it subscribes again, up to about 72 seconds per
+  // attempt, plus a further shorter backoff
+  private static final Duration UPDATES_DEADLINE = Duration.ofMinutes(3);
+  private static final double BURST_PROBABILITY = 0.10;
+  private static final int MAX_BURST = 4;
   private static final double PUT_THRESHOLD = 0.50;
   private static final double GET_THRESHOLD = PUT_THRESHOLD + 0.30;
   static final double TOTAL_WEIGHT = GET_THRESHOLD + 0.20;
@@ -108,6 +117,8 @@ public final class Sequence {
   private long operationCount;
   private long checkpointCount;
   private long adoptedCount;
+  private long burstCount;
+  private long valueCount;
 
   public Sequence(
       final Options options,
@@ -196,6 +207,7 @@ public final class Sequence {
         .addKeyValue("operations", operationCount)
         .addKeyValue("checkpoints", checkpointCount)
         .addKeyValue("adopted_keys", adoptedCount)
+        .addKeyValue("bursts", burstCount)
         .log("sequence completed");
   }
 
@@ -241,50 +253,121 @@ public final class Sequence {
     }
   }
 
-  private void append(final String prefix, final int index, final SplittableRandom random) {
+  /**
+   * Appends one record, or occasionally several concurrent ones with the same deltas, so that the
+   * client can send them to the server in one batch.
+   */
+  private void append(final String prefix, final int index, final SplittableRandom random)
+      throws InterruptedException {
     final long[] deltas = new long[parts(index)];
     deltas[0] = 1 + random.nextInt(MAX_DELTA);
     for (int part = 1; part < deltas.length; part++) {
       deltas[part] = random.nextInt(MAX_DELTA + 1);
     }
-    final byte[] value = valueGenerator.next(index, operationCount);
+    final int count =
+        random.nextDouble() < BURST_PROBABILITY ? 2 + random.nextInt(MAX_BURST - 1) : 1;
     final Set<PutOption> putOptions =
         Set.of(
             PutOption.PartitionKey(prefix),
             PutOption.SequenceKeysDeltas(LongStream.of(deltas).boxed().toList()));
-    observe(
-        Operation.SEQUENCE_PUT,
-        prefix,
-        () -> {
-          final String expected = SequenceModel.key(prefix, model.next(prefix, deltas));
-          final AtomicInteger attempts = new AtomicInteger();
-          final PutResult result =
-              retried(
-                  () -> {
-                    attempts.incrementAndGet();
-                    return client.put(prefix, value, putOptions);
-                  });
-          // Each failed attempt has an unknown outcome: it may have appended a record already
-          final int failedAttempts = attempts.get() - 1;
-          final List<String> adopted =
-              model
-                  .assign(prefix, deltas, failedAttempts, result.key(), value)
-                  .orElseThrow(
+    final List<byte[]> values = new ArrayList<>(count);
+    for (int put = 0; put < count; put++) {
+      values.add(valueGenerator.next(index, valueCount++));
+    }
+    final List<AtomicInteger> attempts = new ArrayList<>(count);
+    final List<Future<PutResult>> results = new ArrayList<>(count);
+    try (final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      for (final byte[] value : values) {
+        final AtomicInteger attempted = new AtomicInteger();
+        attempts.add(attempted);
+        results.add(
+            executor.submit(
+                () -> {
+                  final AtomicReference<PutResult> result = new AtomicReference<>();
+                  observe(
+                      Operation.SEQUENCE_PUT,
+                      prefix,
                       () ->
-                          CorrectnessViolationException.operationMismatch(
-                              Operation.SEQUENCE_PUT,
-                              prefix,
-                              expected + " after up to " + failedAttempts + " applied failed puts",
-                              result.key()));
-          if (!adopted.isEmpty()) {
-            adoptedCount += adopted.size();
-            LOGGER
-                .atWarn()
-                .addKeyValue("prefix", prefix)
-                .addKeyValue("keys", adopted)
-                .log("failed sequence puts were applied");
-          }
-        });
+                          result.set(
+                              retried(
+                                  () -> {
+                                    attempted.incrementAndGet();
+                                    return client.put(prefix, value, putOptions);
+                                  })));
+                  return result.get();
+                }));
+      }
+    }
+    final Map<String, byte[]> acknowledged = new LinkedHashMap<>();
+    final List<byte[]> failedValues = new ArrayList<>();
+    int failedAttempts = 0;
+    for (int put = 0; put < count; put++) {
+      final PutResult result;
+      try {
+        result = results.get(put).get();
+      } catch (final ExecutionException error) {
+        if (error.getCause() instanceof final RuntimeException runtime) {
+          throw runtime;
+        }
+        throw new IllegalStateException("sequence put failed", error.getCause());
+      }
+      acknowledged.put(result.key(), values.get(put));
+      // Each failed attempt has an unknown outcome: it may have appended a record already
+      final int failed = attempts.get(put).get() - 1;
+      failedAttempts += failed;
+      if (failed > 0) {
+        failedValues.add(values.get(put));
+      }
+    }
+    if (acknowledged.size() != count) {
+      throw CorrectnessViolationException.operationMismatch(
+          Operation.SEQUENCE_PUT,
+          prefix,
+          count + " distinct keys",
+          String.join(", ", acknowledged.keySet()));
+    }
+    final String expected = SequenceModel.key(prefix, model.next(prefix, deltas));
+    final int maxFailed = failedAttempts;
+    final List<String> unacknowledged =
+        model
+            .assign(prefix, deltas, failedAttempts, acknowledged)
+            .orElseThrow(
+                () ->
+                    CorrectnessViolationException.operationMismatch(
+                        Operation.SEQUENCE_PUT,
+                        prefix,
+                        "consecutive keys from "
+                            + expected
+                            + " after up to "
+                            + maxFailed
+                            + " applied failed puts",
+                        String.join(", ", acknowledged.keySet())));
+    // The positions left free hold the records of failed attempts, with one of their values
+    for (final String key : unacknowledged) {
+      final GetResult record =
+          retried(() -> client.get(key, Set.of(GetOption.PartitionKey(prefix))));
+      if (record == null
+          || failedValues.stream()
+              .noneMatch((final byte[] value) -> Arrays.equals(value, record.value()))) {
+        throw CorrectnessViolationException.operationMismatch(
+            Operation.SEQUENCE_PUT,
+            key,
+            "a record of a failed put",
+            record == null ? "absent" : text(record.value()));
+      }
+      model.adopt(prefix, key, record.value());
+    }
+    if (count > 1) {
+      burstCount++;
+    }
+    if (!unacknowledged.isEmpty()) {
+      adoptedCount += unacknowledged.size();
+      LOGGER
+          .atWarn()
+          .addKeyValue("prefix", prefix)
+          .addKeyValue("keys", unacknowledged)
+          .log("failed sequence puts were applied");
+    }
   }
 
   private void trim(final String prefix) {
@@ -389,43 +472,33 @@ public final class Sequence {
   }
 
   /**
-   * Waits until the sequence updates deliver the last assigned key. The subscriber may be behind
-   * while the shard is unavailable, so only staying behind for the grace period while the shard
-   * keeps serving reads is a violation.
+   * Waits until the sequence updates deliver the last assigned key. Updates that never catch up are
+   * a liveness failure, not a violation: the subscriber may be behind while the shard is
+   * unavailable, and the server only sends the latest key, so it never sent a wrong one.
    */
   private void awaitUpdates(final String prefix) throws InterruptedException {
     final Optional<String> tail = model.tail(prefix);
     if (tail.isEmpty()) {
       return;
     }
-    final long started = System.nanoTime();
-    long availableSince = started;
+    final long deadline = addSaturated(System.nanoTime(), UPDATES_DEADLINE.toNanos());
     while (true) {
       validateDeliveries(prefix);
       if (model.latestDelivered(prefix).equals(tail)) {
         return;
       }
-      final long now = System.nanoTime();
-      if (now - availableSince >= UPDATES_GRACE.toNanos()) {
-        throw CorrectnessViolationException.operationMismatch(
-            Operation.SEQUENCE_UPDATE,
-            prefix,
-            tail.get(),
-            model.latestDelivered(prefix).orElse("none")
-                + " while the shard served reads for "
-                + UPDATES_GRACE);
-      }
-      if (now - started >= retryTimeout.toNanos()) {
+      if (System.nanoTime() >= deadline) {
         throw new IllegalStateException(
-            "sequence updates of " + prefix + " did not catch up while the shard was unavailable");
+            "sequence updates of "
+                + prefix
+                + " did not deliver the last key "
+                + tail.get()
+                + " within "
+                + UPDATES_DEADLINE
+                + "; latest delivered: "
+                + model.latestDelivered(prefix).orElse("none"));
       }
       Thread.sleep(UPDATES_POLL_INTERVAL);
-      try {
-        Failsafe.with(attemptTimeout)
-            .get(() -> client.get(tail.get(), Set.of(GetOption.PartitionKey(prefix))));
-      } catch (final RuntimeException error) {
-        availableSince = System.nanoTime();
-      }
     }
   }
 

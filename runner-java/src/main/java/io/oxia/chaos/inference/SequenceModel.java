@@ -16,13 +16,15 @@
 package io.oxia.chaos.inference;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
-import java.util.OptionalInt;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -76,19 +78,19 @@ public final class SequenceModel {
   }
 
   /**
-   * Returns how many attempts before the acknowledged one were applied: the server adds the deltas
-   * once per applied attempt, so the acknowledged values are {@code last + (skips + 1) * deltas}.
+   * Returns the position of a key after the last one: the server adds the deltas once per applied
+   * put, so the key at position {@code k} has the values {@code last + k * deltas}.
    */
-  public static OptionalInt skips(
-      final long[] last, final long[] deltas, final long[] actual, final int maxSkips) {
-    for (int skips = 0; skips <= maxSkips; skips++) {
-      final int steps = skips + 1;
-      if (IntStream.range(0, last.length)
-          .allMatch((final int index) -> actual[index] == last[index] + steps * deltas[index])) {
-        return OptionalInt.of(skips);
-      }
+  public static OptionalLong position(final long[] last, final long[] deltas, final long[] actual) {
+    final long distance = actual[0] - last[0];
+    if (distance <= 0 || distance % deltas[0] != 0) {
+      return OptionalLong.empty();
     }
-    return OptionalInt.empty();
+    final long steps = distance / deltas[0];
+    return IntStream.range(0, last.length)
+            .allMatch((final int index) -> actual[index] == last[index] + steps * deltas[index])
+        ? OptionalLong.of(steps)
+        : OptionalLong.empty();
   }
 
   /**
@@ -104,40 +106,55 @@ public final class SequenceModel {
   }
 
   /**
-   * Records an acknowledged sequence put. Up to {@code failedAttempts} earlier attempts of the same
-   * put may have been applied, each creating a record with the same value; those records are
-   * adopted. Returns the adopted keys, or empty when no valid history explains the assigned key.
+   * Records the acknowledged keys and values of puts with the same deltas that ran concurrently.
+   * Applied puts take consecutive positions after the last key, so the acknowledged keys must be
+   * distinct positions, and the positions they leave free below the highest one are records of
+   * failed attempts, at most {@code failedAttempts}. Returns the keys of those records, which the
+   * caller reads and {@link #adopt adopts}, or empty when no valid history explains the keys.
    */
   public Optional<List<String>> assign(
       final String prefix,
       final long[] deltas,
       final int failedAttempts,
-      final String actualKey,
-      final byte[] value) {
+      final Map<String, byte[]> acknowledged) {
     final Sequence sequence = sequence(prefix);
-    final Optional<long[]> actual = parse(prefix, sequence.last.length, actualKey);
-    if (actual.isEmpty()) {
+    final Set<Long> positions = new HashSet<>();
+    for (final String key : acknowledged.keySet()) {
+      final OptionalLong position =
+          parse(prefix, sequence.last.length, key)
+              .map((final long[] actual) -> position(sequence.last, deltas, actual))
+              .orElse(OptionalLong.empty());
+      if (position.isEmpty() || !positions.add(position.getAsLong())) {
+        return Optional.empty();
+      }
+    }
+    final long highest = positions.stream().mapToLong(Long::longValue).max().orElse(0);
+    if (highest - positions.size() > failedAttempts) {
       return Optional.empty();
     }
-    final OptionalInt skips = skips(sequence.last, deltas, actual.get(), failedAttempts);
-    if (skips.isEmpty()) {
-      return Optional.empty();
-    }
-    final List<String> adopted = new ArrayList<>(skips.getAsInt());
-    for (int step = 0; step <= skips.getAsInt(); step++) {
+    final List<String> unacknowledged = new ArrayList<>();
+    for (long step = 1; step <= highest; step++) {
       for (int index = 0; index < sequence.last.length; index++) {
         sequence.last[index] += deltas[index];
       }
       final String key = key(prefix, sequence.last);
-      if (step < skips.getAsInt()) {
-        adopted.add(key);
-      }
-      sequence.live.put(key, value);
       sequence.assigned.add(key);
+      if (acknowledged.containsKey(key)) {
+        sequence.live.put(key, acknowledged.get(key));
+        size.incrementAndGet();
+      } else {
+        unacknowledged.add(key);
+      }
+      sequence.tail = Optional.of(key);
+    }
+    return Optional.of(List.copyOf(unacknowledged));
+  }
+
+  /** Records the value read for a record that a failed attempt created. */
+  public void adopt(final String prefix, final String key, final byte[] value) {
+    if (sequence(prefix).live.put(key, value) == null) {
       size.incrementAndGet();
     }
-    sequence.tail = Optional.of(actualKey);
-    return Optional.of(List.copyOf(adopted));
   }
 
   /** Returns the lowest live key, unless it is also the last one: the tail is never trimmed. */

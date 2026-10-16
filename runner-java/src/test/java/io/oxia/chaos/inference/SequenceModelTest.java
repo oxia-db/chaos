@@ -18,7 +18,9 @@ package io.oxia.chaos.inference;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class SequenceModelTest {
@@ -39,28 +41,24 @@ class SequenceModelTest {
   }
 
   @Test
-  void countsTheAppliedFailedAttempts() {
+  void findsThePositionOfAKeyAfterTheLastOne() {
     final long[] last = {4, 2};
     final long[] deltas = {3, 1};
 
-    assertThat(SequenceModel.skips(last, deltas, new long[] {7, 3}, 0)).hasValue(0);
-    assertThat(SequenceModel.skips(last, deltas, new long[] {10, 4}, 2)).hasValue(1);
-    assertThat(SequenceModel.skips(last, deltas, new long[] {10, 4}, 0)).isEmpty();
-    assertThat(SequenceModel.skips(last, deltas, new long[] {10, 3}, 2)).isEmpty();
-    assertThat(SequenceModel.skips(last, deltas, new long[] {8, 3}, 2)).isEmpty();
+    assertThat(SequenceModel.position(last, deltas, new long[] {7, 3})).hasValue(1);
+    assertThat(SequenceModel.position(last, deltas, new long[] {10, 4})).hasValue(2);
+    assertThat(SequenceModel.position(last, deltas, new long[] {10, 3})).isEmpty();
+    assertThat(SequenceModel.position(last, deltas, new long[] {8, 3})).isEmpty();
+    assertThat(SequenceModel.position(last, deltas, new long[] {4, 2})).isEmpty();
   }
 
   @Test
   void assignsKeysByAddingTheDeltasToTheLastKey() {
     final SequenceModel model = model();
 
-    assertThat(
-            model.assign(
-                PAIR, new long[] {2, 0}, 0, SequenceModel.key(PAIR, new long[] {2, 0}), value("a")))
+    assertThat(model.assign(PAIR, new long[] {2, 0}, 0, acked(PAIR, "a", 2, 0)))
         .contains(List.of());
-    assertThat(
-            model.assign(
-                PAIR, new long[] {1, 3}, 0, SequenceModel.key(PAIR, new long[] {3, 3}), value("b")))
+    assertThat(model.assign(PAIR, new long[] {1, 3}, 0, acked(PAIR, "b", 3, 3)))
         .contains(List.of());
     assertThat(model.next(PAIR, new long[] {1, 0})).containsExactly(4, 3);
     assertThat(model.tail(PAIR)).contains(SequenceModel.key(PAIR, new long[] {3, 3}));
@@ -68,40 +66,52 @@ class SequenceModelTest {
     assertThat(model.size()).isEqualTo(2);
 
     // A key that skips the deltas without a failed attempt has no valid history
-    assertThat(
-            model.assign(
-                PAIR, new long[] {1, 0}, 0, SequenceModel.key(PAIR, new long[] {5, 3}), value("c")))
-        .isEmpty();
+    assertThat(model.assign(PAIR, new long[] {1, 0}, 0, acked(PAIR, "c", 5, 3))).isEmpty();
   }
 
   @Test
-  void adoptsTheRecordsOfAppliedFailedAttempts() {
+  void leavesThePositionsOfAppliedFailedAttemptsToAdopt() {
     final SequenceModel model = model();
-    model.assign(PREFIX, new long[] {1}, 0, SequenceModel.key(PREFIX, new long[] {1}), value("a"));
+    model.assign(PREFIX, new long[] {1}, 0, acked(PREFIX, "a", 1));
 
-    assertThat(
-            model.assign(
-                PREFIX, new long[] {2}, 2, SequenceModel.key(PREFIX, new long[] {7}), value("b")))
-        .contains(
-            List.of(
-                SequenceModel.key(PREFIX, new long[] {3}),
-                SequenceModel.key(PREFIX, new long[] {5})));
+    assertThat(model.assign(PREFIX, new long[] {2}, 2, acked(PREFIX, "b", 7)))
+        .contains(List.of(key(PREFIX, 3), key(PREFIX, 5)));
+    model.adopt(PREFIX, key(PREFIX, 3), value("b"));
+    model.adopt(PREFIX, key(PREFIX, 5), value("b"));
     assertThat(model.live(PREFIX).keySet())
-        .containsExactly(
-            SequenceModel.key(PREFIX, new long[] {1}),
-            SequenceModel.key(PREFIX, new long[] {3}),
-            SequenceModel.key(PREFIX, new long[] {5}),
-            SequenceModel.key(PREFIX, new long[] {7}));
-    assertThat(model.get(PREFIX, SequenceModel.key(PREFIX, new long[] {5}))).hasValue(value("b"));
+        .containsExactly(key(PREFIX, 1), key(PREFIX, 3), key(PREFIX, 5), key(PREFIX, 7));
+    assertThat(model.get(PREFIX, key(PREFIX, 5))).hasValue(value("b"));
+    assertThat(model.size()).isEqualTo(4);
+  }
+
+  @Test
+  void acceptsConcurrentPutsAtConsecutivePositionsInAnyOrder() {
+    final SequenceModel model = model();
+    final Map<String, byte[]> acknowledged = new LinkedHashMap<>();
+    acknowledged.put(key(PREFIX, 6), value("c"));
+    acknowledged.put(key(PREFIX, 2), value("a"));
+    acknowledged.put(key(PREFIX, 4), value("b"));
+
+    assertThat(model.assign(PREFIX, new long[] {2}, 0, acknowledged)).contains(List.of());
+    assertThat(model.tail(PREFIX)).contains(key(PREFIX, 6));
+    assertThat(model.get(PREFIX, key(PREFIX, 2))).hasValue(value("a"));
+
+    // One applied failed attempt can fill one free position, not two
+    final Map<String, byte[]> gapped = new LinkedHashMap<>();
+    gapped.put(key(PREFIX, 8), value("d"));
+    gapped.put(key(PREFIX, 14), value("e"));
+    assertThat(model(PREFIX, 6).assign(PREFIX, new long[] {2}, 1, gapped)).isEmpty();
+    assertThat(model(PREFIX, 6).assign(PREFIX, new long[] {2}, 2, gapped))
+        .contains(List.of(key(PREFIX, 10), key(PREFIX, 12)));
   }
 
   @Test
   void trimsFromTheHeadButNeverTheTail() {
     final SequenceModel model = model();
-    model.assign(PREFIX, new long[] {1}, 0, SequenceModel.key(PREFIX, new long[] {1}), value("a"));
+    model.assign(PREFIX, new long[] {1}, 0, acked(PREFIX, "a", 1));
     assertThat(model.trimmable(PREFIX)).isEmpty();
 
-    model.assign(PREFIX, new long[] {1}, 0, SequenceModel.key(PREFIX, new long[] {2}), value("b"));
+    model.assign(PREFIX, new long[] {1}, 0, acked(PREFIX, "b", 2));
     assertThat(model.trimmable(PREFIX)).contains(SequenceModel.key(PREFIX, new long[] {1}));
 
     model.delete(PREFIX, SequenceModel.key(PREFIX, new long[] {1}));
@@ -114,8 +124,7 @@ class SequenceModelTest {
   void acceptsUpdatesThatRepeatOrSkipForwardToAssignedKeys() {
     final SequenceModel model = model();
     for (long value = 1; value <= 4; value++) {
-      model.assign(
-          PREFIX, new long[] {1}, 0, SequenceModel.key(PREFIX, new long[] {value}), value("v"));
+      model.assign(PREFIX, new long[] {1}, 0, acked(PREFIX, "v", value));
     }
     model.delivered(PREFIX, SequenceModel.key(PREFIX, new long[] {1}));
     model.delivered(PREFIX, SequenceModel.key(PREFIX, new long[] {1}));
@@ -134,8 +143,7 @@ class SequenceModelTest {
   void rejectsUpdatesThatGoBackOrToUnassignedKeys() {
     final SequenceModel model = model();
     for (long value = 1; value <= 3; value++) {
-      model.assign(
-          PREFIX, new long[] {1}, 0, SequenceModel.key(PREFIX, new long[] {value}), value("v"));
+      model.assign(PREFIX, new long[] {1}, 0, acked(PREFIX, "v", value));
     }
     model.delivered(PREFIX, SequenceModel.key(PREFIX, new long[] {2}));
     model.delivered(PREFIX, SequenceModel.key(PREFIX, new long[] {1}));
@@ -143,10 +151,25 @@ class SequenceModelTest {
         .hasValueSatisfying(v -> assertThat(v).contains("regressed"));
 
     final SequenceModel other = model();
-    other.assign(PREFIX, new long[] {2}, 0, SequenceModel.key(PREFIX, new long[] {2}), value("v"));
+    other.assign(PREFIX, new long[] {2}, 0, acked(PREFIX, "v", 2));
     other.delivered(PREFIX, SequenceModel.key(PREFIX, new long[] {1}));
     assertThat(other.validateDeliveries(PREFIX))
         .hasValueSatisfying(v -> assertThat(v).contains("never assigned"));
+  }
+
+  private static SequenceModel model(final String prefix, final long last) {
+    final SequenceModel model = model();
+    model.assign(prefix, new long[] {last}, 0, acked(prefix, "base", last));
+    return model;
+  }
+
+  private static Map<String, byte[]> acked(
+      final String prefix, final String value, final long... values) {
+    return Map.of(SequenceModel.key(prefix, values), value(value));
+  }
+
+  private static String key(final String prefix, final long value) {
+    return SequenceModel.key(prefix, new long[] {value});
   }
 
   private static SequenceModel model() {
