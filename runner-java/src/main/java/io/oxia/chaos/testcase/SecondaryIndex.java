@@ -18,9 +18,7 @@ package io.oxia.chaos.testcase;
 import static io.oxia.chaos.util.KeyValueUtils.sortedByKey;
 import static io.oxia.chaos.util.Timing.addSaturated;
 import static io.oxia.chaos.util.Timing.elapsedMillis;
-import static io.oxia.chaos.util.Timing.elapsedSeconds;
 
-import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
 import io.opentelemetry.api.OpenTelemetry;
@@ -34,11 +32,13 @@ import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.KeyValue;
 import io.oxia.chaos.inference.SecondaryIndexModel;
 import io.oxia.chaos.inference.SecondaryIndexModel.IndexedRecord;
+import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.BatchUtils;
+import io.oxia.chaos.util.DeleteUtils;
 import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.RangeUtils;
 import io.oxia.chaos.util.RatePacer;
@@ -111,6 +111,7 @@ public final class SecondaryIndex {
   private final SecondaryIndexModel model;
   private final RunnerMetrics metrics;
   private final Tracer tracer;
+  private final CaseTelemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
   private final ValueGenerator valueGenerator;
@@ -136,6 +137,7 @@ public final class SecondaryIndex {
     this.model = model;
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+    this.telemetry = new CaseTelemetry(tracer, metrics, Options.SECONDARY_INDEX);
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
     this.attemptTimeout = RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, retryTimeout);
     this.valueGenerator = new ValueGenerator(options.seed());
@@ -321,13 +323,7 @@ public final class SecondaryIndex {
                   key,
                   () -> {
                     final boolean retry = attempted.getAndSet(true);
-                    final boolean actual = client.delete(key);
-                    // A failed attempt has an unknown outcome: the server may have applied it, so
-                    // a retry of a delete expected to find the key may find it already deleted.
-                    if (expected != actual && !(retry && expected)) {
-                      throw CorrectnessViolationException.operationMismatch(
-                          operation, key, Boolean.toString(expected), Boolean.toString(actual));
-                    }
+                    DeleteUtils.verifyDelete(operation, key, expected, client.delete(key), retry);
                   });
               return null;
             });
@@ -453,59 +449,49 @@ public final class SecondaryIndex {
   /** Compares the records and every entry of both indexes with the model. */
   private void checkpoint(final Checkpoint checkpoint) {
     final long started = System.nanoTime();
-    String outcome = "success";
-    final String checkpointLabel = checkpoint.label();
-    final Span span =
-        tracer
-            .spanBuilder("secondary-index.checkpoint")
-            .setNoParent()
-            .setAttribute("checkpoint.kind", checkpointLabel)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      final String endKey = prefix + "~";
-      final List<KeyValue> expected =
-          sortedByKey(
-              model.range(prefix, endKey).stream()
-                  .map((final IndexedRecord record) -> new KeyValue(record.key(), record.value()))
-                  .toList());
-      final List<KeyValue> unorderedActual = new ArrayList<>();
-      runWithRetry(
-          () -> {
-            unorderedActual.clear();
-            try (final CloseableIterable<GetResult> results = client.rangeScan(prefix, endKey)) {
-              for (final GetResult result : results) {
-                unorderedActual.add(new KeyValue(result.key(), result.value()));
-              }
-            }
-          });
-      final List<KeyValue> actual = sortedByKey(unorderedActual);
-      if (!expected.equals(actual)) {
-        throw CorrectnessViolationException.checkpointMismatch(
-            SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
-      }
-      final String secondaryEnd = secondaryPrefix + "~";
-      for (final String indexName : INDEXES) {
-        runWithRetry(() -> verifyIndexList(indexName, secondaryPrefix, secondaryEnd));
-        runWithRetry(() -> verifyIndexRangeScan(indexName, secondaryPrefix, secondaryEnd));
-      }
-      checkpointCount++;
-      span.setAttribute("checkpoint.keys", expected.size()).setStatus(StatusCode.OK);
-      LOGGER
-          .atInfo()
-          .addKeyValue("run_id", runId)
-          .addKeyValue("kind", checkpointLabel)
-          .addKeyValue("keys", expected.size())
-          .addKeyValue("operations", operationCount)
-          .addKeyValue("duration_ms", elapsedMillis(started))
-          .log("secondary-index checkpoint passed");
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordCheckpoint(checkpointLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
+    telemetry.checkpoint(
+        checkpoint,
+        () -> {
+          final String endKey = prefix + "~";
+          final List<KeyValue> expected =
+              sortedByKey(
+                  model.range(prefix, endKey).stream()
+                      .map(
+                          (final IndexedRecord record) ->
+                              new KeyValue(record.key(), record.value()))
+                      .toList());
+          final List<KeyValue> unorderedActual = new ArrayList<>();
+          runWithRetry(
+              () -> {
+                unorderedActual.clear();
+                try (final CloseableIterable<GetResult> results =
+                    client.rangeScan(prefix, endKey)) {
+                  for (final GetResult result : results) {
+                    unorderedActual.add(new KeyValue(result.key(), result.value()));
+                  }
+                }
+              });
+          final List<KeyValue> actual = sortedByKey(unorderedActual);
+          if (!expected.equals(actual)) {
+            throw CorrectnessViolationException.checkpointMismatch(
+                SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
+          }
+          final String secondaryEnd = secondaryPrefix + "~";
+          for (final String indexName : INDEXES) {
+            runWithRetry(() -> verifyIndexList(indexName, secondaryPrefix, secondaryEnd));
+            runWithRetry(() -> verifyIndexRangeScan(indexName, secondaryPrefix, secondaryEnd));
+          }
+          checkpointCount++;
+          LOGGER
+              .atInfo()
+              .addKeyValue("run_id", runId)
+              .addKeyValue("kind", checkpoint.label())
+              .addKeyValue("keys", expected.size())
+              .addKeyValue("operations", operationCount)
+              .addKeyValue("duration_ms", elapsedMillis(started))
+              .log("secondary-index checkpoint passed");
+          return expected.size();
+        });
   }
 
   private void cleanup() {
@@ -568,31 +554,11 @@ public final class SecondaryIndex {
   }
 
   private void observe(final Operation operation, final String key, final Runnable action) {
-    final long started = System.nanoTime();
-    String outcome = "success";
-    final String operationLabel = operation.label();
-    final Span span =
-        tracer
-            .spanBuilder("secondary-index." + operationLabel)
-            .setNoParent()
-            .setAttribute("db.operation.name", operationLabel)
-            .setAttribute("db.key", key)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      runWithRetry(action);
-      span.setStatus(StatusCode.OK);
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordOperation(operationLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
+    telemetry.observe(operation, key, () -> runWithRetry(action));
   }
 
   private void runWithRetry(final Runnable action) {
-    Failsafe.with(retryPolicy, attemptTimeout).run(action::run);
+    RetryUtils.run(retryPolicy, attemptTimeout, action);
   }
 
   private String key(final int index) {
