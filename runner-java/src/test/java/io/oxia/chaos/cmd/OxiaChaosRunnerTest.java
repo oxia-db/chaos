@@ -72,6 +72,14 @@ class OxiaChaosRunnerTest {
   }
 
   @Test
+  void parsesTheVersioningCaseIntoItsOwnNamespace() {
+    final Options options = parse("--case=versioning", "--service-address=oxia:6648");
+
+    assertThat(options.caseName()).isEqualTo("versioning");
+    assertThat(options.namespace()).isEqualTo("oc-java-versioning");
+  }
+
+  @Test
   void parsesWorkloadOverrides() {
     final Options options =
         parse(

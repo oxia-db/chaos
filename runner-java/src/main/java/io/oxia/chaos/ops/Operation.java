@@ -36,7 +36,12 @@ public enum Operation {
   INDEX_LIST("index-list"),
   INDEX_RANGE_SCAN("index-range-scan"),
   SEQUENCE_PUT("sequence-put"),
-  SEQUENCE_UPDATE("sequence-update");
+  SEQUENCE_UPDATE("sequence-update"),
+  CREATE("create"),
+  CONDITIONAL_PUT("conditional-put"),
+  CONDITIONAL_DELETE("conditional-delete"),
+  STALE_PUT("stale-put"),
+  STALE_DELETE("stale-delete");
 
   private final String label;
 

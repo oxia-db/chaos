@@ -81,4 +81,10 @@ public final class CorrectnessViolationException extends RuntimeException {
     return new CorrectnessViolationException(
         "notification mismatch: key=" + key + ", expected=" + expected + ", actual=" + actual);
   }
+
+  public static CorrectnessViolationException versionHistory(
+      final String key, final String detail) {
+    return new CorrectnessViolationException(
+        "version history violation: key=" + key + ", " + detail);
+  }
 }
