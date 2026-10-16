@@ -48,6 +48,14 @@ class OxiaChaosRunnerTest {
   }
 
   @Test
+  void parsesTheSecondaryIndexCaseIntoItsOwnNamespace() {
+    final Options options = parse("--case=secondary-index", "--service-address=oxia:6648");
+
+    assertThat(options.caseName()).isEqualTo("secondary-index");
+    assertThat(options.namespace()).isEqualTo("oc-java-secondary-index");
+  }
+
+  @Test
   void parsesWorkloadOverrides() {
     final Options options =
         parse(
