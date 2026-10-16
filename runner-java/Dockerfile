@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM eclipse-temurin:21-jdk-noble AS build
+FROM eclipse-temurin:25-jdk-noble AS build
 
 WORKDIR /workspace
 COPY gradle gradle
@@ -21,7 +21,7 @@ COPY settings.gradle.kts build.gradle.kts ./
 COPY src src
 RUN ./gradlew --no-daemon installDist
 
-FROM eclipse-temurin:21-jre-noble
+FROM eclipse-temurin:25-jre-noble
 
 WORKDIR /opt/oxia-chaos
 COPY --from=build /workspace/build/install/oxia-chaos/ ./

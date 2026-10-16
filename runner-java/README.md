@@ -1,6 +1,6 @@
 # Java runner
 
-The Java 21 runner executes seeded correctness cases with `oxia-client`.
+The Java 25 runner executes seeded correctness cases with `oxia-client`.
 Each run keeps its reference state in memory, isolates its keys with a unique
 prefix, and removes those keys after the final checkpoint.
 
