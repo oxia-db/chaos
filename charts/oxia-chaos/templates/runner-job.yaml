@@ -3,7 +3,7 @@
 {{- if and $root.Values.runnerWorkloadsEnabled $runner.enabled -}}
 {{- range $caseName, $case := $root.Values.cases }}
 {{- if $case.enabled -}}
-{{- $caseProfile := required (printf "cases.%s.profiles.%s is required" $caseName $root.Values.testProfile) (index $case.profiles $root.Values.testProfile) -}}
+{{- $caseProfile := required (printf "cases.%s.profiles.%s is required" $caseName $root.Values.testProfile) (index $case.profiles $root.Values.testProfile) }}
 ---
 apiVersion: batch/v1
 kind: Job
