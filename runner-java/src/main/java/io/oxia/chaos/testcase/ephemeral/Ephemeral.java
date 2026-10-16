@@ -31,6 +31,7 @@ import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.EphemeralModel;
 import io.oxia.chaos.inference.EphemeralRecord;
+import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
@@ -132,6 +133,7 @@ public final class Ephemeral {
   private final EphemeralModel model;
   private final RunnerMetrics metrics;
   private final Tracer tracer;
+  private final CaseTelemetry telemetry;
   private final Settings settings;
   private final RetryPolicy<Object> retryPolicy;
   private final RetryPolicy<Object> spawnPolicy;
@@ -163,6 +165,7 @@ public final class Ephemeral {
     this.model = model;
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+    this.telemetry = new CaseTelemetry(tracer, metrics, Options.EPHEMERAL);
     this.settings = settings;
     this.retryPolicy =
         RetryUtils.retryPolicy(
@@ -305,13 +308,14 @@ public final class Ephemeral {
     switch (operation) {
       case EPHEMERAL_PUT -> {
         final byte[] value = valueGenerator.next(index, operationCount);
-        observe(operation, key, () -> putOwned(slot, key, value));
+        telemetry.observe(operation, key, () -> putOwned(slot, key, value));
       }
       case OWNER_GET ->
-          observe(operation, key, () -> verify(slot, key, ownerCall(() -> slot.owner.get(key))));
-      case GET -> observe(operation, key, () -> verify(slot, key, observerGet(key)));
+          telemetry.observe(
+              operation, key, () -> verify(slot, key, ownerCall(() -> slot.owner.get(key))));
+      case GET -> telemetry.observe(operation, key, () -> verify(slot, key, observerGet(key)));
       case DELETE ->
-          observe(
+          telemetry.observe(
               operation,
               key,
               () -> {
@@ -379,39 +383,26 @@ public final class Ephemeral {
 
   private void checkpoint(final Checkpoint checkpoint) {
     final long started = System.nanoTime();
-    String outcome = "success";
-    final String checkpointLabel = checkpoint.label();
-    final Span span =
-        tracer
-            .spanBuilder("ephemeral.checkpoint")
-            .setNoParent()
-            .setAttribute("checkpoint.kind", checkpointLabel)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      int keys = 0;
-      for (final Slot slot : slots) {
-        if (slot.alive()) {
-          keys += verifySlot(slot);
-        }
-      }
-      checkpointCount++;
-      span.setAttribute("checkpoint.keys", keys).setStatus(StatusCode.OK);
-      LOGGER
-          .atInfo()
-          .addKeyValue("run_id", runId)
-          .addKeyValue("kind", checkpointLabel)
-          .addKeyValue("keys", keys)
-          .addKeyValue("operations", operationCount)
-          .addKeyValue("duration_ms", elapsedMillis(started))
-          .log("ephemeral checkpoint passed");
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordCheckpoint(checkpointLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
+    telemetry.checkpoint(
+        checkpoint,
+        () -> {
+          int keys = 0;
+          for (final Slot slot : slots) {
+            if (slot.alive()) {
+              keys += verifySlot(slot);
+            }
+          }
+          checkpointCount++;
+          LOGGER
+              .atInfo()
+              .addKeyValue("run_id", runId)
+              .addKeyValue("kind", checkpoint.label())
+              .addKeyValue("keys", keys)
+              .addKeyValue("operations", operationCount)
+              .addKeyValue("duration_ms", elapsedMillis(started))
+              .log("ephemeral checkpoint passed");
+          return keys;
+        });
   }
 
   /** Verifies every record of a live owner's slice and returns how many are expected. */
@@ -661,30 +652,6 @@ public final class Ephemeral {
   private void noteFault() {
     faulted = true;
     lastFaultNanos = System.nanoTime();
-  }
-
-  private void observe(final Operation operation, final String key, final Runnable action) {
-    final long started = System.nanoTime();
-    String outcome = "success";
-    final String operationLabel = operation.label();
-    final Span span =
-        tracer
-            .spanBuilder("ephemeral." + operationLabel)
-            .setNoParent()
-            .setAttribute("db.operation.name", operationLabel)
-            .setAttribute("db.key", key)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      action.run();
-      span.setStatus(StatusCode.OK);
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordOperation(operationLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
   }
 
   private void cleanup() {

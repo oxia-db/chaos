@@ -15,9 +15,9 @@
  */
 package io.oxia.chaos.testcase;
 
+import static io.oxia.chaos.observability.MetricTestUtils.successes;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.data.MetricData;
@@ -39,9 +39,6 @@ import org.testcontainers.utility.DockerImageName;
 @Tag("e2e")
 @Testcontainers(disabledWithoutDocker = true)
 class VersioningE2ETest {
-
-  private static final AttributeKey<String> OPERATION = AttributeKey.stringKey("operation");
-  private static final AttributeKey<String> OUTCOME = AttributeKey.stringKey("outcome");
 
   @Container
   private static final OxiaContainer OXIA =
@@ -86,17 +83,5 @@ class VersioningE2ETest {
       final String prefix = "/oxia-chaos/runs/" + runId + "/versioning/key-";
       assertThat(client.list(prefix, prefix + "~")).isEmpty();
     }
-  }
-
-  private static long successes(final Collection<MetricData> metrics, final String operation) {
-    return metrics.stream()
-        .filter(metric -> metric.getName().equals("oxia.chaos.operations"))
-        .flatMap(metric -> metric.getLongSumData().getPoints().stream())
-        .filter(
-            point ->
-                operation.equals(point.getAttributes().get(OPERATION))
-                    && "success".equals(point.getAttributes().get(OUTCOME)))
-        .mapToLong(point -> point.getValue())
-        .sum();
   }
 }

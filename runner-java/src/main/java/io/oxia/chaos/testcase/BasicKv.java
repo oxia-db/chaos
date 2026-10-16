@@ -18,9 +18,7 @@ package io.oxia.chaos.testcase;
 import static io.oxia.chaos.util.KeyValueUtils.sortedByKey;
 import static io.oxia.chaos.util.Timing.addSaturated;
 import static io.oxia.chaos.util.Timing.elapsedMillis;
-import static io.oxia.chaos.util.Timing.elapsedSeconds;
 
-import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
 import io.opentelemetry.api.OpenTelemetry;
@@ -33,11 +31,13 @@ import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.KeyValue;
+import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.BatchUtils;
+import io.oxia.chaos.util.DeleteUtils;
 import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.GuardUtils;
 import io.oxia.chaos.util.KeyGenerator;
@@ -87,6 +87,7 @@ public final class BasicKv {
   private final InferenceStore inference;
   private final RunnerMetrics metrics;
   private final Tracer tracer;
+  private final CaseTelemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
   private final KeyGenerator keyGenerator;
@@ -109,6 +110,7 @@ public final class BasicKv {
     this.inference = inference;
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+    this.telemetry = new CaseTelemetry(tracer, metrics, Options.BASIC_KV);
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
     this.attemptTimeout = RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, retryTimeout);
     this.keyGenerator = new KeyGenerator(runId);
@@ -374,27 +376,7 @@ public final class BasicKv {
   }
 
   private void observe(final Operation operation, final String key, final Runnable action) {
-    final long started = System.nanoTime();
-    String outcome = "success";
-    final String operationLabel = operation.label();
-    final Span span =
-        tracer
-            .spanBuilder("basic-kv." + operationLabel)
-            .setNoParent()
-            .setAttribute("db.operation.name", operationLabel)
-            .setAttribute("db.key", key)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      runWithRetry(action);
-      span.setStatus(StatusCode.OK);
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordOperation(operationLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
+    telemetry.observe(operation, key, () -> runWithRetry(action));
   }
 
   private void verifyGet(final Operation operation, final String key, final GetOption option) {
@@ -425,13 +407,7 @@ public final class BasicKv {
       final boolean expected,
       final AtomicBoolean attempted) {
     final boolean retry = attempted.getAndSet(true);
-    final boolean actual = client.delete(key);
-    // A failed attempt has an unknown outcome: the server may have applied it, so a retry of a
-    // delete expected to find the key may find it already deleted.
-    if (expected != actual && !(retry && expected)) {
-      throw CorrectnessViolationException.operationMismatch(
-          operation, key, Boolean.toString(expected), Boolean.toString(actual));
-    }
+    DeleteUtils.verifyDelete(operation, key, expected, client.delete(key), retry);
   }
 
   private void verifyRangeScan(final Operation operation, final String key, final String endKey) {
@@ -460,52 +436,39 @@ public final class BasicKv {
 
   private void checkpoint(final Checkpoint checkpoint) {
     final long started = System.nanoTime();
-    String outcome = "success";
-    final String checkpointLabel = checkpoint.label();
-    final Span span =
-        tracer
-            .spanBuilder("basic-kv.checkpoint")
-            .setNoParent()
-            .setAttribute("checkpoint.kind", checkpointLabel)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      final String firstKey = keyGenerator.lowerGuardKey();
-      final String afterLastKey = keyGenerator.afterUpperGuardKey();
-      final List<KeyValue> expected = sortedByKey(inference.range(firstKey, afterLastKey));
-      final List<KeyValue> unorderedActual = new ArrayList<>();
-      runWithRetry(
-          () -> {
-            unorderedActual.clear();
-            try (final CloseableIterable<GetResult> results =
-                client.rangeScan(firstKey, afterLastKey)) {
-              for (final GetResult result : results) {
-                unorderedActual.add(new KeyValue(result.key(), result.value()));
-              }
-            }
-          });
-      final List<KeyValue> actual = sortedByKey(unorderedActual);
-      if (!expected.equals(actual)) {
-        throw CorrectnessViolationException.checkpointMismatch(
-            SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
-      }
-      checkpointCount++;
-      span.setAttribute("checkpoint.keys", expected.size()).setStatus(StatusCode.OK);
-      LOGGER
-          .atInfo()
-          .addKeyValue("run_id", runId)
-          .addKeyValue("kind", checkpointLabel)
-          .addKeyValue("keys", expected.size())
-          .addKeyValue("operations", operationCount)
-          .addKeyValue("duration_ms", elapsedMillis(started))
-          .log("basic-kv checkpoint passed");
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordCheckpoint(checkpointLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
+    telemetry.checkpoint(
+        checkpoint,
+        () -> {
+          final String firstKey = keyGenerator.lowerGuardKey();
+          final String afterLastKey = keyGenerator.afterUpperGuardKey();
+          final List<KeyValue> expected = sortedByKey(inference.range(firstKey, afterLastKey));
+          final List<KeyValue> unorderedActual = new ArrayList<>();
+          runWithRetry(
+              () -> {
+                unorderedActual.clear();
+                try (final CloseableIterable<GetResult> results =
+                    client.rangeScan(firstKey, afterLastKey)) {
+                  for (final GetResult result : results) {
+                    unorderedActual.add(new KeyValue(result.key(), result.value()));
+                  }
+                }
+              });
+          final List<KeyValue> actual = sortedByKey(unorderedActual);
+          if (!expected.equals(actual)) {
+            throw CorrectnessViolationException.checkpointMismatch(
+                SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
+          }
+          checkpointCount++;
+          LOGGER
+              .atInfo()
+              .addKeyValue("run_id", runId)
+              .addKeyValue("kind", checkpoint.label())
+              .addKeyValue("keys", expected.size())
+              .addKeyValue("operations", operationCount)
+              .addKeyValue("duration_ms", elapsedMillis(started))
+              .log("basic-kv checkpoint passed");
+          return expected.size();
+        });
   }
 
   private void cleanup() {
@@ -519,15 +482,8 @@ public final class BasicKv {
     return batchType(selectOperation(selected));
   }
 
-  static void runWithRetry(
-      final RetryPolicy<Object> retryPolicy,
-      final Timeout<Object> attemptTimeout,
-      final Runnable action) {
-    Failsafe.with(retryPolicy, attemptTimeout).run(action::run);
-  }
-
   private void runWithRetry(final Runnable action) {
-    runWithRetry(retryPolicy, attemptTimeout, action);
+    RetryUtils.run(retryPolicy, attemptTimeout, action);
   }
 
   private static Operation selectOperationForBatch(

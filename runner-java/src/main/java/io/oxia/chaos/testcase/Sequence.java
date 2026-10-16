@@ -31,9 +31,11 @@ import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.SequenceModel;
+import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.util.DeleteUtils;
 import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.RatePacer;
 import io.oxia.chaos.util.RetryUtils;
@@ -43,6 +45,7 @@ import io.oxia.client.api.CloseableIterable;
 import io.oxia.client.api.GetResult;
 import io.oxia.client.api.PutResult;
 import io.oxia.client.api.SyncOxiaClient;
+import io.oxia.client.api.exceptions.UnexpectedVersionIdException;
 import io.oxia.client.api.options.DeleteOption;
 import io.oxia.client.api.options.DeleteRangeOption;
 import io.oxia.client.api.options.GetOption;
@@ -107,6 +110,7 @@ public final class Sequence {
   private final SequenceModel model;
   private final RunnerMetrics metrics;
   private final Tracer tracer;
+  private final CaseTelemetry telemetry;
   private final Duration retryTimeout;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
@@ -134,6 +138,7 @@ public final class Sequence {
     this.model = model;
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+    this.telemetry = new CaseTelemetry(tracer, metrics, Options.SEQUENCE);
     this.retryTimeout = retryTimeout;
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
     this.attemptTimeout = RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, retryTimeout);
@@ -377,17 +382,19 @@ public final class Sequence {
         key,
         () -> {
           final AtomicBoolean attempted = new AtomicBoolean();
-          retried(
+          RetryUtils.run(
+              retryPolicy,
+              attemptTimeout,
               () -> {
                 final boolean retry = attempted.getAndSet(true);
-                final boolean deleted =
-                    client.delete(key, Set.of(DeleteOption.PartitionKey(prefix)));
-                // A failed attempt may have deleted the record already
-                if (!deleted && !retry) {
-                  throw CorrectnessViolationException.operationMismatch(
-                      Operation.DELETE, key, "true", "false");
+                final boolean deleted;
+                try {
+                  deleted = client.delete(key, Set.of(DeleteOption.PartitionKey(prefix)));
+                } catch (final UnexpectedVersionIdException error) {
+                  throw new IllegalStateException(
+                      "unconditional delete failed its condition", error);
                 }
-                return null;
+                DeleteUtils.verifyDelete(Operation.DELETE, key, true, deleted, retry);
               });
           model.delete(prefix, key);
         });
@@ -503,29 +510,10 @@ public final class Sequence {
   }
 
   private void observe(final Operation operation, final String key, final Runnable action) {
-    final long started = System.nanoTime();
-    String outcome = "success";
-    final String operationLabel = operation.label();
-    final Span span =
-        tracer
-            .spanBuilder("sequence." + operationLabel)
-            .setNoParent()
-            .setAttribute("db.operation.name", operationLabel)
-            .setAttribute("db.key", key)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      action.run();
-      span.setStatus(StatusCode.OK);
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordOperation(operationLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
+    telemetry.observe(operation, key, action);
   }
 
+  /** Retries a read. A check that can report a violation runs through {@link RetryUtils#run}. */
   private <T> T retried(final CheckedSupplier<T> action) {
     return Failsafe.with(retryPolicy, attemptTimeout).get(action);
   }

@@ -15,11 +15,14 @@
  */
 package io.oxia.chaos.util;
 
+import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
 import dev.failsafe.TimeoutExceededException;
+import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.client.grpc.OxiaStatusException;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,5 +83,41 @@ public final class RetryUtils {
     return Timeout.builder(timeout.compareTo(retryTimeout) <= 0 ? timeout : retryTimeout)
         .withInterrupt()
         .build();
+  }
+
+  /**
+   * Runs an action under a retry policy and an attempt timeout. A correctness violation ends the
+   * run: the timeout replaces the outcome of an attempt that ends after it, which the policy would
+   * then retry, so the violation is kept aside and thrown instead.
+   */
+  public static void run(
+      final RetryPolicy<Object> retryPolicy,
+      final Timeout<Object> attemptTimeout,
+      final Runnable action) {
+    final AtomicReference<CorrectnessViolationException> violation = new AtomicReference<>();
+    try {
+      Failsafe.with(retryPolicy, attemptTimeout)
+          .run(
+              () -> {
+                // An attempt runs on the calling thread, so the previous one has already ended
+                final CorrectnessViolationException previous = violation.get();
+                if (previous != null) {
+                  throw previous;
+                }
+                try {
+                  action.run();
+                } catch (final CorrectnessViolationException error) {
+                  violation.set(error);
+                  throw error;
+                }
+              });
+    } catch (final RuntimeException error) {
+      final CorrectnessViolationException found = violation.get();
+      if (found == null) {
+        throw error;
+      }
+      ExceptionUtils.addSuppressedIfDistinct(found, error);
+      throw found;
+    }
   }
 }

@@ -33,6 +33,7 @@ import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.KeyValue;
 import io.oxia.chaos.inference.NotificationChecker;
+import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
@@ -62,6 +63,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,6 +98,7 @@ public final class Notifications {
   private final InferenceStore inference;
   private final RunnerMetrics metrics;
   private final Tracer tracer;
+  private final CaseTelemetry telemetry;
   private final Duration deliveryTimeout;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
@@ -124,6 +127,7 @@ public final class Notifications {
     this.inference = inference;
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+    this.telemetry = new CaseTelemetry(tracer, metrics, Options.NOTIFICATION);
     // Notifications of acknowledged writes must arrive within the window a write may retry in
     this.deliveryTimeout = retryTimeout;
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
@@ -447,38 +451,23 @@ public final class Notifications {
   /** Runs one write with retries, remembering when an attempt last failed. */
   private <T> Attempted<T> observe(
       final Operation operation, final String key, final Supplier<T> action) {
-    final long started = System.nanoTime();
-    String outcome = "success";
-    final String operationLabel = operation.label();
-    final Span span =
-        tracer
-            .spanBuilder("notification." + operationLabel)
-            .setNoParent()
-            .setAttribute("db.operation.name", operationLabel)
-            .setAttribute("db.key", key)
-            .startSpan();
     final AtomicInteger attempts = new AtomicInteger();
-    try (final Scope ignored = span.makeCurrent()) {
-      final T result =
-          Failsafe.with(retryPolicy, attemptTimeout)
-              .get(
-                  () -> {
-                    if (attempts.getAndIncrement() > 0) {
-                      faulted = true;
-                      lastFaultNanos = System.nanoTime();
-                    }
-                    return action.get();
-                  });
-      span.setStatus(StatusCode.OK);
-      return new Attempted<>(result, attempts.get());
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordOperation(operationLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
+    final AtomicReference<T> result = new AtomicReference<>();
+    telemetry.observe(
+        operation,
+        key,
+        () ->
+            result.set(
+                Failsafe.with(retryPolicy, attemptTimeout)
+                    .get(
+                        () -> {
+                          if (attempts.getAndIncrement() > 0) {
+                            faulted = true;
+                            lastFaultNanos = System.nanoTime();
+                          }
+                          return action.get();
+                        })));
+    return new Attempted<>(result.get(), attempts.get());
   }
 
   /** The result of a write and how many attempts it took: the failed ones have unknown outcomes. */
