@@ -34,6 +34,7 @@ public record Options(
   public static final String SECONDARY_INDEX = "secondary-index";
   public static final String SEQUENCE = "sequence";
   public static final String NOTIFICATION = "notification";
+  public static final String VERSIONING = "versioning";
   public static final Duration DEFAULT_DURATION = Duration.ofMinutes(10);
   public static final int DEFAULT_KEY_COUNT = 10_000;
   public static final int DEFAULT_RATE = 258;
@@ -49,7 +50,8 @@ public record Options(
         && !EPHEMERAL.equals(caseName)
         && !SECONDARY_INDEX.equals(caseName)
         && !SEQUENCE.equals(caseName)
-        && !NOTIFICATION.equals(caseName)) {
+        && !NOTIFICATION.equals(caseName)
+        && !VERSIONING.equals(caseName)) {
       throw new IllegalArgumentException("unsupported --case: " + caseName);
     }
     if (keyCount <= 0) {
