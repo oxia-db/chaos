@@ -22,9 +22,11 @@ import io.oxia.chaos.inference.EphemeralModel;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.MemoryInferenceStore;
 import io.oxia.chaos.inference.SecondaryIndexModel;
+import io.oxia.chaos.inference.SequenceModel;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.testcase.BasicKv;
 import io.oxia.chaos.testcase.SecondaryIndex;
+import io.oxia.chaos.testcase.Sequence;
 import io.oxia.chaos.testcase.ephemeral.Ephemeral;
 import io.oxia.chaos.util.DurationConverter;
 import io.oxia.client.api.OxiaClientBuilder;
@@ -66,7 +68,8 @@ public final class OxiaChaosRunner implements Callable<Integer> {
       names = "--case",
       required = true,
       paramLabel = "NAME",
-      description = "Correctness case to run. Supported: basic-kv, ephemeral, secondary-index.")
+      description =
+          "Correctness case to run. Supported: basic-kv, ephemeral, secondary-index, sequence.")
   private String caseName;
 
   @Option(
@@ -165,10 +168,12 @@ public final class OxiaChaosRunner implements Callable<Integer> {
     final InferenceStore inference = new MemoryInferenceStore();
     final EphemeralModel ephemeralModel = new EphemeralModel();
     final SecondaryIndexModel secondaryIndexModel = new SecondaryIndexModel();
+    final SequenceModel sequenceModel = new SequenceModel();
     final LongSupplier referenceKeyCount =
         switch (options.caseName()) {
           case Options.EPHEMERAL -> ephemeralModel::size;
           case Options.SECONDARY_INDEX -> secondaryIndexModel::size;
+          case Options.SEQUENCE -> sequenceModel::size;
           default -> inference::size;
         };
 
@@ -235,6 +240,20 @@ public final class OxiaChaosRunner implements Callable<Integer> {
                           client,
                           openTelemetry,
                           secondaryIndexModel,
+                          metrics,
+                          REQUEST_TIMEOUT)
+                      .run();
+                  return null;
+                });
+        case Options.SEQUENCE ->
+            runOnVirtualThread(
+                () -> {
+                  new Sequence(
+                          options,
+                          runId,
+                          client,
+                          openTelemetry,
+                          sequenceModel,
                           metrics,
                           REQUEST_TIMEOUT)
                       .run();

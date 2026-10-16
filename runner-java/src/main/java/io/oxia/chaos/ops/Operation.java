@@ -34,7 +34,9 @@ public enum Operation {
   OWNER_LOST("owner-lost"),
   INDEX_GET("index-get"),
   INDEX_LIST("index-list"),
-  INDEX_RANGE_SCAN("index-range-scan");
+  INDEX_RANGE_SCAN("index-range-scan"),
+  SEQUENCE_PUT("sequence-put"),
+  SEQUENCE_UPDATE("sequence-update");
 
   private final String label;
 

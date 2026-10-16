@@ -32,6 +32,7 @@ public record Options(
   public static final String BASIC_KV = "basic-kv";
   public static final String EPHEMERAL = "ephemeral";
   public static final String SECONDARY_INDEX = "secondary-index";
+  public static final String SEQUENCE = "sequence";
   public static final Duration DEFAULT_DURATION = Duration.ofMinutes(10);
   public static final int DEFAULT_KEY_COUNT = 10_000;
   public static final int DEFAULT_RATE = 258;
@@ -45,7 +46,8 @@ public record Options(
     checkpointInterval = requirePositive(checkpointInterval, "--checkpoint-interval");
     if (!BASIC_KV.equals(caseName)
         && !EPHEMERAL.equals(caseName)
-        && !SECONDARY_INDEX.equals(caseName)) {
+        && !SECONDARY_INDEX.equals(caseName)
+        && !SEQUENCE.equals(caseName)) {
       throw new IllegalArgumentException("unsupported --case: " + caseName);
     }
     if (keyCount <= 0) {
