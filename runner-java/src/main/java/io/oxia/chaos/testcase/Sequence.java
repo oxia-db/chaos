@@ -159,7 +159,7 @@ public final class Sequence {
   public void run() throws InterruptedException {
     final Span runSpan =
         tracer
-            .spanBuilder("sequence.run")
+            .spanBuilder("sequences.run")
             .setAttribute("test.case", Options.SEQUENCE)
             .setAttribute("test.run_id", runId)
             .setAttribute("test.seed", options.seed())
@@ -423,7 +423,7 @@ public final class Sequence {
     final String checkpointLabel = checkpoint.label();
     final Span span =
         tracer
-            .spanBuilder("sequence.checkpoint")
+            .spanBuilder("sequences.checkpoint")
             .setNoParent()
             .setAttribute("checkpoint.kind", checkpointLabel)
             .startSpan();

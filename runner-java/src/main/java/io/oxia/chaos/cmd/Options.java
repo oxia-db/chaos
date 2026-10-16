@@ -33,7 +33,7 @@ public record Options(
   public static final String BASIC_KV = "basic-kv";
   public static final String EPHEMERAL = "ephemeral";
   public static final String SECONDARY_INDEX = "secondary-index";
-  public static final String SEQUENCE = "sequence";
+  public static final String SEQUENCE = "sequences";
   public static final String NOTIFICATION = "notification";
   public static final String VERSIONING = "versioning";
   public static final List<String> CASES =

@@ -110,10 +110,13 @@ jobs:
         run: |
           expected_results=()
           if [ "$BOOTSTRAP" != "true" ]; then
+            # Every testcase the chart enables must report, on every channel
+            enabled_cases=$(yq --output-format=json \
+              '[.cases | to_entries[] | select(.value.enabled) | .key]' charts/oxia-chaos/values.yaml)
             while IFS= read -r expected_result; do
               expected_results+=(--expected-result "$expected_result")
-            done < <(jq --raw-output \
-              'to_entries[] | [.key, .value.serverVersion, "basic-kv"] | join(",")' \
+            done < <(jq --raw-output --argjson cases "$enabled_cases" \
+              'to_entries[] | .key as $channel | .value.serverVersion as $version | $cases[] | [$channel, $version, .] | join(",")' \
               config/oxia-channels.json)
           fi
           python3 scripts/status/status.py merge \
@@ -197,10 +200,12 @@ jobs:
           RUN_URL: ${{ github.event.workflow_run.html_url }}
         run: |
           expected_results=()
+          enabled_cases=$(yq --output-format=json \
+            '[.cases | to_entries[] | select(.value.enabled) | .key]' charts/oxia-chaos/values.yaml)
           while IFS= read -r expected_result; do
             expected_results+=(--expected-result "$expected_result")
-          done < <(jq --raw-output \
-            'to_entries[] | [.key, .value.serverVersion, "basic-kv"] | join(",")' \
+          done < <(jq --raw-output --argjson cases "$enabled_cases" \
+            'to_entries[] | .key as $channel | .value.serverVersion as $version | $cases[] | [$channel, $version, .] | join(",")' \
             config/oxia-channels.json)
           python3 scripts/status/status.py merge \
             --existing status-smoke/missing-summary.json \

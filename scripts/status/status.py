@@ -95,7 +95,7 @@ PHASE_FAILURES = {
     ),
     "runner": (
         "Correctness workload failed to start",
-        "The Java basic-kv runner did not become ready with the released image.",
+        "The Java runner of this testcase did not become ready.",
     ),
     "workflow": (
         "Chaos workflow failed to start",
@@ -107,7 +107,7 @@ PHASE_FAILURES = {
     ),
     "result": (
         "Correctness workload failed",
-        "The basic-kv workload reported a correctness, retry, timeout, or final checkpoint failure.",
+        "The testcase reported a correctness, retry, timeout, or final checkpoint failure.",
     ),
 }
 
