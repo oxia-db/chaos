@@ -53,7 +53,10 @@ public final class OxiaExceptionUtils {
   }
 
   public static boolean isRetryable(final Throwable error) {
-    if (status(error).isRetryable()) {
+    // The client does not retry a request past its request timeout, but the runner retries it
+    // within its own retry window, as it does when its attempt timeout fires first.
+    final OxiaStatusException status = status(error);
+    if (status.isRetryable() || status.getStatusCode() == OxiaStatusCode.TIMEOUT) {
       return true;
     }
 
