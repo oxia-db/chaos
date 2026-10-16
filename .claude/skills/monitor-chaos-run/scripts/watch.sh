@@ -6,7 +6,8 @@
 # time is up.
 #
 # Environment: NS (default oxia-chaos), OUT (default ./chaos-monitor/RELEASE), INTERVAL (30),
-# STALL seconds without a runner checkpoint (180), MAX_ATTEMPT retries of one operation (20).
+# STALL seconds without a runner checkpoint (180), MAX_ATTEMPT retries of one operation (20),
+# IGNORE regex of runner pod names already triaged, for example a runner stuck on a filed issue.
 set -u
 RELEASE=$1
 MINUTES=${2:-60}
@@ -15,6 +16,7 @@ OUT=${OUT:-./chaos-monitor/$RELEASE}
 INTERVAL=${INTERVAL:-30}
 STALL=${STALL:-180}
 MAX_ATTEMPT=${MAX_ATTEMPT:-20}
+IGNORE=${IGNORE:-}
 SKILL=$(cd "$(dirname "$0")/.." && pwd)
 RUNNERS="app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=runner"
 # Signatures that need a look every time, even after review.
@@ -80,6 +82,7 @@ while [ "$(date +%s)" -lt "$end" ]; do
     if [ -n "$revision" ]; then
       for pod in $(kubectl -n "$NS" get pods -l "$RUNNERS,helm.sh/revision=$revision" -o jsonpath='{.items[*].metadata.name}'); do
         lines=$(archive "$pod" runner)
+        [ -n "$IGNORE" ] && echo "$pod" | grep -qE "$IGNORE" && continue
         [ -f "$OUT/state/$pod.checkpoint" ] || echo "$now" > "$OUT/state/$pod.checkpoint"
         echo "$lines" | grep -q 'checkpoint passed' && echo "$now" > "$OUT/state/$pod.checkpoint"
         attempt=$(echo "$lines" | grep -oE 'attempt=[0-9]+' | cut -d= -f2 | sort -n | tail -1)

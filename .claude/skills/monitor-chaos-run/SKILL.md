@@ -25,7 +25,9 @@ gets fresh credentials:
    (default 30) and exits with an `ALERT` line on the first problem, after saving a snapshot.
    It prints `OK` and exits 0 when the time is up with nothing found.
 3. When it exits, report the result to the user, triage the alert (below), and start it again
-   with the same `OUT` directory so the archive and the reviewed signatures carry over.
+   with the same `OUT` directory so the archive and the reviewed signatures carry over. A runner
+   that stays broken on a filed issue would alert every time; pass its pod name in `IGNORE` (a
+   regex) to keep archiving its log without alerting on it.
 4. Report status after every step, not only at the end. The user should never have to ask whether
    you are still watching.
 
