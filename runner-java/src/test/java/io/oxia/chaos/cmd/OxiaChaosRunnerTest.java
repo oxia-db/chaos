@@ -64,6 +64,14 @@ class OxiaChaosRunnerTest {
   }
 
   @Test
+  void parsesTheNotificationCaseIntoItsOwnNamespace() {
+    final Options options = parse("--case=notification", "--service-address=oxia:6648");
+
+    assertThat(options.caseName()).isEqualTo("notification");
+    assertThat(options.namespace()).isEqualTo("oc-java-notification");
+  }
+
+  @Test
   void parsesWorkloadOverrides() {
     final Options options =
         parse(
