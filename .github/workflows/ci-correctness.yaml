@@ -69,6 +69,9 @@ env:
   RUNNER_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour') && '23400' || '600' }}
   WORKFLOW_TIMEOUT_SECONDS: ${{ (github.event_name == 'schedule' || inputs.profile == 'six-hour') && '22200' || '240' }}
   EXPECTED_CHAOS_INJECTIONS: 1
+  # Built from the checkout and loaded into kind: a tag that no registry has, so the runner can't
+  # fall back to a published image
+  JAVA_IMAGE: oxia/chaos-java:ci-${{ github.sha }}
   OBSERVABILITY_ENABLED: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT != '' && secrets.GRAFANA_CLOUD_OTLP_INSTANCE_ID != '' && secrets.GRAFANA_CLOUD_TOKEN != '' && 'true' || 'false' }}
   GRAFANA_CLOUD_OTLP_ENDPOINT: ${{ secrets.GRAFANA_CLOUD_OTLP_ENDPOINT }}
   GRAFANA_CLOUD_OTLP_INSTANCE_ID: ${{ secrets.GRAFANA_CLOUD_OTLP_INSTANCE_ID }}
@@ -107,6 +110,10 @@ jobs:
           cluster_name: ${{ env.CLUSTER_NAME }}
           wait: 120s
 
+      - name: Build runner image
+        id: runner_image
+        run: make -C deploy runner-image JAVA_IMAGE="$JAVA_IMAGE"
+
       - name: Deploy shared environment and all Helm testcases
         id: install
         run: |
@@ -115,7 +122,8 @@ jobs:
             WORKLOAD_PROFILE="$WORKLOAD_PROFILE" \
             REUSE_CHANNEL_PLAN=true \
             PRELOAD_DEPENDENCY_IMAGES=false \
-            RUNNER_IMAGE_PULL_POLICY=Always
+            JAVA_IMAGE="$JAVA_IMAGE" \
+            RUNNER_IMAGE_PULL_POLICY=Never
 
       - name: Provision Grafana dashboards
         continue-on-error: true
