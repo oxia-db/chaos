@@ -14,7 +14,9 @@ for line in sys.stdin:
     elif java:
         # Key=value pairs come before the message (RetryUtils) or after it (client retries). Keep
         # only status=, which tells retries apart, and drop everything from the first trailing pair.
-        leading, message = re.match(r"((?:\w+=\S+ )*)(.*)", java.group(3)).groups()
+        # Collapse bracketed lists first: they can contain spaces, as in keys=[a, b].
+        text = re.sub(r"\b(\w+)=\[[^\]]*\]", r"\1=[]", java.group(3))
+        leading, message = re.match(r"((?:\w+=\S+ )*)(.*)", text).groups()
         status = re.search(r"status=\S+ ", leading)
         message = (status.group(0) if status else "") + re.split(r" \w+=", message)[0]
         signature = java.group(1) + " " + java.group(2).split(".")[-1] + " - " + message

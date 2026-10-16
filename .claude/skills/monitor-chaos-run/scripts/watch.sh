@@ -8,6 +8,7 @@
 # Environment: NS (default oxia-chaos), OUT (default ./chaos-monitor/RELEASE), INTERVAL (30),
 # STALL seconds without a runner checkpoint (180), MAX_ATTEMPT retries of one operation (20),
 # IGNORE regex of runner pod names already triaged, for example a runner stuck on a filed issue.
+# ALWAYS regex of signatures that alert even after review (default below).
 set -u
 RELEASE=$1
 MINUTES=${2:-60}
@@ -20,7 +21,7 @@ IGNORE=${IGNORE:-}
 SKILL=$(cd "$(dirname "$0")/.." && pwd)
 RUNNERS="app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=runner"
 # Signatures that need a look every time, even after review.
-ALWAYS='correctness violation|runner failed|exhausted its retry window|Election aborted|^(CRASH|FTL|PNC) '
+ALWAYS=${ALWAYS:-'correctness violation|runner failed|exhausted its retry window|Election aborted|^(CRASH|FTL|PNC) '}
 
 mkdir -p "$OUT/logs" "$OUT/state"
 touch "$OUT/state/ended" "$OUT/state/restarts"
