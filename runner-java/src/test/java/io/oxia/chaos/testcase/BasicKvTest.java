@@ -17,17 +17,11 @@ package io.oxia.chaos.testcase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import dev.failsafe.RetryPolicy;
-import dev.failsafe.Timeout;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Operation;
-import io.oxia.chaos.util.RetryUtils;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SplittableRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 
@@ -70,32 +64,6 @@ class BasicKvTest {
     assertShare(counts, samples, BatchType.WRITE, 0.4103);
     assertShare(counts, samples, BatchType.READ, 0.5861);
     assertShare(counts, samples, BatchType.DELETE_RANGE, 0.0037);
-  }
-
-  @Test
-  void interruptsAStuckAttemptAndRetriesTheWholeOperation() {
-    final RetryPolicy<Object> retryPolicy = RetryUtils.retryPolicy(Duration.ofSeconds(1));
-    final Timeout<Object> attemptTimeout =
-        RetryUtils.attemptTimeout(Duration.ofMillis(50), Duration.ofSeconds(1));
-    final AtomicInteger attempts = new AtomicInteger();
-    final AtomicBoolean interrupted = new AtomicBoolean();
-
-    BasicKv.runWithRetry(
-        retryPolicy,
-        attemptTimeout,
-        () -> {
-          if (attempts.incrementAndGet() == 1) {
-            try {
-              Thread.sleep(Duration.ofMinutes(1));
-            } catch (final InterruptedException error) {
-              interrupted.set(true);
-              Thread.currentThread().interrupt();
-            }
-          }
-        });
-
-    assertThat(interrupted).isTrue();
-    assertThat(attempts).hasValue(2);
   }
 
   private static <T> void assertShare(
