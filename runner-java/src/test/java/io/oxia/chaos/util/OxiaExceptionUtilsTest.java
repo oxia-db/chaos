@@ -18,8 +18,11 @@ package io.oxia.chaos.util;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.grpc.Status;
+import io.oxia.client.api.exceptions.OxiaUncheckedException;
+import io.oxia.client.api.exceptions.RequestTimeoutException;
 import io.oxia.client.grpc.OxiaStatusCode;
 import io.oxia.client.grpc.OxiaStatusException;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
 
 class OxiaExceptionUtilsTest {
@@ -34,6 +37,17 @@ class OxiaExceptionUtilsTest {
     assertThat(OxiaExceptionUtils.isRetryable(error)).isTrue();
     assertThat(OxiaExceptionUtils.status(error).getStatusCode())
         .isEqualTo(OxiaStatusCode.RESOURCE_UNAVAILABLE);
+  }
+
+  @Test
+  void classifiesClientRequestTimeoutAsRetryable() {
+    final OxiaUncheckedException error =
+        new OxiaUncheckedException(
+            new RequestTimeoutException(
+                "Request timed out", OxiaStatusException.timeout(new TimeoutException())));
+
+    assertThat(OxiaExceptionUtils.isRetryable(error)).isTrue();
+    assertThat(OxiaExceptionUtils.status(error).getStatusCode()).isEqualTo(OxiaStatusCode.TIMEOUT);
   }
 
   @Test
