@@ -20,6 +20,7 @@ WARN Session - Error during session keep-alive
 WARN ShardManager - Failed receiving shard assignments
 WARN ShardManager - Stream closed while receiving shard assignments
 WARN ShardNotificationReceiver - Error while receiving notifications
+WARNING Failed to resolve name
 WRN AddFollower failed
 WRN Connection health ping failed
 WRN Connection health ping returned unhealthy status
