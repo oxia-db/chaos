@@ -310,7 +310,7 @@ public final class Versioning {
                         }
                       } catch (final UnexpectedVersionIdException
                           | KeyAlreadyExistsException error) {
-                        model.rejected(registered, attempt == 0);
+                        model.rejected(key, registered, attempt == 0);
                       }
                       return null;
                     }));

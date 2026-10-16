@@ -189,7 +189,7 @@ class VersionModelTest {
     create(model, "a", CREATED);
     final Attempt pending = model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b-0");
     final Attempt retry = model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b-1");
-    model.rejected(retry, false);
+    model.rejected(KEY, retry, false);
 
     model.checkpoint(Map.of(KEY, new Observed("b-0", UPDATED)));
     assertThat(model.size()).isOne();
@@ -210,7 +210,7 @@ class VersionModelTest {
   void rejectsAWriteTheServerRejectedWhenItIsVisible() {
     final VersionModel model = new VersionModel();
     create(model, "a", CREATED);
-    model.rejected(model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b"), false);
+    model.rejected(KEY, model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b"), false);
 
     assertThatThrownBy(() -> model.checkpoint(Map.of(KEY, new Observed("b", UPDATED))))
         .isInstanceOf(CorrectnessViolationException.class)
@@ -218,10 +218,22 @@ class VersionModelTest {
   }
 
   @Test
+  void rejectsARejectionOfAWriteThatAReadAlreadyShowed() {
+    final VersionModel model = new VersionModel();
+    create(model, "a", CREATED);
+    final Attempt pending = model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b");
+    model.read(KEY, model.begin(KEY), Optional.of(new Observed("b", UPDATED)));
+
+    assertThatThrownBy(() -> model.rejected(KEY, pending, true))
+        .isInstanceOf(CorrectnessViolationException.class)
+        .hasMessageContaining("rejected a write that a read already showed");
+  }
+
+  @Test
   void rejectsARejectionOfTheCurrentVersion() {
     final VersionModel model = new VersionModel();
     create(model, "a", CREATED);
-    model.rejected(model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b"), true);
+    model.rejected(KEY, model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b"), true);
 
     assertThatThrownBy(() -> model.checkpoint(Map.of(KEY, new Observed("a", CREATED))))
         .isInstanceOf(CorrectnessViolationException.class)
@@ -232,7 +244,7 @@ class VersionModelTest {
   void acceptsARejectionThatAConcurrentWriteExplains() {
     final VersionModel model = new VersionModel();
     create(model, "a", CREATED);
-    model.rejected(model.attempt(KEY, Kind.DELETE, Optional.of(CREATED), null), true);
+    model.rejected(KEY, model.attempt(KEY, Kind.DELETE, Optional.of(CREATED), null), true);
     update(model, "b", CREATED, UPDATED);
 
     assertThatCode(() -> model.checkpoint(Map.of(KEY, new Observed("b", UPDATED))))
@@ -244,7 +256,7 @@ class VersionModelTest {
     final VersionModel model = new VersionModel();
     create(model, "a", CREATED);
     model.attempt(KEY, Kind.DELETE, Optional.of(CREATED), null);
-    model.rejected(model.attempt(KEY, Kind.DELETE, Optional.of(CREATED), null), false);
+    model.rejected(KEY, model.attempt(KEY, Kind.DELETE, Optional.of(CREATED), null), false);
 
     assertThatCode(() -> model.checkpoint(Map.of())).doesNotThrowAnyException();
   }
@@ -252,7 +264,7 @@ class VersionModelTest {
   @Test
   void rejectsARejectedCreateOfAKeyThatNeverExisted() {
     final VersionModel model = new VersionModel();
-    model.rejected(model.attempt(KEY, Kind.CREATE, Optional.empty(), "a"), true);
+    model.rejected(KEY, model.attempt(KEY, Kind.CREATE, Optional.empty(), "a"), true);
 
     assertThatThrownBy(() -> model.checkpoint(Map.of()))
         .isInstanceOf(CorrectnessViolationException.class)

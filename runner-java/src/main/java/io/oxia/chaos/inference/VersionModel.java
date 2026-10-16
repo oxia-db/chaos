@@ -166,7 +166,12 @@ public final class VersionModel {
    * Records that the server rejected an attempt for a version mismatch. Only the rejection of a
    * first attempt needs an explanation: a retry may conflict with its own earlier attempt.
    */
-  public synchronized void rejected(final Attempt attempt, final boolean firstAttempt) {
+  public synchronized void rejected(
+      final String key, final Attempt attempt, final boolean firstAttempt) {
+    if (attempt.status == Status.APPLIED) {
+      throw CorrectnessViolationException.versionHistory(
+          key, "the server rejected a write that a read already showed: " + attempt.describe());
+    }
     if (attempt.status != Status.PENDING) {
       throw new IllegalStateException("attempt already settled: " + attempt.describe());
     }
