@@ -8,6 +8,9 @@ KUBECTL ?= kubectl
 HELM ?= helm
 DOCKER ?= docker
 JAVA_IMAGE ?= oxia/chaos-java:latest
+# The runner image the chart deploys, split into the repository and the tag after the last ':'
+JAVA_IMAGE_TAG = $(lastword $(subst :, ,$(JAVA_IMAGE)))
+JAVA_IMAGE_REPOSITORY = $(patsubst %:$(JAVA_IMAGE_TAG),%,$(JAVA_IMAGE))
 HELM_ARGS ?=
 CHANNEL_CONFIG ?= ../config/oxia-channels.json
 CHANNELS ?= stable
@@ -146,6 +149,7 @@ dependency-images: cluster channel-plan
 runner-image: cluster
 	$(MAKE) -C .. java-image JAVA_IMAGE=$(JAVA_IMAGE)
 	$(KIND) load docker-image $(JAVA_IMAGE) --name $(CLUSTER_NAME)
+	@echo "Loaded runner image $(JAVA_IMAGE) $$($(DOCKER) image inspect --format '{{.Id}}' $(JAVA_IMAGE))"
 
 observability-secret: namespaces
 	@set -eu; \
@@ -204,6 +208,8 @@ release-runners: release-infra release-clusters
 			--namespace $(NAMESPACE) \
 			--set runnerWorkloadsEnabled=true \
 			--set-string runnerImagePullPolicyOverride=$(RUNNER_IMAGE_PULL_POLICY) \
+			--set-string runners.java.image.repository=$(JAVA_IMAGE_REPOSITORY) \
+			--set-string runners.java.image.tag=$(JAVA_IMAGE_TAG) \
 			--set runnerJob.telemetry.enabled=$(OBSERVABILITY_ENABLED) \
 			--set-string runnerJob.telemetry.otlpEndpoint=$(OBSERVABILITY_COLLECTOR_ENDPOINT) \
 			--set chaosWorkflow.enabled=false \
@@ -357,6 +363,9 @@ diagnostics:
 	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get \
 		pods,jobs,statefulsets,workflows,workflownodes,podchaos,networkchaos,stresschaos \
 		--output=wide
+	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get pods \
+		--selector=app.kubernetes.io/part-of=oxia-chaos,app.kubernetes.io/component=runner \
+		--output=custom-columns='POD:.metadata.name,IMAGE:.status.containerStatuses[*].image,IMAGE_ID:.status.containerStatuses[*].imageID'
 	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) get events \
 		--sort-by=.lastTimestamp
 	-$(KUBECTL) --context $(KUBE_CONTEXT) --namespace $(NAMESPACE) logs \
