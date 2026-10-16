@@ -9,6 +9,8 @@ for line in sys.stdin:
     line = ansi.sub("", line.rstrip("\n"))
     oxia = re.search(r"\b(WRN|ERR|FTL|PNC)\b\s+(.*?)(\s+\w[\w-]*=|$)", line)
     java = re.search(r"\] (WARN|ERROR) (\S+) - (.*)", line)
+    # java.util.logging, used by gRPC and the JDK, prints the level on its own line.
+    jul = re.search(r"(?:^|\s)(WARNING|SEVERE): (.*)", line)
     if oxia:
         signature = oxia.group(1) + " " + oxia.group(2)
     elif java:
@@ -20,6 +22,9 @@ for line in sys.stdin:
         status = re.search(r"status=\S+ ", leading)
         message = (status.group(0) if status else "") + re.split(r" \w+=", message)[0]
         signature = java.group(1) + " " + java.group(2).split(".")[-1] + " - " + message
+    elif jul:
+        message = re.sub(r"\[Channel<\d+>: \([^)]*\)\] ", "", jul.group(2))
+        signature = jul.group(1) + " " + re.split(r" \w+=|\. ", message)[0]
     elif re.search(r"panic|fatal|Exception in thread|OutOfMemory", line, re.I):
         signature = "CRASH " + line[:120]
     else:
