@@ -12,8 +12,11 @@ for line in sys.stdin:
     if oxia:
         signature = oxia.group(1) + " " + oxia.group(2)
     elif java:
-        # Drop key=value pairs such as attempt=N, but keep status=, which tells retries apart.
-        message = re.sub(r"\b(?!status=)\w+=\S+ ?", "", java.group(3)).strip()
+        # Key=value pairs come before the message (RetryUtils) or after it (client retries). Keep
+        # only status=, which tells retries apart, and drop everything from the first trailing pair.
+        leading, message = re.match(r"((?:\w+=\S+ )*)(.*)", java.group(3)).groups()
+        status = re.search(r"status=\S+ ", leading)
+        message = (status.group(0) if status else "") + re.split(r" \w+=", message)[0]
         signature = java.group(1) + " " + java.group(2).split(".")[-1] + " - " + message
     elif re.search(r"panic|fatal|Exception in thread|OutOfMemory", line, re.I):
         signature = "CRASH " + line[:120]
