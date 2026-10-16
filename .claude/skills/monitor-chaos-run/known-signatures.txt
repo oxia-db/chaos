@@ -1,0 +1,40 @@
+ERR Error while pushing entries to follower
+ERR Failed to truncate follower
+ERR Rejecting follower: it does not support features required by the shard
+WARN Connection - Connection health check failed
+WARN GrpcRpcProvider - Retrying create session after PTNS.
+WARN GrpcRpcProvider - Retrying get shard assignments after PTNS.
+WARN GrpcRpcProvider - Retrying keep alive after PTNS.
+WARN GrpcRpcProvider - Retrying list after PTNS.
+WARN GrpcRpcProvider - Retrying range scan after PTNS.
+WARN GrpcRpcProvider - Retrying read after PTNS.
+WARN RetryUtils - status=RESOURCE_UNAVAILABLE Retrying current Oxia operation
+WARN RetryUtils - status=TIMEOUT Retrying current Oxia operation
+WARN RetryUtils - status=UNKNOWN Retrying current Oxia operation
+WARN Session - Error during session keep-alive
+WARN ShardManager - Failed receiving shard assignments
+WARN ShardManager - Stream closed while receiving shard assignments
+WRN AddFollower failed
+WRN Connection health ping failed
+WRN Connection health ping returned unhealthy status
+WRN Data server health check failed
+WRN Data server health ping failed, tolerating below failure threshold
+WRN Data server reported it is not serving
+WRN Data server stopped responding to ping
+WRN Error while receiving acks
+WRN Expected follower is not in follower status. Start a new election
+WRN Failed to check storage data server health by ping-pong
+WRN Failed to check storage data server health by watch
+WRN Failed to fenceNewTermAndAddFollower, retrying later
+WRN Failed to get the follower status
+WRN Failed to listen to heartbeats
+WRN Failed to perform operation
+WRN Failed to perform write operation
+WRN Failed to record checksum
+WRN Failed to verify status for shard. Start a new election
+WRN FenceNewTerm failed
+WRN Leader election has failed, retrying later
+WRN Replicate failed
+WRN Replicate failed: could not get follower controller
+WRN Session expired
+WRN Watch failed, restarting later
