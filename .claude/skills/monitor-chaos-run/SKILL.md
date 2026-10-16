@@ -43,6 +43,18 @@ gets fresh credentials:
 | `always-alert signature` | A line that always needs a look, such as `correctness violation` or `Election aborted`. |
 | `new signature` | A warning or error not in the reviewed list. It is added to `OUT/known-signatures.txt` so it alerts once. |
 
+With a fast kill schedule, a known short problem can fire on every few kills and stop the
+watcher each time. Then drop its pattern from `ALWAYS` and lower `MAX_ATTEMPT` so a long version of
+it still alerts. For example, with a pod kill every 2 minutes, a short `Election aborted` (#19)
+follows most coordinator failovers, while 12 retries (about 30 seconds) still catch a long outage:
+
+```bash
+MAX_ATTEMPT=12 ALWAYS='correctness violation|runner failed|exhausted its retry window|^(CRASH|FTL|PNC) ' \
+  bash .claude/skills/monitor-chaos-run/scripts/watch.sh RELEASE 30
+```
+
+Count the dropped signature from `OUT/logs` at the end of the run and report it.
+
 ## Evidence
 
 - `OUT` defaults to `./chaos-monitor/RELEASE`. Keep it outside the repository.
