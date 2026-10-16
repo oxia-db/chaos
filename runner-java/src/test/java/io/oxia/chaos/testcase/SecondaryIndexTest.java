@@ -17,14 +17,17 @@ package io.oxia.chaos.testcase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.client.api.options.PutOption;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SplittableRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +56,63 @@ class SecondaryIndexTest {
     assertThat(SecondaryIndex.selectOperation(0)).isEqualTo(Operation.PUT);
     assertThat(SecondaryIndex.selectOperation(Math.nextDown(SecondaryIndex.TOTAL_WEIGHT)))
         .isEqualTo(Operation.INDEX_RANGE_SCAN);
+  }
+
+  @Test
+  void batchesWritesReadsAndDeleteRangesSeparately() {
+    assertThat(SecondaryIndex.batchType(Operation.PUT)).isEqualTo(BatchType.WRITE);
+    assertThat(SecondaryIndex.batchType(Operation.DELETE)).isEqualTo(BatchType.WRITE);
+    assertThat(SecondaryIndex.batchType(Operation.DELETE_RANGE)).isEqualTo(BatchType.DELETE_RANGE);
+    for (final Operation operation :
+        List.of(
+            Operation.GET, Operation.INDEX_GET, Operation.INDEX_LIST, Operation.INDEX_RANGE_SCAN)) {
+      assertThat(SecondaryIndex.batchType(operation)).isEqualTo(BatchType.READ);
+    }
+  }
+
+  @Test
+  void drawsTheSecondaryKeysOfANewRecord() {
+    final SplittableRandom random = new SplittableRandom(11);
+    final AtomicInteger draws = new AtomicInteger();
+    for (int sample = 0; sample < 1_000; sample++) {
+      final Map<String, Set<String>> secondary =
+          SecondaryIndex.nextSecondaryKeys(
+              random, Map.of(), () -> "new-" + draws.getAndIncrement());
+      assertThat(secondary.keySet()).containsExactlyElementsOf(SecondaryIndex.INDEXES);
+      for (final Set<String> keys : secondary.values()) {
+        assertThat(keys).hasSizeLessThanOrEqualTo(SecondaryIndex.MAX_SECONDARY_KEYS_PER_INDEX);
+        assertThat(keys).allMatch(key -> key.startsWith("new-"));
+      }
+    }
+  }
+
+  @Test
+  void updatesKeepAllKeepSomeAddToOrRedrawTheSecondaryKeys() {
+    final SplittableRandom random = new SplittableRandom(13);
+    final Map<String, Set<String>> current =
+        Map.of("bucket", Set.of("b1", "b2", "b3"), "label", Set.of("l1", "l2"));
+    final Set<SecondaryIndex.SecondaryKeysUpdate> seen = new HashSet<>();
+    final AtomicInteger draws = new AtomicInteger();
+    for (int sample = 0; sample < 2_000; sample++) {
+      final Map<String, Set<String>> updated =
+          SecondaryIndex.nextSecondaryKeys(random, current, () -> "new-" + draws.getAndIncrement());
+      final Set<String> bucket = updated.get("bucket");
+      final Set<String> kept = new HashSet<>(bucket);
+      kept.retainAll(current.get("bucket"));
+      final Set<String> added = new HashSet<>(bucket);
+      added.removeAll(current.get("bucket"));
+      if (updated.equals(current)) {
+        seen.add(SecondaryIndex.SecondaryKeysUpdate.KEEP_ALL);
+      } else if (added.isEmpty() && !kept.isEmpty()) {
+        seen.add(SecondaryIndex.SecondaryKeysUpdate.KEEP_SOME);
+      } else if (kept.equals(current.get("bucket")) && added.size() == 1) {
+        seen.add(SecondaryIndex.SecondaryKeysUpdate.ADD);
+        assertThat(updated.get("label")).containsAll(current.get("label")).hasSize(3);
+      } else if (kept.isEmpty() && !added.isEmpty()) {
+        seen.add(SecondaryIndex.SecondaryKeysUpdate.REDRAW);
+      }
+    }
+    assertThat(seen).containsExactlyInAnyOrder(SecondaryIndex.SecondaryKeysUpdate.values());
   }
 
   @Test

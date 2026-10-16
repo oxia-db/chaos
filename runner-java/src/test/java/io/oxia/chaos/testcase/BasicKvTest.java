@@ -16,7 +16,6 @@
 package io.oxia.chaos.testcase;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
@@ -25,14 +24,8 @@ import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.RetryUtils;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.SplittableRandom;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.assertj.core.data.Offset;
@@ -80,48 +73,6 @@ class BasicKvTest {
   }
 
   @Test
-  void executesEveryOperationInABatchConcurrentlyAndWaitsForCompletion() throws Exception {
-    final CountDownLatch entered = new CountDownLatch(2);
-    final CountDownLatch release = new CountDownLatch(1);
-    final List<Callable<Void>> operations =
-        List.of(operation(entered, release), operation(entered, release));
-
-    try (final var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-      final Future<?> batch =
-          executor.submit(
-              () -> {
-                BasicKv.executeConcurrentBatch(executor, operations);
-                return null;
-              });
-      try {
-        assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
-        assertThat(batch).isNotDone();
-      } finally {
-        release.countDown();
-      }
-      batch.get();
-    }
-  }
-
-  @Test
-  void preservesASharedBatchFailureWithoutSelfSuppression() {
-    final RuntimeException failure = new RuntimeException("shared client failure");
-    final List<Callable<Void>> operations =
-        List.of(
-            () -> {
-              throw failure;
-            },
-            () -> {
-              throw failure;
-            });
-
-    try (final var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-      assertThatThrownBy(() -> BasicKv.executeConcurrentBatch(executor, operations))
-          .isSameAs(failure);
-    }
-  }
-
-  @Test
   void interruptsAStuckAttemptAndRetriesTheWholeOperation() {
     final RetryPolicy<Object> retryPolicy = RetryUtils.retryPolicy(Duration.ofSeconds(1));
     final Timeout<Object> attemptTimeout =
@@ -151,14 +102,5 @@ class BasicKvTest {
       final Map<T, Integer> counts, final int samples, final T value, final double expected) {
     final double actual = counts.getOrDefault(value, 0) / (double) samples;
     assertThat(actual).isCloseTo(expected, Offset.offset(0.0025));
-  }
-
-  private static Callable<Void> operation(
-      final CountDownLatch entered, final CountDownLatch release) {
-    return () -> {
-      entered.countDown();
-      assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
-      return null;
-    };
   }
 }

@@ -35,8 +35,10 @@ import io.oxia.chaos.inference.KeyValue;
 import io.oxia.chaos.inference.SecondaryIndexModel;
 import io.oxia.chaos.inference.SecondaryIndexModel.IndexedRecord;
 import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.util.BatchUtils;
 import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.RangeUtils;
 import io.oxia.chaos.util.RatePacer;
@@ -64,7 +66,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.SplittableRandom;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,10 +78,14 @@ import org.slf4j.LoggerFactory;
  * Checks that secondary indexes follow their records.
  *
  * <p>Puts give records zero to two secondary keys on each of two indexes, from a key space smaller
- * than the record count, so secondary keys are shared. Updates change or drop them, and deletes and
- * delete-ranges remove the records. Index gets, lists, and range scans must then return exactly the
- * entries of the current records: no entry of a dropped key or a deleted record, and none missing.
- * Operations run one at a time, so each read has a single expected answer.
+ * than the record count, so secondary keys are shared. Updates keep all, keep some, add to, or
+ * redraw the secondary keys of a record, and deletes and delete-ranges remove the records. Index
+ * gets, lists, and range scans must then return exactly the entries of the current records: no
+ * entry of a dropped key or a deleted record, and none missing.
+ *
+ * <p>Like basic-kv, writes run in concurrent batches on distinct records, so the server applies the
+ * index changes of several records together, and reads run in their own batches afterwards, so each
+ * read has a single expected answer.
  *
  * <p>Index gets only use the equal comparison: for the other comparisons, the Java client picks the
  * result of a multi-shard get by primary key rather than by secondary key.
@@ -195,7 +205,9 @@ public final class SecondaryIndex {
       for (int index = 0; index < options.keyCount(); index++) {
         final String key = key(index);
         final byte[] value = valueGenerator.warmup(index);
-        final Map<String, Set<String>> secondary = nextSecondaryKeys();
+        final Map<String, Set<String>> secondary =
+            nextSecondaryKeys(
+                random, Map.of(), () -> secondaryKey(random.nextInt(secondaryKeyCount)));
         runWithRetry(() -> put(key, value, secondary));
         model.put(key, value, secondary);
       }
@@ -221,81 +233,152 @@ public final class SecondaryIndex {
     long nextCheckpoint = addSaturated(started, options.checkpointInterval().toNanos());
     final RatePacer pacer = new RatePacer(options.rate());
 
-    while (System.nanoTime() < deadline) {
-      pacer.beforeOperation();
-      if (System.nanoTime() >= deadline) {
-        break;
-      }
-      executeOperation(selectOperation(random.nextDouble(TOTAL_WEIGHT)));
-      operationCount++;
+    final Thread.Builder.OfVirtual threads = Thread.ofVirtual().name("oxia-chaos-operation-", 0);
+    try (final ExecutorService executor =
+        Context.taskWrapping(Executors.newThreadPerTaskExecutor(threads.factory()))) {
+      while (System.nanoTime() < deadline) {
+        final BatchType batchType = batchType(selectOperation(random.nextDouble(TOTAL_WEIGHT)));
+        final int maximumBatchSize =
+            switch (batchType) {
+              case WRITE -> Math.min(options.batchSize(), options.keyCount());
+              case READ -> options.batchSize();
+              case DELETE_RANGE -> 1;
+            };
+        final List<Callable<Void>> operations = new ArrayList<>(maximumBatchSize);
+        final List<Runnable> modelUpdates = new ArrayList<>(maximumBatchSize);
+        final Set<Integer> writeKeys = new HashSet<>(maximumBatchSize);
+        int generated = 0;
+        while (generated < maximumBatchSize && System.nanoTime() < deadline) {
+          pacer.beforeOperation();
+          if (System.nanoTime() >= deadline) {
+            break;
+          }
+          Operation operation;
+          do {
+            operation = selectOperation(random.nextDouble(TOTAL_WEIGHT));
+          } while (batchType(operation) != batchType);
+          addOperation(operation, operationCount + generated, writeKeys, operations, modelUpdates);
+          generated++;
+        }
 
-      final long now = System.nanoTime();
-      if (now >= nextCheckpoint && now < deadline) {
-        checkpoint(Checkpoint.PERIODIC);
-        nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
+        BatchUtils.executeConcurrentBatch(executor, operations);
+        for (final Runnable modelUpdate : modelUpdates) {
+          modelUpdate.run();
+        }
+        operationCount += generated;
+
+        final long now = System.nanoTime();
+        if (now >= nextCheckpoint && now < deadline) {
+          checkpoint(Checkpoint.PERIODIC);
+          nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
+        }
       }
     }
   }
 
-  private void executeOperation(final Operation operation) {
+  /**
+   * Adds an operation to the batch. Its expected result comes from the model before the batch: the
+   * writes of a batch are on distinct records, and the model takes them after the batch.
+   */
+  private void addOperation(
+      final Operation operation,
+      final long sequence,
+      final Set<Integer> writeKeys,
+      final List<Callable<Void>> operations,
+      final List<Runnable> modelUpdates) {
     switch (operation) {
       case PUT -> {
-        final int index = random.nextInt(options.keyCount());
+        int index;
+        do {
+          index = random.nextInt(options.keyCount());
+        } while (!writeKeys.add(index));
         final String key = key(index);
-        final byte[] value = valueGenerator.next(index, operationCount);
-        final Map<String, Set<String>> secondary = nextSecondaryKeys();
-        observe(operation, key, () -> put(key, value, secondary));
-        model.put(key, value, secondary);
+        final byte[] value = valueGenerator.next(index, sequence);
+        final Map<String, Set<String>> secondary =
+            nextSecondaryKeys(
+                random,
+                model.get(key).map(IndexedRecord::secondary).orElse(Map.of()),
+                () -> secondaryKey(random.nextInt(secondaryKeyCount)));
+        operations.add(
+            () -> {
+              observe(operation, key, () -> put(key, value, secondary));
+              return null;
+            });
+        modelUpdates.add(() -> model.put(key, value, secondary));
       }
       case DELETE -> {
-        final String key = key(random.nextInt(options.keyCount()));
+        int index;
+        do {
+          index = random.nextInt(options.keyCount());
+        } while (!writeKeys.add(index));
+        final String key = key(index);
         final boolean expected = model.get(key).isPresent();
-        final AtomicBoolean attempted = new AtomicBoolean();
-        observe(
-            operation,
-            key,
+        operations.add(
             () -> {
-              final boolean retry = attempted.getAndSet(true);
-              final boolean actual = client.delete(key);
-              // A failed attempt has an unknown outcome: the server may have applied it, so a
-              // retry of a delete expected to find the key may find it already deleted.
-              if (expected != actual && !(retry && expected)) {
-                throw CorrectnessViolationException.operationMismatch(
-                    operation, key, Boolean.toString(expected), Boolean.toString(actual));
-              }
+              final AtomicBoolean attempted = new AtomicBoolean();
+              observe(
+                  operation,
+                  key,
+                  () -> {
+                    final boolean retry = attempted.getAndSet(true);
+                    final boolean actual = client.delete(key);
+                    // A failed attempt has an unknown outcome: the server may have applied it, so
+                    // a retry of a delete expected to find the key may find it already deleted.
+                    if (expected != actual && !(retry && expected)) {
+                      throw CorrectnessViolationException.operationMismatch(
+                          operation, key, Boolean.toString(expected), Boolean.toString(actual));
+                    }
+                  });
+              return null;
             });
-        model.delete(key);
+        modelUpdates.add(() -> model.delete(key));
       }
       case DELETE_RANGE -> {
         final int index = random.nextInt(options.keyCount());
         final String key = key(index);
         final String endKey = key(RangeUtils.nextEnd(random, index, options.keyCount()));
-        observe(operation, key, () -> client.deleteRange(key, endKey));
-        model.deleteRange(key, endKey);
+        operations.add(
+            () -> {
+              observe(operation, key, () -> client.deleteRange(key, endKey));
+              return null;
+            });
+        modelUpdates.add(() -> model.deleteRange(key, endKey));
       }
       case GET -> {
         final String key = key(random.nextInt(options.keyCount()));
-        observe(operation, key, () -> verifyGet(key));
+        operations.add(
+            () -> {
+              observe(operation, key, () -> verifyGet(key));
+              return null;
+            });
       }
       case INDEX_GET -> {
         final String indexName = INDEXES.get(random.nextInt(INDEXES.size()));
         final String secondaryKey = secondaryKey(random.nextInt(secondaryKeyCount));
-        observe(operation, secondaryKey, () -> verifyIndexGet(indexName, secondaryKey));
+        operations.add(
+            () -> {
+              observe(operation, secondaryKey, () -> verifyIndexGet(indexName, secondaryKey));
+              return null;
+            });
       }
       case INDEX_LIST, INDEX_RANGE_SCAN -> {
         final String indexName = INDEXES.get(random.nextInt(INDEXES.size()));
         final int index = random.nextInt(secondaryKeyCount);
         final String start = secondaryKey(index);
         final String end = secondaryKey(RangeUtils.nextEnd(random, index, secondaryKeyCount));
-        observe(
-            operation,
-            start,
+        operations.add(
             () -> {
-              if (operation == Operation.INDEX_LIST) {
-                verifyIndexList(indexName, start, end);
-              } else {
-                verifyIndexRangeScan(indexName, start, end);
-              }
+              observe(
+                  operation,
+                  start,
+                  () -> {
+                    if (operation == Operation.INDEX_LIST) {
+                      verifyIndexList(indexName, start, end);
+                    } else {
+                      verifyIndexRangeScan(indexName, start, end);
+                    }
+                  });
+              return null;
             });
       }
       default -> throw new IllegalStateException("unreachable operation: " + operation);
@@ -441,16 +524,43 @@ public final class SecondaryIndex {
   }
 
   /**
-   * Picks zero to {@link #MAX_SECONDARY_KEYS_PER_INDEX} secondary keys for each index. Two picks
-   * may be the same key, which gives the record a single entry for it.
+   * Picks the secondary keys of a put. A new record draws zero to {@link
+   * #MAX_SECONDARY_KEYS_PER_INDEX} keys for each index; an update keeps all, keeps some, adds to,
+   * or redraws the keys of the record, the same way for every index. Two draws may be the same key,
+   * which gives the record a single entry for it.
    */
-  private Map<String, Set<String>> nextSecondaryKeys() {
+  static Map<String, Set<String>> nextSecondaryKeys(
+      final SplittableRandom random,
+      final Map<String, ? extends Set<String>> current,
+      final Supplier<String> drawKey) {
+    final SecondaryKeysUpdate update =
+        current.isEmpty()
+            ? SecondaryKeysUpdate.REDRAW
+            : SecondaryKeysUpdate.values()[random.nextInt(SecondaryKeysUpdate.values().length)];
     final Map<String, Set<String>> secondary = new LinkedHashMap<>();
     for (final String indexName : INDEXES) {
-      final int count = random.nextInt(MAX_SECONDARY_KEYS_PER_INDEX + 1);
       final Set<String> keys = new LinkedHashSet<>();
-      for (int pick = 0; pick < count; pick++) {
-        keys.add(secondaryKey(random.nextInt(secondaryKeyCount)));
+      final Set<String> currentKeys =
+          current.containsKey(indexName) ? current.get(indexName) : Set.of();
+      switch (update) {
+        case KEEP_ALL -> keys.addAll(currentKeys);
+        case KEEP_SOME -> {
+          for (final String key : currentKeys) {
+            if (random.nextBoolean()) {
+              keys.add(key);
+            }
+          }
+        }
+        case ADD -> {
+          keys.addAll(currentKeys);
+          keys.add(drawKey.get());
+        }
+        case REDRAW -> {
+          final int count = random.nextInt(MAX_SECONDARY_KEYS_PER_INDEX + 1);
+          for (int draw = 0; draw < count; draw++) {
+            keys.add(drawKey.get());
+          }
+        }
       }
       secondary.put(indexName, keys);
     }
@@ -508,6 +618,15 @@ public final class SecondaryIndex {
     return Math.max(1, keyCount / 4);
   }
 
+  static BatchType batchType(final Operation operation) {
+    return switch (operation) {
+      case PUT, DELETE -> BatchType.WRITE;
+      case GET, INDEX_GET, INDEX_LIST, INDEX_RANGE_SCAN -> BatchType.READ;
+      case DELETE_RANGE -> BatchType.DELETE_RANGE;
+      default -> throw new IllegalStateException("unreachable operation: " + operation);
+    };
+  }
+
   static Operation selectOperation(final double selected) {
     if (selected < PUT_THRESHOLD) {
       return Operation.PUT;
@@ -532,5 +651,12 @@ public final class SecondaryIndex {
 
   private static String describe(final byte[] value) {
     return value == null ? "none" : Base64.getEncoder().encodeToString(value);
+  }
+
+  enum SecondaryKeysUpdate {
+    KEEP_ALL,
+    KEEP_SOME,
+    ADD,
+    REDRAW
   }
 }

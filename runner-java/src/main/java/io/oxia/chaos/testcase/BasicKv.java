@@ -37,6 +37,7 @@ import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.util.BatchUtils;
 import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.GuardUtils;
 import io.oxia.chaos.util.KeyGenerator;
@@ -57,10 +58,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -235,7 +234,7 @@ public final class BasicKv {
           generated++;
         }
 
-        executeConcurrentBatch(executor, operations);
+        BatchUtils.executeConcurrentBatch(executor, operations);
         for (final Runnable inferenceUpdate : inferenceUpdates) {
           inferenceUpdate.run();
         }
@@ -372,35 +371,6 @@ public final class BasicKv {
       case HIGHER -> GetOption.ComparisonHigher;
       default -> throw new IllegalArgumentException("not an ordered get operation: " + operation);
     };
-  }
-
-  static void executeConcurrentBatch(
-      final ExecutorService executor, final List<Callable<Void>> operations)
-      throws InterruptedException {
-    final List<Future<Void>> batch = executor.invokeAll(operations);
-    Throwable failure = null;
-    for (final Future<Void> future : batch) {
-      try {
-        future.get();
-      } catch (final ExecutionException error) {
-        final Throwable cause = error.getCause() == null ? error : error.getCause();
-        if (failure == null) {
-          failure = cause;
-        } else {
-          ExceptionUtils.addSuppressedIfDistinct(failure, cause);
-        }
-      }
-    }
-
-    if (failure instanceof final RuntimeException runtime) {
-      throw runtime;
-    }
-    if (failure instanceof final Error fatal) {
-      throw fatal;
-    }
-    if (failure != null) {
-      throw new IllegalStateException("concurrent operation failed", failure);
-    }
   }
 
   private void observe(final Operation operation, final String key, final Runnable action) {
