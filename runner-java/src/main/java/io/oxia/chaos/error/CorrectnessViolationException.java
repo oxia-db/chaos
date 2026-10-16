@@ -75,4 +75,10 @@ public final class CorrectnessViolationException extends RuntimeException {
             + ", elapsedMs="
             + elapsedMillis);
   }
+
+  public static CorrectnessViolationException notificationMismatch(
+      final String key, final String expected, final String actual) {
+    return new CorrectnessViolationException(
+        "notification mismatch: key=" + key + ", expected=" + expected + ", actual=" + actual);
+  }
 }
