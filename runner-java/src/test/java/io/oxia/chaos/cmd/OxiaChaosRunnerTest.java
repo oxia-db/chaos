@@ -56,6 +56,14 @@ class OxiaChaosRunnerTest {
   }
 
   @Test
+  void parsesTheSequenceCaseIntoItsOwnNamespace() {
+    final Options options = parse("--case=sequence", "--service-address=oxia:6648");
+
+    assertThat(options.caseName()).isEqualTo("sequence");
+    assertThat(options.namespace()).isEqualTo("oc-java-sequence");
+  }
+
+  @Test
   void parsesWorkloadOverrides() {
     final Options options =
         parse(
