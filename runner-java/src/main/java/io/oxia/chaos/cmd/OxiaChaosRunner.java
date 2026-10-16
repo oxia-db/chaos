@@ -21,8 +21,10 @@ import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.EphemeralModel;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.MemoryInferenceStore;
+import io.oxia.chaos.inference.SecondaryIndexModel;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.testcase.BasicKv;
+import io.oxia.chaos.testcase.SecondaryIndex;
 import io.oxia.chaos.testcase.ephemeral.Ephemeral;
 import io.oxia.chaos.util.DurationConverter;
 import io.oxia.client.api.OxiaClientBuilder;
@@ -64,7 +66,7 @@ public final class OxiaChaosRunner implements Callable<Integer> {
       names = "--case",
       required = true,
       paramLabel = "NAME",
-      description = "Correctness case to run. Supported: basic-kv, ephemeral.")
+      description = "Correctness case to run. Supported: basic-kv, ephemeral, secondary-index.")
   private String caseName;
 
   @Option(
@@ -162,8 +164,13 @@ public final class OxiaChaosRunner implements Callable<Integer> {
     final OpenTelemetrySdk openTelemetry = configuredTelemetry.getOpenTelemetrySdk();
     final InferenceStore inference = new MemoryInferenceStore();
     final EphemeralModel ephemeralModel = new EphemeralModel();
+    final SecondaryIndexModel secondaryIndexModel = new SecondaryIndexModel();
     final LongSupplier referenceKeyCount =
-        Options.EPHEMERAL.equals(options.caseName()) ? ephemeralModel::size : inference::size;
+        switch (options.caseName()) {
+          case Options.EPHEMERAL -> ephemeralModel::size;
+          case Options.SECONDARY_INDEX -> secondaryIndexModel::size;
+          default -> inference::size;
+        };
 
     LOGGER
         .atInfo()
@@ -216,6 +223,20 @@ public final class OxiaChaosRunner implements Callable<Integer> {
                           metrics,
                           REQUEST_TIMEOUT,
                           Ephemeral.Settings.DEFAULT)
+                      .run();
+                  return null;
+                });
+        case Options.SECONDARY_INDEX ->
+            runOnVirtualThread(
+                () -> {
+                  new SecondaryIndex(
+                          options,
+                          runId,
+                          client,
+                          openTelemetry,
+                          secondaryIndexModel,
+                          metrics,
+                          REQUEST_TIMEOUT)
                       .run();
                   return null;
                 });

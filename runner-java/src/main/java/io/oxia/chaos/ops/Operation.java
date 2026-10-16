@@ -31,7 +31,10 @@ public enum Operation {
   OWNER_GET("owner-get"),
   OWNER_CLOSE("owner-close"),
   OWNER_CRASH("owner-crash"),
-  OWNER_LOST("owner-lost");
+  OWNER_LOST("owner-lost"),
+  INDEX_GET("index-get"),
+  INDEX_LIST("index-list"),
+  INDEX_RANGE_SCAN("index-range-scan");
 
   private final String label;
 
