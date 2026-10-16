@@ -220,7 +220,7 @@ public final class Versioning {
 
   /** Reads the key, then writes it conditionally on what the read returned. */
   private void execute(final String key, final double choice, final String valuePrefix) {
-    final long readStarted = model.begin();
+    final long readStarted = model.begin(key);
     final Optional<Observed> current =
         observe(
             Operation.GET,

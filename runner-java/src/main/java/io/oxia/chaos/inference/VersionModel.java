@@ -35,6 +35,14 @@ import java.util.Set;
  * attempt with an unknown outcome stays pending until a read shows its value. At a checkpoint, a
  * pending create or update that no read showed never applied: every later write of the key read the
  * key first, and would have shown it.
+ *
+ * <p>This relies on a failed attempt being settled before its operation returns: an attempt that
+ * timed out cannot apply after its retry, since the Java client sends the writes of a shard on one
+ * stream in submission order. Otherwise it could apply after the checkpoint that ruled it out.
+ *
+ * <p>Versions only grow, so each key keeps the highest version that any completed operation saw or
+ * wrote. An operation records it when it starts: the record cannot be at an older version after
+ * that.
  */
 public final class VersionModel {
 
@@ -64,7 +72,7 @@ public final class VersionModel {
     private final Kind kind;
     private final String value;
     private final RecordVersion predecessor;
-    private final long startTick;
+    private final long committedBefore;
     private Status status = Status.PENDING;
     private RecordVersion version;
     private boolean checkedRejection;
@@ -73,11 +81,11 @@ public final class VersionModel {
         final Kind kind,
         final String value,
         final RecordVersion predecessor,
-        final long startTick) {
+        final long committedBefore) {
       this.kind = kind;
       this.value = value;
       this.predecessor = predecessor;
-      this.startTick = startTick;
+      this.committedBefore = committedBefore;
     }
 
     private String describe() {
@@ -105,17 +113,19 @@ public final class VersionModel {
     private final List<Attempt> deletes = new ArrayList<>();
     private final Map<Long, Attempt> producers = new HashMap<>();
     private final Map<Long, Attempt> consumers = new HashMap<>();
-    // {completion tick, highest version completed so far}, in tick order
-    private final List<long[]> completions = new ArrayList<>();
+    // The highest version that a completed operation saw or wrote
+    private long committed = Long.MIN_VALUE;
   }
 
   private final Map<String, History> histories = new HashMap<>();
-  private long clock;
   private int present;
 
-  /** Returns a tick that orders an operation after every operation already completed. */
-  public synchronized long begin() {
-    return ++clock;
+  /**
+   * Returns the highest version of the key that an operation completed so far, for a read that
+   * starts now.
+   */
+  public synchronized long begin(final String key) {
+    return history(key).committed;
   }
 
   /**
@@ -131,8 +141,8 @@ public final class VersionModel {
         || (kind == Kind.DELETE) != (value == null)) {
       throw new IllegalArgumentException("inconsistent " + kind + " attempt for key " + key);
     }
-    final Attempt attempt = new Attempt(kind, value, predecessor.orElse(null), ++clock);
-    final History history = histories.computeIfAbsent(key, (final String ignored) -> new History());
+    final History history = history(key);
+    final Attempt attempt = new Attempt(kind, value, predecessor.orElse(null), history.committed);
     if (kind == Kind.DELETE) {
       history.deletes.add(attempt);
     } else if (history.puts.putIfAbsent(value, attempt) != null) {
@@ -149,7 +159,7 @@ public final class VersionModel {
       throw new IllegalArgumentException("inconsistent " + attempt.kind + " result for key " + key);
     }
     adopt(key, history, attempt, version.orElse(null));
-    version.ifPresent((final RecordVersion applied) -> complete(history, applied.versionId()));
+    version.ifPresent((final RecordVersion applied) -> commit(history, applied.versionId()));
   }
 
   /**
@@ -164,14 +174,12 @@ public final class VersionModel {
     attempt.checkedRejection = firstAttempt;
   }
 
-  /** Checks a read that started at {@code startTick}. */
+  /**
+   * Checks a read, given the highest version that {@link #begin} returned when the read started.
+   */
   public synchronized void read(
-      final String key, final long startTick, final Optional<Observed> observed) {
-    observe(
-        key,
-        histories.computeIfAbsent(key, (final String ignored) -> new History()),
-        startTick,
-        observed);
+      final String key, final long committedBefore, final Optional<Observed> observed) {
+    observe(key, history(key), committedBefore, observed);
   }
 
   /**
@@ -179,20 +187,17 @@ public final class VersionModel {
    * records: none of the forgotten values can show up again.
    */
   public synchronized void checkpoint(final Map<String, Observed> scanned) {
-    final long startTick = ++clock;
     final Set<String> keys = new HashSet<>(histories.keySet());
     keys.addAll(scanned.keySet());
     present = 0;
     for (final String key : keys) {
-      final History history =
-          histories.computeIfAbsent(key, (final String ignored) -> new History());
+      final History history = history(key);
       final Optional<Observed> observed = Optional.ofNullable(scanned.get(key));
-      observe(key, history, startTick, observed);
+      observe(key, history, history.committed, observed);
       judge(key, history, observed);
 
       final History next = new History();
-      final long highest = history.completions.getLast()[1];
-      next.completions.add(new long[] {startTick, highest});
+      next.committed = history.committed;
       if (observed.isPresent()) {
         final Attempt head = history.puts.get(observed.get().value());
         next.puts.put(head.value, head);
@@ -213,14 +218,28 @@ public final class VersionModel {
     present = 0;
   }
 
-  private void observe(
+  private History history(final String key) {
+    return histories.computeIfAbsent(key, (final String ignored) -> new History());
+  }
+
+  private static void observe(
       final String key,
       final History history,
-      final long startTick,
+      final long committedBefore,
       final Optional<Observed> observed) {
     if (observed.isEmpty()) {
-      // A delete leaves nothing to compare, and a later create gets a higher version
-      complete(history, Long.MIN_VALUE);
+      // The record must have been gone at some point during the read. The highest version
+      // committed before the read was current then, unless a write replaced it: a write is
+      // registered before it is sent, so it is known by now
+      final Attempt current = history.producers.get(committedBefore);
+      if (current != null && !replaced(history).contains(committedBefore)) {
+        throw CorrectnessViolationException.versionHistory(
+            key,
+            "found no record though version "
+                + committedBefore
+                + " was current and no write replaced it: "
+                + current.describe());
+      }
       return;
     }
     final Observed record = observed.get();
@@ -231,7 +250,6 @@ public final class VersionModel {
     }
     adopt(key, history, attempt, record.version());
     final long versionId = record.version().versionId();
-    final long committedBefore = highestBefore(history, startTick);
     if (versionId < committedBefore) {
       throw CorrectnessViolationException.versionHistory(
           key,
@@ -242,7 +260,7 @@ public final class VersionModel {
               + " had already committed: "
               + attempt.describe());
     }
-    complete(history, versionId);
+    commit(history, versionId);
   }
 
   /** Accepts that an attempt applied with a version, checking it against the chain. */
@@ -265,14 +283,13 @@ public final class VersionModel {
         throw CorrectnessViolationException.versionHistory(
             key, mismatch + ": " + version + " for " + attempt.describe());
       }
-      final long committedBefore = highestBefore(history, attempt.startTick);
-      if (version.versionId() <= committedBefore) {
+      if (version.versionId() <= attempt.committedBefore) {
         throw CorrectnessViolationException.versionHistory(
             key,
             "write got version "
                 + version.versionId()
                 + " though version "
-                + committedBefore
+                + attempt.committedBefore
                 + " committed before it started: "
                 + attempt.describe());
       }
@@ -304,13 +321,7 @@ public final class VersionModel {
   /** Checks a quiet key's history against what its scan found. */
   private static void judge(
       final String key, final History history, final Optional<Observed> observed) {
-    // A pending delete may have applied; a pending create or update would have been read
-    final Set<Long> replaced = new HashSet<>(history.consumers.keySet());
-    for (final Attempt delete : history.deletes) {
-      if (delete.status == Status.PENDING) {
-        replaced.add(delete.predecessor.versionId());
-      }
-    }
+    final Set<Long> replaced = replaced(history);
     final Optional<Long> current =
         observed.map((final Observed record) -> record.version().versionId());
     if (current.isPresent() && history.consumers.containsKey(current.get())) {
@@ -383,29 +394,21 @@ public final class VersionModel {
     return null;
   }
 
-  private void complete(final History history, final long versionId) {
-    final long highest =
-        history.completions.isEmpty()
-            ? versionId
-            : Math.max(history.completions.getLast()[1], versionId);
-    history.completions.add(new long[] {++clock, highest});
-  }
-
-  /** Returns the highest version that completed before the tick, or Long.MIN_VALUE. */
-  private static long highestBefore(final History history, final long tick) {
-    int low = 0;
-    int high = history.completions.size() - 1;
-    long highest = Long.MIN_VALUE;
-    while (low <= high) {
-      final int middle = (low + high) >>> 1;
-      final long[] completion = history.completions.get(middle);
-      if (completion[0] < tick) {
-        highest = completion[1];
-        low = middle + 1;
-      } else {
-        high = middle - 1;
+  /**
+   * Returns the versions that a write may have replaced. A pending delete may have applied; a
+   * pending create or update would have been read by the write that replaced it.
+   */
+  private static Set<Long> replaced(final History history) {
+    final Set<Long> replaced = new HashSet<>(history.consumers.keySet());
+    for (final Attempt delete : history.deletes) {
+      if (delete.status == Status.PENDING) {
+        replaced.add(delete.predecessor.versionId());
       }
     }
-    return highest;
+    return replaced;
+  }
+
+  private static void commit(final History history, final long versionId) {
+    history.committed = Math.max(history.committed, versionId);
   }
 }

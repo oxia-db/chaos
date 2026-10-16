@@ -39,7 +39,7 @@ class VersionModelTest {
     final VersionModel model = new VersionModel();
     create(model, "a", CREATED);
     update(model, "b", CREATED, UPDATED);
-    model.read(KEY, model.begin(), Optional.of(new Observed("b", UPDATED)));
+    model.read(KEY, model.begin(KEY), Optional.of(new Observed("b", UPDATED)));
     model.applied(
         KEY, model.attempt(KEY, Kind.DELETE, Optional.of(UPDATED), null), Optional.empty());
 
@@ -63,7 +63,7 @@ class VersionModelTest {
     final VersionModel model = new VersionModel();
 
     assertThatThrownBy(
-            () -> model.read(KEY, model.begin(), Optional.of(new Observed("ghost", CREATED))))
+            () -> model.read(KEY, model.begin(KEY), Optional.of(new Observed("ghost", CREATED))))
         .isInstanceOf(CorrectnessViolationException.class)
         .hasMessageContaining("no accepted write");
   }
@@ -75,7 +75,7 @@ class VersionModelTest {
     update(model, "b", CREATED, UPDATED);
 
     assertThatThrownBy(
-            () -> model.read(KEY, model.begin(), Optional.of(new Observed("a", CREATED))))
+            () -> model.read(KEY, model.begin(KEY), Optional.of(new Observed("a", CREATED))))
         .isInstanceOf(CorrectnessViolationException.class)
         .hasMessageContaining("read version 5 after version 9");
   }
@@ -84,11 +84,70 @@ class VersionModelTest {
   void acceptsAnOlderVersionFromAReadThatOverlapsTheUpdate() {
     final VersionModel model = new VersionModel();
     create(model, "a", CREATED);
-    final long readStarted = model.begin();
+    final long readStarted = model.begin(KEY);
     update(model, "b", CREATED, UPDATED);
 
     assertThatCode(() -> model.read(KEY, readStarted, Optional.of(new Observed("a", CREATED))))
         .doesNotThrowAnyException();
+  }
+
+  @Test
+  void rejectsANotFoundWhileAVersionIsCurrent() {
+    final VersionModel model = new VersionModel();
+    create(model, "a", CREATED);
+
+    assertThatThrownBy(() -> model.read(KEY, model.begin(KEY), Optional.empty()))
+        .isInstanceOf(CorrectnessViolationException.class)
+        .hasMessageContaining("found no record though version 5 was current");
+  }
+
+  @Test
+  void acceptsANotFoundOfAKeyThatWasNeverCreated() {
+    final VersionModel model = new VersionModel();
+
+    assertThatCode(() -> model.read(KEY, model.begin(KEY), Optional.empty()))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void acceptsANotFoundAfterAnAppliedDelete() {
+    final VersionModel model = new VersionModel();
+    create(model, "a", CREATED);
+    model.applied(
+        KEY, model.attempt(KEY, Kind.DELETE, Optional.of(CREATED), null), Optional.empty());
+
+    assertThatCode(() -> model.read(KEY, model.begin(KEY), Optional.empty()))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void acceptsANotFoundThatAPendingDeleteExplains() {
+    final VersionModel model = new VersionModel();
+    create(model, "a", CREATED);
+    model.attempt(KEY, Kind.DELETE, Optional.of(CREATED), null);
+
+    assertThatCode(() -> model.read(KEY, model.begin(KEY), Optional.empty()))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void acceptsANotFoundFromAReadThatOverlapsTheCreate() {
+    final VersionModel model = new VersionModel();
+    final long readStarted = model.begin(KEY);
+    create(model, "a", CREATED);
+
+    assertThatCode(() -> model.read(KEY, readStarted, Optional.empty())).doesNotThrowAnyException();
+  }
+
+  @Test
+  void rejectsANotFoundOfTheVersionCurrentAtTheLastCheckpoint() {
+    final VersionModel model = new VersionModel();
+    create(model, "a", CREATED);
+    model.checkpoint(Map.of(KEY, new Observed("a", CREATED)));
+
+    assertThatThrownBy(() -> model.read(KEY, model.begin(KEY), Optional.empty()))
+        .isInstanceOf(CorrectnessViolationException.class)
+        .hasMessageContaining("found no record");
   }
 
   @Test
@@ -239,7 +298,7 @@ class VersionModelTest {
     model.checkpoint(Map.of(KEY, new Observed("b", UPDATED)));
 
     assertThatThrownBy(
-            () -> model.read(KEY, model.begin(), Optional.of(new Observed("a", CREATED))))
+            () -> model.read(KEY, model.begin(KEY), Optional.of(new Observed("a", CREATED))))
         .isInstanceOf(CorrectnessViolationException.class)
         .hasMessageContaining("no accepted write");
     assertThatCode(() -> update(model, "c", UPDATED, new RecordVersion(14, 100, 140, 2)))
@@ -252,7 +311,7 @@ class VersionModelTest {
     create(model, "a", CREATED);
 
     assertThatThrownBy(
-            () -> model.read(KEY, model.begin(), Optional.of(new Observed("a", UPDATED))))
+            () -> model.read(KEY, model.begin(KEY), Optional.of(new Observed("a", UPDATED))))
         .isInstanceOf(CorrectnessViolationException.class)
         .hasMessageContaining("observed");
   }
