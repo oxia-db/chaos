@@ -23,6 +23,7 @@ This file provides guidance to coding agents working with code in this repositor
 ## Correctness Checks
 
 - A write that fails has an unknown outcome: the server may have applied it, and the Java client (0.10.1 and later) does not resend it. When a case retries a write that is not idempotent, such as a delete, the retry must accept either outcome. The first attempt must still match the reference model exactly.
+- The Java client (0.10.1 and later) sends the writes of a shard in submission order over one write stream, so an attempt that timed out is applied before its retry or not at all, even though the client request outlives the case's attempt timeout. Cases may rely on this order within a shard, but not on any order between shards.
 - Report a violation only for a result that no valid history can explain.
 
 ## Validation
