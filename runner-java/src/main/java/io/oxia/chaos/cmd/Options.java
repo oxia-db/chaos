@@ -16,6 +16,7 @@
 package io.oxia.chaos.cmd;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 
 /** Immutable configuration shared by the selected chaos case. */
@@ -35,6 +36,8 @@ public record Options(
   public static final String SEQUENCE = "sequence";
   public static final String NOTIFICATION = "notification";
   public static final String VERSIONING = "versioning";
+  public static final List<String> CASES =
+      List.of(BASIC_KV, EPHEMERAL, SECONDARY_INDEX, SEQUENCE, NOTIFICATION, VERSIONING);
   public static final Duration DEFAULT_DURATION = Duration.ofMinutes(10);
   public static final int DEFAULT_KEY_COUNT = 10_000;
   public static final int DEFAULT_RATE = 258;
@@ -46,12 +49,7 @@ public record Options(
     serviceAddress = requireText(serviceAddress, "--service-address");
     duration = requirePositive(duration, "--duration");
     checkpointInterval = requirePositive(checkpointInterval, "--checkpoint-interval");
-    if (!BASIC_KV.equals(caseName)
-        && !EPHEMERAL.equals(caseName)
-        && !SECONDARY_INDEX.equals(caseName)
-        && !SEQUENCE.equals(caseName)
-        && !NOTIFICATION.equals(caseName)
-        && !VERSIONING.equals(caseName)) {
+    if (!CASES.contains(caseName)) {
       throw new IllegalArgumentException("unsupported --case: " + caseName);
     }
     if (keyCount <= 0) {

@@ -80,6 +80,15 @@ class OxiaChaosRunnerTest {
   }
 
   @Test
+  void listsEverySupportedCaseInTheHelp() {
+    final String usage = OxiaChaosRunner.commandLine(new OxiaChaosRunner()).getUsageMessage();
+
+    // The help wraps long descriptions, so compare with the whitespace collapsed
+    assertThat(usage.replaceAll("\\s+", " "))
+        .contains("Supported: " + String.join(", ", Options.CASES) + ".");
+  }
+
+  @Test
   void parsesWorkloadOverrides() {
     final Options options =
         parse(

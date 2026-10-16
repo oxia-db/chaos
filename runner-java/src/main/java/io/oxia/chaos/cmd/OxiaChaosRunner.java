@@ -35,6 +35,7 @@ import io.oxia.chaos.util.DurationConverter;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import java.time.Duration;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -71,8 +72,8 @@ public final class OxiaChaosRunner implements Callable<Integer> {
       names = "--case",
       required = true,
       paramLabel = "NAME",
-      description =
-          "Correctness case to run. Supported: basic-kv, ephemeral, secondary-index, sequence, notification, versioning.")
+      completionCandidates = SupportedCases.class,
+      description = "Correctness case to run. Supported: ${COMPLETION-CANDIDATES}.")
   private String caseName;
 
   @Option(
@@ -341,5 +342,14 @@ public final class OxiaChaosRunner implements Callable<Integer> {
                     "otel.traces.exporter", "none",
                     "otel.logs.exporter", "none"))
         .build();
+  }
+
+  /** Lists the supported cases in the --case help. */
+  static final class SupportedCases implements Iterable<String> {
+
+    @Override
+    public Iterator<String> iterator() {
+      return Options.CASES.iterator();
+    }
   }
 }
