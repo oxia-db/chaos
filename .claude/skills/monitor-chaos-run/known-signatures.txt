@@ -13,6 +13,7 @@ WARN GrpcRpcProvider - Retrying read after PTNS.
 WARN RetryUtils - status=RESOURCE_UNAVAILABLE Retrying current Oxia operation
 WARN RetryUtils - status=TIMEOUT Retrying current Oxia operation
 WARN RetryUtils - status=UNKNOWN Retrying current Oxia operation
+WARN Sequence - failed sequence puts were applied
 WARN SequenceUpdates - Stream closed while receiving sequence updates
 WARN Session - Error during session keep-alive
 WARN ShardManager - Failed receiving shard assignments
