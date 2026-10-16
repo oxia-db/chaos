@@ -17,7 +17,6 @@ package io.oxia.chaos.testcase;
 
 import static io.oxia.chaos.util.Timing.addSaturated;
 import static io.oxia.chaos.util.Timing.elapsedMillis;
-import static io.oxia.chaos.util.Timing.elapsedSeconds;
 
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
@@ -34,9 +33,11 @@ import io.oxia.chaos.inference.VersionModel;
 import io.oxia.chaos.inference.VersionModel.Kind;
 import io.oxia.chaos.inference.VersionModel.Observed;
 import io.oxia.chaos.inference.VersionModel.RecordVersion;
+import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.RunnerMetrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.util.BatchUtils;
 import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.RatePacer;
 import io.oxia.chaos.util.RetryUtils;
@@ -60,12 +61,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,6 +95,7 @@ public final class Versioning {
   private final VersionModel model;
   private final RunnerMetrics metrics;
   private final Tracer tracer;
+  private final CaseTelemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
   private final String prefix;
@@ -117,6 +117,7 @@ public final class Versioning {
     this.model = model;
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
+    this.telemetry = new CaseTelemetry(tracer, metrics, Options.VERSIONING);
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
     this.attemptTimeout = RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, retryTimeout);
     this.prefix = "/oxia-chaos/runs/" + runId + "/versioning/key-";
@@ -206,7 +207,7 @@ public final class Versioning {
               });
         }
 
-        executeConcurrentBatch(executor, operations);
+        BatchUtils.executeConcurrentBatch(executor, operations);
         operationCount += operations.size();
 
         final long now = System.nanoTime();
@@ -221,16 +222,18 @@ public final class Versioning {
   /** Reads the key, then writes it conditionally on what the read returned. */
   private void execute(final String key, final double choice, final String valuePrefix) {
     final long readStarted = model.begin(key);
-    final Optional<Observed> current =
-        observe(
-            Operation.GET,
-            key,
-            () ->
+    final AtomicReference<Optional<Observed>> found = new AtomicReference<>();
+    observe(
+        Operation.GET,
+        key,
+        () ->
+            found.set(
                 Failsafe.with(retryPolicy, attemptTimeout)
                     .get(
                         () ->
                             Optional.ofNullable(client.get(key))
-                                .map(result -> observed(key, result))));
+                                .map(result -> observed(key, result)))));
+    final Optional<Observed> current = found.get();
     model.read(key, readStarted, current);
 
     if (current.isEmpty()) {
@@ -262,58 +265,56 @@ public final class Versioning {
         operation,
         key,
         () ->
-            Failsafe.with(retryPolicy, attemptTimeout)
-                .get(
-                    () -> {
-                      final int attempt = attempts.getAndIncrement();
-                      final String value =
-                          valuePrefix == null ? null : valuePrefix + "-attempt-" + attempt;
-                      final VersionModel.Attempt registered =
-                          model.attempt(key, kind, predecessor, value);
-                      try {
-                        switch (kind) {
-                          case CREATE ->
-                              model.applied(
-                                  key,
-                                  registered,
-                                  Optional.of(
-                                      version(
+            RetryUtils.run(
+                retryPolicy,
+                attemptTimeout,
+                () -> {
+                  final int attempt = attempts.getAndIncrement();
+                  final String value =
+                      valuePrefix == null ? null : valuePrefix + "-attempt-" + attempt;
+                  final VersionModel.Attempt registered =
+                      model.attempt(key, kind, predecessor, value);
+                  try {
+                    switch (kind) {
+                      case CREATE ->
+                          model.applied(
+                              key,
+                              registered,
+                              Optional.of(
+                                  version(
+                                      key,
+                                      client.put(
                                           key,
-                                          client.put(
-                                              key,
-                                              value.getBytes(StandardCharsets.UTF_8),
-                                              Set.of(PutOption.IfRecordDoesNotExist)))));
-                          case UPDATE ->
-                              model.applied(
-                                  key,
-                                  registered,
-                                  Optional.of(
-                                      version(
+                                          value.getBytes(StandardCharsets.UTF_8),
+                                          Set.of(PutOption.IfRecordDoesNotExist)))));
+                      case UPDATE ->
+                          model.applied(
+                              key,
+                              registered,
+                              Optional.of(
+                                  version(
+                                      key,
+                                      client.put(
                                           key,
-                                          client.put(
-                                              key,
-                                              value.getBytes(StandardCharsets.UTF_8),
-                                              Set.of(
-                                                  PutOption.IfVersionIdEquals(
-                                                      predecessor.get().versionId()))))));
-                          case DELETE -> {
-                            if (!client.delete(
-                                key,
-                                Set.of(
-                                    DeleteOption.IfVersionIdEquals(
-                                        predecessor.get().versionId())))) {
-                              throw CorrectnessViolationException.operationMismatch(
-                                  operation, key, "deleted or an unexpected version", "not found");
-                            }
-                            model.applied(key, registered, Optional.empty());
-                          }
+                                          value.getBytes(StandardCharsets.UTF_8),
+                                          Set.of(
+                                              PutOption.IfVersionIdEquals(
+                                                  predecessor.get().versionId()))))));
+                      case DELETE -> {
+                        if (!client.delete(
+                            key,
+                            Set.of(
+                                DeleteOption.IfVersionIdEquals(predecessor.get().versionId())))) {
+                          throw CorrectnessViolationException.operationMismatch(
+                              operation, key, "deleted or an unexpected version", "not found");
                         }
-                      } catch (final UnexpectedVersionIdException
-                          | KeyAlreadyExistsException error) {
-                        model.rejected(key, registered, attempt == 0);
+                        model.applied(key, registered, Optional.empty());
                       }
-                      return null;
-                    }));
+                    }
+                  } catch (final UnexpectedVersionIdException | KeyAlreadyExistsException error) {
+                    model.rejected(key, registered, attempt == 0);
+                  }
+                }));
   }
 
   /**
@@ -330,135 +331,75 @@ public final class Versioning {
         operation,
         key,
         () ->
-            Failsafe.with(retryPolicy, attemptTimeout)
-                .get(
-                    () -> {
-                      final String applied;
-                      try {
-                        if (operation == Operation.STALE_PUT) {
-                          final String value = valuePrefix + "-stale-" + attempts.getAndIncrement();
-                          applied =
-                              version(
+            RetryUtils.run(
+                retryPolicy,
+                attemptTimeout,
+                () -> {
+                  final String applied;
+                  try {
+                    if (operation == Operation.STALE_PUT) {
+                      final String value = valuePrefix + "-stale-" + attempts.getAndIncrement();
+                      applied =
+                          version(
+                                  key,
+                                  client.put(
                                       key,
-                                      client.put(
-                                          key,
-                                          value.getBytes(StandardCharsets.UTF_8),
-                                          Set.of(PutOption.IfVersionIdEquals(staleVersionId))))
-                                  .toString();
-                        } else {
-                          applied =
-                              client.delete(
-                                      key, Set.of(DeleteOption.IfVersionIdEquals(staleVersionId)))
-                                  ? "deleted"
-                                  : "not found";
-                        }
-                      } catch (final UnexpectedVersionIdException error) {
-                        return null;
-                      }
-                      throw CorrectnessViolationException.operationMismatch(
-                          operation,
-                          key,
-                          "rejected for version " + staleVersionId,
-                          "applied: " + applied);
-                    }));
+                                      value.getBytes(StandardCharsets.UTF_8),
+                                      Set.of(PutOption.IfVersionIdEquals(staleVersionId))))
+                              .toString();
+                    } else {
+                      applied =
+                          client.delete(key, Set.of(DeleteOption.IfVersionIdEquals(staleVersionId)))
+                              ? "deleted"
+                              : "not found";
+                    }
+                  } catch (final UnexpectedVersionIdException error) {
+                    return;
+                  } catch (final KeyAlreadyExistsException error) {
+                    throw new IllegalStateException(
+                        "put conditional on a version failed as a create: " + key, error);
+                  }
+                  throw CorrectnessViolationException.operationMismatch(
+                      operation,
+                      key,
+                      "rejected for version " + staleVersionId,
+                      "applied: " + applied);
+                }));
   }
 
   private void checkpoint(final Checkpoint checkpoint) {
     final long started = System.nanoTime();
-    String outcome = "success";
-    final String checkpointLabel = checkpoint.label();
-    final Span span =
-        tracer
-            .spanBuilder("versioning.checkpoint")
-            .setNoParent()
-            .setAttribute("checkpoint.kind", checkpointLabel)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      final Map<String, Observed> scanned = new HashMap<>();
-      Failsafe.with(retryPolicy, attemptTimeout)
-          .run(
-              () -> {
-                scanned.clear();
-                try (final CloseableIterable<GetResult> results =
-                    client.rangeScan(prefix, prefix + "~")) {
-                  for (final GetResult result : results) {
-                    scanned.put(result.key(), observed(result.key(), result));
-                  }
-                }
-              });
-      model.checkpoint(scanned);
-      checkpointCount++;
-      span.setAttribute("checkpoint.keys", scanned.size()).setStatus(StatusCode.OK);
-      LOGGER
-          .atInfo()
-          .addKeyValue("run_id", runId)
-          .addKeyValue("kind", checkpointLabel)
-          .addKeyValue("keys", scanned.size())
-          .addKeyValue("operations", operationCount)
-          .addKeyValue("duration_ms", elapsedMillis(started))
-          .log("versioning checkpoint passed");
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordCheckpoint(checkpointLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
+    telemetry.checkpoint(
+        checkpoint,
+        () -> {
+          final Map<String, Observed> scanned = new HashMap<>();
+          Failsafe.with(retryPolicy, attemptTimeout)
+              .run(
+                  () -> {
+                    scanned.clear();
+                    try (final CloseableIterable<GetResult> results =
+                        client.rangeScan(prefix, prefix + "~")) {
+                      for (final GetResult result : results) {
+                        scanned.put(result.key(), observed(result.key(), result));
+                      }
+                    }
+                  });
+          model.checkpoint(scanned);
+          checkpointCount++;
+          LOGGER
+              .atInfo()
+              .addKeyValue("run_id", runId)
+              .addKeyValue("kind", checkpoint.label())
+              .addKeyValue("keys", scanned.size())
+              .addKeyValue("operations", operationCount)
+              .addKeyValue("duration_ms", elapsedMillis(started))
+              .log("versioning checkpoint passed");
+          return scanned.size();
+        });
   }
 
-  private <T> T observe(final Operation operation, final String key, final Supplier<T> action) {
-    final long started = System.nanoTime();
-    String outcome = "success";
-    final String operationLabel = operation.label();
-    final Span span =
-        tracer
-            .spanBuilder("versioning." + operationLabel)
-            .setNoParent()
-            .setAttribute("db.operation.name", operationLabel)
-            .setAttribute("db.key", key)
-            .startSpan();
-    try (final Scope ignored = span.makeCurrent()) {
-      final T result = action.get();
-      span.setStatus(StatusCode.OK);
-      return result;
-    } catch (final RuntimeException error) {
-      outcome = "error";
-      span.recordException(error).setStatus(StatusCode.ERROR, String.valueOf(error.getMessage()));
-      throw error;
-    } finally {
-      metrics.recordOperation(operationLabel, outcome, elapsedSeconds(started));
-      span.end();
-    }
-  }
-
-  private static void executeConcurrentBatch(
-      final ExecutorService executor, final List<Callable<Void>> operations)
-      throws InterruptedException {
-    final List<Future<Void>> batch = executor.invokeAll(operations);
-    Throwable failure = null;
-    for (final Future<Void> future : batch) {
-      try {
-        future.get();
-      } catch (final ExecutionException error) {
-        final Throwable cause = error.getCause() == null ? error : error.getCause();
-        if (failure == null) {
-          failure = cause;
-        } else {
-          ExceptionUtils.addSuppressedIfDistinct(failure, cause);
-        }
-      }
-    }
-
-    if (failure instanceof final RuntimeException runtime) {
-      throw runtime;
-    }
-    if (failure instanceof final Error fatal) {
-      throw fatal;
-    }
-    if (failure != null) {
-      throw new IllegalStateException("concurrent operation failed", failure);
-    }
+  private void observe(final Operation operation, final String key, final Runnable action) {
+    telemetry.observe(operation, key, action);
   }
 
   private void cleanup() {
