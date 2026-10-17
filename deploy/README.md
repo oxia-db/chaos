@@ -67,6 +67,24 @@ again and then for the interval, so a run keeps at most one server down. The cor
 requires at least `EXPECTED_CHAOS_INJECTIONS` injections, 1 by default, and
 the periodic profile records one per kill.
 
+The pipeline chaos profile runs a list of fault stages in order. For its
+duration, a stage repeats rounds of one fault, a wait until every server is
+healthy and the stage's interval, like the periodic profile. After each stage,
+the workflow waits for a recovery period and for every server to be healthy
+before the next stage starts. The default pipeline kills a whole server pod
+every five minutes for the first half of the run, then only the server
+container:
+
+```shell
+make -C deploy up CHAOS_PROFILE=pipeline
+```
+
+Edit `chaosWorkflow.pipeline` in the chart values to change the stages. A
+stage's `fault` is `pod-kill` or `container-kill`, and `container-kill` also
+takes a `container`, `server` or `coordinator`. The chart rejects a pipeline
+that lasts longer than any enabled case. The correctness check records one
+injection per fault.
+
 Delete the local cluster when finished:
 
 ```shell
