@@ -7,6 +7,18 @@
 {{- if not (has $killContainer (list "" "server" "coordinator")) -}}
 {{- fail (printf "unsupported chaosWorkflow.periodicPodKill.container %q" $killContainer) -}}
 {{- end }}
+{{- $killInterval := required "chaosWorkflow.periodicPodKill.interval is required" .Values.chaosWorkflow.periodicPodKill.interval -}}
+{{- if not (regexMatch "^([0-9]+[hms])+$" $killInterval) -}}
+{{- fail (printf "unsupported chaosWorkflow.periodicPodKill.interval %q, use hours, minutes and seconds such as 2m or 1m30s" $killInterval) -}}
+{{- end }}
+{{- $killIntervalSeconds := 0 -}}
+{{- range regexFindAll "[0-9]+[hms]" $killInterval -1 }}
+{{- $unitSeconds := get (dict "h" 3600 "m" 60 "s" 1) (regexReplaceAll "[0-9]" . "") -}}
+{{- $killIntervalSeconds = add $killIntervalSeconds (mul (regexReplaceAll "[hms]" . "") $unitSeconds) -}}
+{{- end }}
+{{- if lt (int $killIntervalSeconds) 1 -}}
+{{- fail "chaosWorkflow.periodicPodKill.interval must be positive" -}}
+{{- end }}
 ---
 apiVersion: chaos-mesh.org/v1alpha1
 kind: Workflow
@@ -85,31 +97,46 @@ spec:
       templateType: Suspend
       deadline: 5m
     - name: periodic-pod-kill
-      templateType: Schedule
+      templateType: Serial
       # Together with the baseline and recovery, keep the workflow aligned
-      # with the six-hour basic-kv workload.
+      # with the six-hour basic-kv workload. The deadline ends the rounds.
       deadline: 5h30m
-      schedule:
-        schedule: {{ printf "@every %s" (required "chaosWorkflow.periodicPodKill.interval is required" .Values.chaosWorkflow.periodicPodKill.interval) | quote }}
-        type: PodChaos
-        historyLimit: 5
-        concurrencyPolicy: Forbid
-        podChaos:
-          {{- if $killContainer }}
-          action: container-kill
-          containerNames:
-            - {{ $killContainer | quote }}
-          {{- else }}
-          action: pod-kill
-          {{- end }}
-          mode: one
-          selector:
-            namespaces:
-              - {{ .Release.Namespace | quote }}
-            labelSelectors:
-              app.kubernetes.io/name: oxia-cluster
-              app.kubernetes.io/component: server
-              app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      children:
+        # Each round takes at least the interval, so this many rounds outlast the deadline.
+        {{- range until (add (div 19800 $killIntervalSeconds) 1 | int) }}
+        - periodic-pod-kill-round
+        {{- end }}
+    - name: periodic-pod-kill-round
+      templateType: Serial
+      # Wait until every server is back before the next kill, so that a run keeps at most one
+      # server down. A killed container restarts in place, under the kubelet's restart back-off,
+      # which grows to 5 minutes when the container is killed again within 10 minutes of its start.
+      children:
+        - periodic-pod-kill-once
+        - health-check
+        - periodic-pod-kill-interval
+    - name: periodic-pod-kill-once
+      templateType: PodChaos
+      deadline: 10s
+      podChaos:
+        {{- if $killContainer }}
+        action: container-kill
+        containerNames:
+          - {{ $killContainer | quote }}
+        {{- else }}
+        action: pod-kill
+        {{- end }}
+        mode: one
+        selector:
+          namespaces:
+            - {{ .Release.Namespace | quote }}
+          labelSelectors:
+            app.kubernetes.io/name: oxia-cluster
+            app.kubernetes.io/component: server
+            app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    - name: periodic-pod-kill-interval
+      templateType: Suspend
+      deadline: {{ $killInterval | quote }}
     - name: recovery
       templateType: Suspend
       deadline: 5m
