@@ -8,7 +8,9 @@
 # Environment: NS (default oxia-chaos), OUT (default ./chaos-monitor/RELEASE), INTERVAL (30),
 # STALL seconds without a runner checkpoint (180), MAX_ATTEMPT retries of one operation (20),
 # IGNORE regex of runner pod names already triaged, for example a runner stuck on a filed issue.
-# ALWAYS regex of signatures that alert even after review (default below).
+# ALWAYS regex of signatures that alert even after review (default below), and
+# RESTART_ALERT regex of restart reasons that alert (default any), such as OOMKilled when the chaos
+# itself restarts containers.
 set -u
 RELEASE=$1
 MINUTES=${2:-60}
@@ -18,6 +20,7 @@ INTERVAL=${INTERVAL:-30}
 STALL=${STALL:-180}
 MAX_ATTEMPT=${MAX_ATTEMPT:-20}
 IGNORE=${IGNORE:-}
+RESTART_ALERT=${RESTART_ALERT:-[^ ]+}
 SKILL=$(cd "$(dirname "$0")/.." && pwd)
 RUNNERS="app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=runner"
 # Signatures that need a look every time, even after review.
@@ -68,8 +71,9 @@ while [ "$(date +%s)" -lt "$end" ]; do
   restarts=$(kubectl -n "$NS" get pods -l "oxia_cluster=$RELEASE" \
     -o jsonpath='{range .items[*]}{range .status.containerStatuses[?(@.lastState.terminated)]}{.name} {.lastState.terminated.reason} {.lastState.terminated.finishedAt}{"\n"}{end}{end}')
   new_restarts=$(echo "$restarts" | grep . | grep -vxF -f "$OUT/state/restarts")
+  echo "$new_restarts" | grep . >> "$OUT/state/restarts"
+  new_restarts=$(echo "$new_restarts" | grep -E " ($RESTART_ALERT) ")
   if [ -n "$new_restarts" ]; then
-    echo "$new_restarts" >> "$OUT/state/restarts"
     alert "container restarted: $new_restarts"
   fi
 
