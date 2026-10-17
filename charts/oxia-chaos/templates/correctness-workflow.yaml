@@ -1,24 +1,14 @@
 {{- if .Values.chaosWorkflow.enabled }}
 {{- $profile := required "chaosWorkflow.profile is required" .Values.chaosWorkflow.profile -}}
-{{- if not (has $profile (list "quick" "six-hour" "six-hour-periodic")) -}}
+{{- if not (has $profile (list "quick" "six-hour" "six-hour-periodic" "pipeline")) -}}
 {{- fail (printf "unsupported chaosWorkflow.profile %q" $profile) -}}
 {{- end }}
 {{- $killContainer := .Values.chaosWorkflow.periodicPodKill.container | default "" -}}
 {{- if not (has $killContainer (list "" "server" "coordinator")) -}}
 {{- fail (printf "unsupported chaosWorkflow.periodicPodKill.container %q" $killContainer) -}}
 {{- end }}
-{{- $killInterval := required "chaosWorkflow.periodicPodKill.interval is required" .Values.chaosWorkflow.periodicPodKill.interval -}}
-{{- if not (regexMatch "^([0-9]+[hms])+$" $killInterval) -}}
-{{- fail (printf "unsupported chaosWorkflow.periodicPodKill.interval %q, use hours, minutes and seconds such as 2m or 1m30s" $killInterval) -}}
-{{- end }}
-{{- $killIntervalSeconds := 0 -}}
-{{- range regexFindAll "[0-9]+[hms]" $killInterval -1 }}
-{{- $unitSeconds := get (dict "h" 3600 "m" 60 "s" 1) (regexReplaceAll "[0-9]" . "") -}}
-{{- $killIntervalSeconds = add $killIntervalSeconds (mul (regexReplaceAll "[hms]" . "") $unitSeconds) -}}
-{{- end }}
-{{- if lt (int $killIntervalSeconds) 1 -}}
-{{- fail "chaosWorkflow.periodicPodKill.interval must be positive" -}}
-{{- end }}
+{{- $killInterval := .Values.chaosWorkflow.periodicPodKill.interval -}}
+{{- $killIntervalSeconds := include "oxia-chaos.durationSeconds" (dict "value" $killInterval "field" "chaosWorkflow.periodicPodKill.interval") | atoi -}}
 ---
 apiVersion: chaos-mesh.org/v1alpha1
 kind: Workflow
@@ -53,33 +43,11 @@ spec:
         action: pod-kill
         mode: one
         selector:
-          namespaces:
-            - {{ .Release.Namespace | quote }}
-          labelSelectors:
-            app.kubernetes.io/name: oxia-cluster
-            app.kubernetes.io/component: server
-            app.kubernetes.io/instance: {{ .Release.Name | quote }}
+          {{- include "oxia-chaos.serverSelector" . | nindent 10 }}
     - name: quick-recovery
       templateType: Suspend
       deadline: 20s
-    - name: health-check
-      templateType: Task
-      task:
-        container:
-          name: oxia-health
-          image: {{ printf "%s:%s" (index .Values "oxia-cluster").image.repository (index .Values "oxia-cluster").image.tag | quote }}
-          imagePullPolicy: {{ (index .Values "oxia-cluster").image.pullPolicy }}
-          command:
-            - /bin/sh
-            - -ec
-          args:
-            - for ordinal in 0 1 2; do until oxia health --host={{ .Release.Name }}-$ordinal.{{ .Release.Name }}-svc --port=6649; do sleep 2; done; done
-          resources:
-            requests:
-              cpu: 10m
-              memory: 32Mi
-            limits:
-              memory: 64Mi
+    {{- include "oxia-chaos.healthCheckTemplate" (dict "root" . "name" "health-check") | nindent 4 }}
     - name: quick-observation
       templateType: Suspend
       deadline: 10s
@@ -128,36 +96,86 @@ spec:
         {{- end }}
         mode: one
         selector:
-          namespaces:
-            - {{ .Release.Namespace | quote }}
-          labelSelectors:
-            app.kubernetes.io/name: oxia-cluster
-            app.kubernetes.io/component: server
-            app.kubernetes.io/instance: {{ .Release.Name | quote }}
+          {{- include "oxia-chaos.serverSelector" . | nindent 10 }}
     - name: periodic-pod-kill-interval
       templateType: Suspend
       deadline: {{ $killInterval | quote }}
     - name: recovery
       templateType: Suspend
       deadline: 5m
-    - name: health-check
-      templateType: Task
-      task:
-        container:
-          name: oxia-health
-          image: {{ printf "%s:%s" (index .Values "oxia-cluster").image.repository (index .Values "oxia-cluster").image.tag | quote }}
-          imagePullPolicy: {{ (index .Values "oxia-cluster").image.pullPolicy }}
-          command:
-            - /bin/sh
-            - -ec
-          args:
-            - for ordinal in 0 1 2; do until oxia health --host={{ .Release.Name }}-$ordinal.{{ .Release.Name }}-svc --port=6649; do sleep 2; done; done
-          resources:
-            requests:
-              cpu: 10m
-              memory: 32Mi
-            limits:
-              memory: 64Mi
+    {{- include "oxia-chaos.healthCheckTemplate" (dict "root" . "name" "health-check") | nindent 4 }}
+{{- else if eq $profile "pipeline" }}
+{{- $pipeline := .Values.chaosWorkflow.pipeline }}
+{{- $stages := required "chaosWorkflow.pipeline.stages is required" $pipeline.stages }}
+{{- $baseline := include "oxia-chaos.durationSeconds" (dict "value" $pipeline.baseline "field" "chaosWorkflow.pipeline.baseline") | atoi }}
+{{- $recovery := include "oxia-chaos.durationSeconds" (dict "value" $pipeline.recovery "field" "chaosWorkflow.pipeline.recovery") | atoi }}
+{{- $total := $baseline }}
+{{- $names := list }}
+{{- range $stage := $stages }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,28}[a-z0-9])?$" (toString $stage.name)) }}
+{{- fail (printf "chaosWorkflow.pipeline.stages name must be a DNS label of at most 30 characters, got %q" (toString $stage.name)) }}
+{{- end }}
+{{- if has $stage.name $names }}
+{{- fail (printf "chaosWorkflow.pipeline.stages has two stages named %q" $stage.name) }}
+{{- end }}
+{{- $names = append $names $stage.name }}
+{{- $field := printf "chaosWorkflow.pipeline.stages[%s]" $stage.name }}
+{{- $duration := include "oxia-chaos.durationSeconds" (dict "value" $stage.duration "field" (printf "%s.duration" $field)) | atoi }}
+{{- $_ := include "oxia-chaos.durationSeconds" (dict "value" $stage.interval "field" (printf "%s.interval" $field)) }}
+{{- $total = add $total $duration $recovery }}
+{{- end }}
+{{- range $caseName, $case := .Values.cases }}
+{{- if $case.enabled }}
+{{- $caseDuration := include "oxia-chaos.durationSeconds" (dict "value" (index $case.profiles $.Values.testProfile).duration "field" (printf "cases.%s.profiles.%s.duration" $caseName $.Values.testProfile)) | atoi }}
+{{- if gt $total $caseDuration }}
+{{- fail (printf "chaosWorkflow.pipeline lasts %ds, longer than the %ds of case %s: the last stages would run without a workload" $total $caseDuration $caseName) }}
+{{- end }}
+{{- end }}
+{{- end }}
+  entry: pipeline
+  templates:
+    - name: pipeline
+      templateType: Serial
+      children:
+        - baseline
+        {{- range $stage := $stages }}
+        - {{ $stage.name }}
+        - {{ $stage.name }}-recovery
+        - {{ $stage.name }}-health-check
+        {{- end }}
+    - name: baseline
+      templateType: Suspend
+      deadline: {{ $pipeline.baseline | quote }}
+    {{- range $stage := $stages }}
+    {{- $duration := include "oxia-chaos.durationSeconds" (dict "value" $stage.duration "field" "") | atoi }}
+    {{- $interval := include "oxia-chaos.durationSeconds" (dict "value" $stage.interval "field" "") | atoi }}
+    - name: {{ $stage.name }}
+      templateType: Serial
+      # The deadline ends the stage. Each round takes at least the interval, so this many rounds
+      # outlast the deadline.
+      deadline: {{ $stage.duration | quote }}
+      children:
+        {{- range until (add (div $duration $interval) 1 | int) }}
+        - {{ $stage.name }}-round
+        {{- end }}
+    - name: {{ $stage.name }}-round
+      templateType: Serial
+      # Wait until every server is back before the next fault, so that a stage keeps at most one
+      # server down.
+      children:
+        - {{ $stage.name }}-fault
+        - {{ $stage.name }}-health-check
+        - {{ $stage.name }}-interval
+    - name: {{ $stage.name }}-fault
+      {{- include "oxia-chaos.stageFault" (dict "root" $ "stage" $stage) | trim | nindent 6 }}
+    - name: {{ $stage.name }}-interval
+      templateType: Suspend
+      deadline: {{ $stage.interval | quote }}
+    - name: {{ $stage.name }}-recovery
+      templateType: Suspend
+      deadline: {{ $pipeline.recovery | quote }}
+    {{- include "oxia-chaos.healthCheckTemplate" (dict "root" $ "name" (printf "%s-health-check" $stage.name)) | nindent 4 }}
+    {{- end }}
 {{- else }}
   entry: six-hour-pipeline
   templates:
@@ -179,33 +197,11 @@ spec:
         action: pod-kill
         mode: one
         selector:
-          namespaces:
-            - {{ .Release.Namespace | quote }}
-          labelSelectors:
-            app.kubernetes.io/name: oxia-cluster
-            app.kubernetes.io/component: server
-            app.kubernetes.io/instance: {{ .Release.Name | quote }}
+          {{- include "oxia-chaos.serverSelector" . | nindent 10 }}
     - name: recovery
       templateType: Suspend
       deadline: 10m
-    - name: health-check
-      templateType: Task
-      task:
-        container:
-          name: oxia-health
-          image: {{ printf "%s:%s" (index .Values "oxia-cluster").image.repository (index .Values "oxia-cluster").image.tag | quote }}
-          imagePullPolicy: {{ (index .Values "oxia-cluster").image.pullPolicy }}
-          command:
-            - /bin/sh
-            - -ec
-          args:
-            - for ordinal in 0 1 2; do until oxia health --host={{ .Release.Name }}-$ordinal.{{ .Release.Name }}-svc --port=6649; do sleep 2; done; done
-          resources:
-            requests:
-              cpu: 10m
-              memory: 32Mi
-            limits:
-              memory: 64Mi
+    {{- include "oxia-chaos.healthCheckTemplate" (dict "root" . "name" "health-check") | nindent 4 }}
     - name: observation
       templateType: Suspend
       # Together with the baseline, fault, and recovery, keep the workflow aligned

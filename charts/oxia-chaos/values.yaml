@@ -135,7 +135,7 @@ cases:
 
 chaosWorkflow:
   enabled: false
-  # Supported profiles: quick, six-hour, six-hour-periodic.
+  # Supported profiles: quick, six-hour, six-hour-periodic, pipeline.
   profile: six-hour
   periodicPodKill:
     # Time between pod kills for the six-hour-periodic profile, in hours, minutes and seconds such as
@@ -147,6 +147,27 @@ chaosWorkflow:
     # restart back-off, which grows up to 5 minutes until the container has run for 10 minutes, so the
     # kills space out as the back-off grows.
     container: ""
+  # Stages of the pipeline profile, run in order. For its duration, a stage repeats rounds of one
+  # fault, a wait until every server is healthy and the interval, so it keeps at most one server
+  # down. After each stage, the workflow waits for the recovery period and for every server to be
+  # healthy. The baseline, stages and recoveries must fit in the duration of every enabled case.
+  # Durations use h, m and s, such as 2h40m.
+  pipeline:
+    baseline: 5m
+    recovery: 5m
+    stages:
+      # Delete and recreate one server pod.
+      - name: pod-kill
+        fault: pod-kill
+        duration: 2h40m
+        interval: 5m
+      # Kill the container in one server pod, which restarts in place. container is server or
+      # coordinator.
+      - name: server-kill
+        fault: container-kill
+        container: server
+        duration: 2h40m
+        interval: 5m
 
 runnerJob:
   imagePullSecrets: []
