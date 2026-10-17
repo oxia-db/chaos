@@ -140,6 +140,9 @@ chaosWorkflow:
   periodicPodKill:
     # Interval between pod kills for the six-hour-periodic profile.
     interval: 5m
+    # Kill only this container of the pod, server or coordinator, which restarts in place while the
+    # other container keeps running. Empty kills the whole pod.
+    container: ""
 
 runnerJob:
   imagePullSecrets: []

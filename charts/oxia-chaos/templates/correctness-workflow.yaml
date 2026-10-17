@@ -3,6 +3,10 @@
 {{- if not (has $profile (list "quick" "six-hour" "six-hour-periodic")) -}}
 {{- fail (printf "unsupported chaosWorkflow.profile %q" $profile) -}}
 {{- end }}
+{{- $killContainer := .Values.chaosWorkflow.periodicPodKill.container | default "" -}}
+{{- if not (has $killContainer (list "" "server" "coordinator")) -}}
+{{- fail (printf "unsupported chaosWorkflow.periodicPodKill.container %q" $killContainer) -}}
+{{- end }}
 ---
 apiVersion: chaos-mesh.org/v1alpha1
 kind: Workflow
@@ -91,7 +95,13 @@ spec:
         historyLimit: 5
         concurrencyPolicy: Forbid
         podChaos:
+          {{- if $killContainer }}
+          action: container-kill
+          containerNames:
+            - {{ $killContainer | quote }}
+          {{- else }}
           action: pod-kill
+          {{- end }}
           mode: one
           selector:
             namespaces:
