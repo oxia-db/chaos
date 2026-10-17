@@ -62,8 +62,10 @@ make -C deploy up CHAOS_PROFILE=six-hour-periodic
 ```
 
 Override `chaosWorkflow.periodicPodKill.interval` through `HELM_ARGS` to change
-the interval. The correctness check counts the pod-kill schedule as one
-injection, so the default `EXPECTED_CHAOS_INJECTIONS=1` still applies.
+the interval. After each kill, the workflow waits until every server is healthy
+again and then for the interval, so a run keeps at most one server down. The correctness check
+requires at least `EXPECTED_CHAOS_INJECTIONS` injections, 1 by default, and
+the periodic profile records one per kill.
 
 Delete the local cluster when finished:
 
