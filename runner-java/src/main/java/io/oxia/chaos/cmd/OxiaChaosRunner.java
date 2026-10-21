@@ -24,7 +24,7 @@ import io.oxia.chaos.inference.MemoryInferenceStore;
 import io.oxia.chaos.inference.SecondaryIndexModel;
 import io.oxia.chaos.inference.SequenceModel;
 import io.oxia.chaos.inference.VersionModel;
-import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.testcase.BasicKv;
 import io.oxia.chaos.testcase.SecondaryIndex;
 import io.oxia.chaos.testcase.Sequence;
@@ -197,8 +197,7 @@ public final class OxiaChaosRunner implements Callable<Integer> {
         .log("starting chaos case");
 
     try (openTelemetry;
-        final RunnerMetrics metrics =
-            new RunnerMetrics(openTelemetry, options.caseName(), referenceKeyCount);
+        final Metrics metrics = new Metrics(openTelemetry, options.caseName(), referenceKeyCount);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(options.serviceAddress())
                 .namespace(options.namespace())

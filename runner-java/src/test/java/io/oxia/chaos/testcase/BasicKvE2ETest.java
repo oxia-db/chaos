@@ -21,7 +21,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.MemoryInferenceStore;
-import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -64,8 +64,7 @@ class BasicKvE2ETest {
     final InferenceStore inference = new MemoryInferenceStore();
     final OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
-    try (final RunnerMetrics metrics =
-            new RunnerMetrics(openTelemetry, Options.BASIC_KV, inference::size);
+    try (final Metrics metrics = new Metrics(openTelemetry, Options.BASIC_KV, inference::size);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
       new BasicKv(options, runId, client, openTelemetry, inference, metrics, Duration.ofSeconds(30))

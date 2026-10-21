@@ -25,7 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-class RunnerMetricsTest {
+class MetricsTest {
 
   @Test
   void usesOxiaDataServerLatencyBuckets() {
@@ -35,15 +35,15 @@ class RunnerMetricsTest {
     final OpenTelemetrySdk openTelemetry =
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
     try (provider;
-        final RunnerMetrics metrics = new RunnerMetrics(openTelemetry, "basic-kv", () -> 0)) {
+        final Metrics metrics = new Metrics(openTelemetry, "basic-kv", () -> 0)) {
       metrics.recordOperation("put", "success", 0.006);
       metrics.recordCheckpoint("periodic", "success", 0.25);
 
       final Collection<MetricData> collected = reader.collectAllMetrics();
       assertThat(boundaries(collected, "oxia.chaos.operation.duration"))
-          .containsExactlyElementsOf(RunnerMetrics.OXIA_LATENCY_BUCKETS_SECONDS);
+          .containsExactlyElementsOf(Metrics.OXIA_LATENCY_BUCKETS_SECONDS);
       assertThat(boundaries(collected, "oxia.chaos.checkpoint.duration"))
-          .containsExactlyElementsOf(RunnerMetrics.OXIA_LATENCY_BUCKETS_SECONDS);
+          .containsExactlyElementsOf(Metrics.OXIA_LATENCY_BUCKETS_SECONDS);
     }
   }
 

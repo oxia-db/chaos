@@ -32,7 +32,7 @@ import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.KeyValue;
 import io.oxia.chaos.observability.CaseTelemetry;
-import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
@@ -85,7 +85,7 @@ public final class BasicKv {
   private final String runId;
   private final SyncOxiaClient client;
   private final InferenceStore inference;
-  private final RunnerMetrics metrics;
+  private final Metrics metrics;
   private final Tracer tracer;
   private final CaseTelemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
@@ -102,7 +102,7 @@ public final class BasicKv {
       final SyncOxiaClient client,
       final OpenTelemetry openTelemetry,
       final InferenceStore inference,
-      final RunnerMetrics metrics,
+      final Metrics metrics,
       final Duration retryTimeout) {
     this.options = options;
     this.runId = runId;

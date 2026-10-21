@@ -25,7 +25,7 @@ import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.chaos.inference.MemoryInferenceStore;
-import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.observability.Metrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.testcontainers.OxiaContainer;
@@ -71,8 +71,7 @@ class NotificationsE2ETest {
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
 
     try (provider;
-        final RunnerMetrics metrics =
-            new RunnerMetrics(openTelemetry, Options.NOTIFICATION, inference::size);
+        final Metrics metrics = new Metrics(openTelemetry, Options.NOTIFICATION, inference::size);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
       new Notifications(

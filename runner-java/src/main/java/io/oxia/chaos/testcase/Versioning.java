@@ -34,7 +34,7 @@ import io.oxia.chaos.inference.VersionModel.Kind;
 import io.oxia.chaos.inference.VersionModel.Observed;
 import io.oxia.chaos.inference.VersionModel.RecordVersion;
 import io.oxia.chaos.observability.CaseTelemetry;
-import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.BatchUtils;
@@ -93,7 +93,7 @@ public final class Versioning {
   private final String runId;
   private final SyncOxiaClient client;
   private final VersionModel model;
-  private final RunnerMetrics metrics;
+  private final Metrics metrics;
   private final Tracer tracer;
   private final CaseTelemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
@@ -109,7 +109,7 @@ public final class Versioning {
       final SyncOxiaClient client,
       final OpenTelemetry openTelemetry,
       final VersionModel model,
-      final RunnerMetrics metrics,
+      final Metrics metrics,
       final Duration retryTimeout) {
     this.options = options;
     this.runId = runId;

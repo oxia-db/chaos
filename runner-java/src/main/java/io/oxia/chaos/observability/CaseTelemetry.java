@@ -29,10 +29,10 @@ import java.util.function.IntSupplier;
 public final class CaseTelemetry {
 
   private final Tracer tracer;
-  private final RunnerMetrics metrics;
+  private final Metrics metrics;
   private final String caseName;
 
-  public CaseTelemetry(final Tracer tracer, final RunnerMetrics metrics, final String caseName) {
+  public CaseTelemetry(final Tracer tracer, final Metrics metrics, final String caseName) {
     this.tracer = tracer;
     this.metrics = metrics;
     this.caseName = caseName;

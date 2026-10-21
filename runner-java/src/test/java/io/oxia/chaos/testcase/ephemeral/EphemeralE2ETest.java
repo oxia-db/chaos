@@ -24,7 +24,7 @@ import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.inference.EphemeralModel;
-import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.observability.Metrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.testcontainers.OxiaContainer;
@@ -72,8 +72,7 @@ class EphemeralE2ETest {
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
 
     try (provider;
-        final RunnerMetrics metrics =
-            new RunnerMetrics(openTelemetry, Options.EPHEMERAL, model::size);
+        final Metrics metrics = new Metrics(openTelemetry, Options.EPHEMERAL, model::size);
         final SyncOxiaClient observer =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
       new Ephemeral(

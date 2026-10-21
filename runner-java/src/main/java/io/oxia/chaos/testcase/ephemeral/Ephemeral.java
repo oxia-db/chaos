@@ -32,7 +32,7 @@ import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.chaos.inference.EphemeralModel;
 import io.oxia.chaos.inference.EphemeralRecord;
 import io.oxia.chaos.observability.CaseTelemetry;
-import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnedValue;
@@ -131,7 +131,7 @@ public final class Ephemeral {
   private final String namespace;
   private final SyncOxiaClient observer;
   private final EphemeralModel model;
-  private final RunnerMetrics metrics;
+  private final Metrics metrics;
   private final Tracer tracer;
   private final CaseTelemetry telemetry;
   private final Settings settings;
@@ -155,7 +155,7 @@ public final class Ephemeral {
       final SyncOxiaClient observer,
       final OpenTelemetry openTelemetry,
       final EphemeralModel model,
-      final RunnerMetrics metrics,
+      final Metrics metrics,
       final Duration retryTimeout,
       final Settings settings) {
     this.options = options;

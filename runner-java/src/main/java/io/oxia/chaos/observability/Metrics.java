@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.function.LongSupplier;
 
 /** Shared, low-cardinality metric instruments used by all runner cases. */
-public final class RunnerMetrics implements AutoCloseable {
+public final class Metrics implements AutoCloseable {
 
   private static final String INSTRUMENTATION_SCOPE = "io.oxia.chaos.observability";
   // Keep the Oxia data-server latency buckets, converting its milliseconds to seconds.
@@ -42,7 +42,7 @@ public final class RunnerMetrics implements AutoCloseable {
   private final LongCounter sessionReplacements;
   private final ObservableLongGauge referenceKeys;
 
-  public RunnerMetrics(
+  public Metrics(
       final OpenTelemetry openTelemetry,
       final String caseName,
       final LongSupplier referenceKeyCount) {
