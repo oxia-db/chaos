@@ -60,10 +60,10 @@ import picocli.CommandLine.Spec;
     description = "Run correctness cases against Oxia while faults are injected.",
     mixinStandardHelpOptions = true,
     version = "oxia-chaos runner-java 0.1.0")
-public final class OxiaChaosRunner implements Callable<Integer> {
+public final class Cmd implements Callable<Integer> {
 
   static final int CORRECTNESS_VIOLATION_EXIT_CODE = 3;
-  private static final Logger LOGGER = LoggerFactory.getLogger(OxiaChaosRunner.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(Cmd.class);
   private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
   @Spec private CommandSpec spec;
@@ -121,7 +121,7 @@ public final class OxiaChaosRunner implements Callable<Integer> {
   private Duration checkpointInterval;
 
   public static void main(final String[] args) {
-    final int exitCode = commandLine(new OxiaChaosRunner()).execute(args);
+    final int exitCode = commandLine(new Cmd()).execute(args);
     System.exit(exitCode);
   }
 
@@ -300,7 +300,7 @@ public final class OxiaChaosRunner implements Callable<Integer> {
     return ExitCode.OK;
   }
 
-  static CommandLine commandLine(final OxiaChaosRunner runner) {
+  static CommandLine commandLine(final Cmd runner) {
     return new CommandLine(runner);
   }
 

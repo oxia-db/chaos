@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 
-class OxiaChaosRunnerTest {
+class CmdTest {
 
   @Test
   void parsesTheBasicKvDefaults() {
@@ -81,7 +81,7 @@ class OxiaChaosRunnerTest {
 
   @Test
   void listsEverySupportedCaseInTheHelp() {
-    final String usage = OxiaChaosRunner.commandLine(new OxiaChaosRunner()).getUsageMessage();
+    final String usage = Cmd.commandLine(new Cmd()).getUsageMessage();
 
     // The help wraps long descriptions, so compare with the whitespace collapsed
     assertThat(usage.replaceAll("\\s+", " "))
@@ -151,7 +151,7 @@ class OxiaChaosRunnerTest {
   void runsTheSelectedCaseOnANamedVirtualThread() throws Exception {
     final AtomicReference<Thread> caseThread = new AtomicReference<>();
 
-    OxiaChaosRunner.runOnVirtualThread(
+    Cmd.runOnVirtualThread(
         () -> {
           caseThread.set(Thread.currentThread());
           return null;
@@ -162,8 +162,8 @@ class OxiaChaosRunnerTest {
   }
 
   private static Options parse(final String... arguments) {
-    final OxiaChaosRunner runner = new OxiaChaosRunner();
-    OxiaChaosRunner.commandLine(runner).parseArgs(arguments);
+    final Cmd runner = new Cmd();
+    Cmd.commandLine(runner).parseArgs(arguments);
     return runner.options();
   }
 }

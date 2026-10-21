@@ -16,7 +16,7 @@ This file provides guidance to coding agents working with code in this repositor
 - Keep runner CLI options compatible across language implementations. Do not add language-specific public options without updating the shared Helm chart contract.
 - Format Java with Spotless and target Java 25.
 - Keep the runner on Java 24 or later. Cases run on virtual threads, and before Java 24 a virtual thread that blocks inside `synchronized`, as Failsafe's timeout does when it cancels its timer, keeps its carrier thread and can deadlock the case.
-- Follow the structure of `BasicKv` for new test cases: one public case class wired in `OxiaChaosRunner`, with everything specific to the case next to it. A case with more than one file gets its own package, such as `testcase/ephemeral/`. Keep case logic out of `cmd`.
+- Follow the structure of `BasicKv` for new test cases: one public case class wired in `Cmd`, with everything specific to the case next to it. A case with more than one file gets its own package, such as `testcase/ephemeral/`. Keep case logic out of `cmd`.
 - Share code between cases through `util` instead of copying it, for example retry policies.
 - Inline code as much as possible. Extract a method only when it spans many lines and has several callers.
 - Bound every wait on Oxia, a child process, or the network with a timeout.
