@@ -202,7 +202,7 @@ final class Owner implements AutoCloseable {
       throw new OwnerUnavailableException(clientIdentifier, "is not running");
     }
     requests.println(request);
-    final String[] parts = awaitReply(replyTimeout, request).split(" ");
+    final String[] parts = awaitReply(replyTimeout, request).split(" ", -1);
     if ("ERR".equals(parts[0])) {
       throw new OwnerOperationException(
           clientIdentifier,
@@ -271,7 +271,7 @@ final class Owner implements AutoCloseable {
   }
 
   static String handle(final SyncOxiaClient client, final String line) {
-    final String[] parts = line.split(" ");
+    final String[] parts = line.split(" ", -1);
     try {
       return switch (parts[0]) {
         case "PUT" -> {
