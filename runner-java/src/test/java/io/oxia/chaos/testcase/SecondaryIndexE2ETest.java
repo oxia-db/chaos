@@ -25,14 +25,18 @@ import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.inference.SecondaryIndexModel;
 import io.oxia.chaos.observability.RunnerMetrics;
+import io.oxia.client.api.CloseableIterable;
+import io.oxia.client.api.GetResult;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
-import io.oxia.client.api.options.ListOption;
 import io.oxia.client.api.options.PutOption;
+import io.oxia.client.api.options.RangeScanOption;
 import io.oxia.testcontainers.OxiaContainer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -80,16 +84,13 @@ class SecondaryIndexE2ETest {
 
       final Collection<MetricData> collected = reader.collectAllMetrics();
       for (final String operation :
-          new String[] {"put", "delete", "index-get", "index-list", "index-range-scan"}) {
+          new String[] {"put", "delete", "index-get", "index-range-scan"}) {
         assertThat(successes(collected, operation)).as(operation).isPositive();
       }
       assertThat(model.size()).isZero();
       final String secondaryPrefix = "oxia-chaos-" + runId + "-";
       for (final String indexName : SecondaryIndex.INDEXES) {
-        assertThat(
-                client.list(
-                    secondaryPrefix, secondaryPrefix + "~", Set.of(ListOption.UseIndex(indexName))))
-            .isEmpty();
+        assertThat(indexScan(client, indexName, secondaryPrefix, secondaryPrefix + "~")).isEmpty();
       }
     }
   }
@@ -106,17 +107,28 @@ class SecondaryIndexE2ETest {
           Set.of(PutOption.SecondaryIndex("idx", "s1"), PutOption.SecondaryIndex("idx", "s2")));
       client.put("/semantics/k2", value, Set.of(PutOption.SecondaryIndex("idx", "s1")));
 
-      assertThat(client.list("s0", "s9", Set.of(ListOption.UseIndex("idx"))))
+      assertThat(indexScan(client, "idx", "s0", "s9"))
           .containsExactlyInAnyOrder("/semantics/k1", "/semantics/k1", "/semantics/k2");
 
       client.put("/semantics/k1", value, Set.of(PutOption.SecondaryIndex("idx", "s3")));
-      assertThat(client.list("s0", "s9", Set.of(ListOption.UseIndex("idx"))))
+      assertThat(indexScan(client, "idx", "s0", "s9"))
           .containsExactlyInAnyOrder("/semantics/k1", "/semantics/k2");
-      assertThat(client.list("s1", "s3", Set.of(ListOption.UseIndex("idx"))))
-          .containsExactly("/semantics/k2");
+      assertThat(indexScan(client, "idx", "s1", "s3")).containsExactly("/semantics/k2");
 
       client.deleteRange("/semantics/", "/semantics/~");
-      assertThat(client.list("s0", "s9", Set.of(ListOption.UseIndex("idx")))).isEmpty();
+      assertThat(indexScan(client, "idx", "s0", "s9")).isEmpty();
     }
+  }
+
+  private static List<String> indexScan(
+      final SyncOxiaClient client, final String indexName, final String start, final String end) {
+    final List<String> keys = new ArrayList<>();
+    try (final CloseableIterable<GetResult> results =
+        client.rangeScan(start, end, Set.of(RangeScanOption.UseIndex(indexName)))) {
+      for (final GetResult result : results) {
+        keys.add(result.key());
+      }
+    }
+    return keys;
   }
 }

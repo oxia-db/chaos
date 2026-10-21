@@ -78,8 +78,7 @@ public final class BasicKv {
   private static final double HIGHER_THRESHOLD = LOWER_THRESHOLD + 0.05;
   private static final double DELETE_THRESHOLD = HIGHER_THRESHOLD + 0.08;
   private static final double DELETE_RANGE_THRESHOLD = DELETE_THRESHOLD + 0.0025;
-  private static final double RANGE_SCAN_THRESHOLD = DELETE_RANGE_THRESHOLD + 0.03;
-  static final double TOTAL_WEIGHT = RANGE_SCAN_THRESHOLD + 0.02;
+  static final double TOTAL_WEIGHT = DELETE_RANGE_THRESHOLD + 0.05;
 
   private final Options options;
   private final String runId;
@@ -319,24 +318,14 @@ public final class BasicKv {
                 observe(operation, key, () -> verifyGet(operation, key, comparisonFor(operation)));
                 return null;
               });
-      case RANGE_SCAN, LIST -> {
+      case RANGE_SCAN -> {
         final String endKey =
             keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
-        switch (operation) {
-          case RANGE_SCAN ->
-              operations.add(
-                  () -> {
-                    observe(operation, key, () -> verifyRangeScan(operation, key, endKey));
-                    return null;
-                  });
-          case LIST ->
-              operations.add(
-                  () -> {
-                    observe(operation, key, () -> verifyList(operation, key, endKey));
-                    return null;
-                  });
-          default -> throw new IllegalStateException("unreachable range operation");
-        }
+        operations.add(
+            () -> {
+              observe(operation, key, () -> verifyRangeScan(operation, key, endKey));
+              return null;
+            });
       }
       default -> throw new IllegalStateException("unreachable operation: " + operation);
     }
@@ -425,15 +414,6 @@ public final class BasicKv {
     }
   }
 
-  private void verifyList(final Operation operation, final String key, final String endKey) {
-    final List<String> expected = inference.list(key, endKey);
-    final List<String> actual = client.list(key, endKey);
-    if (!expected.equals(actual)) {
-      throw CorrectnessViolationException.operationMismatch(
-          operation, key, SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
-    }
-  }
-
   private void checkpoint(final Checkpoint checkpoint) {
     final long started = System.nanoTime();
     telemetry.checkpoint(
@@ -502,7 +482,7 @@ public final class BasicKv {
   private static BatchType batchType(final Operation operation) {
     return switch (operation) {
       case PUT, DELETE -> BatchType.WRITE;
-      case GET, FLOOR, CEILING, LOWER, HIGHER, RANGE_SCAN, LIST -> BatchType.READ;
+      case GET, FLOOR, CEILING, LOWER, HIGHER, RANGE_SCAN -> BatchType.READ;
       case DELETE_RANGE -> BatchType.DELETE_RANGE;
       default -> throw new IllegalStateException("unreachable operation: " + operation);
     };
@@ -533,9 +513,6 @@ public final class BasicKv {
     if (selected < DELETE_RANGE_THRESHOLD) {
       return Operation.DELETE_RANGE;
     }
-    if (selected < RANGE_SCAN_THRESHOLD) {
-      return Operation.RANGE_SCAN;
-    }
-    return Operation.LIST;
+    return Operation.RANGE_SCAN;
   }
 }

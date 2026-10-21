@@ -40,8 +40,6 @@ public interface InferenceStore {
 
   List<KeyValue> range(final String fromInclusive, final String toExclusive);
 
-  List<String> list(final String fromInclusive, final String toExclusive);
-
   NavigableMap<String, byte[]> snapshot();
 
   int size();

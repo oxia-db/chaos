@@ -46,8 +46,7 @@ class BasicKvTest {
     assertShare(counts, samples, Operation.HIGHER, 0.0733);
     assertShare(counts, samples, Operation.DELETE, 0.1172);
     assertShare(counts, samples, Operation.DELETE_RANGE, 0.0037);
-    assertShare(counts, samples, Operation.RANGE_SCAN, 0.0440);
-    assertShare(counts, samples, Operation.LIST, 0.0293);
+    assertShare(counts, samples, Operation.RANGE_SCAN, 0.0733);
   }
 
   @Test

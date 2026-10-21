@@ -81,12 +81,6 @@ public final class MemoryInferenceStore implements InferenceStore {
   }
 
   @Override
-  public List<String> list(final String fromInclusive, final String toExclusive) {
-    validateRange(fromInclusive, toExclusive);
-    return List.copyOf(values.subMap(fromInclusive, true, toExclusive, false).keySet());
-  }
-
-  @Override
   public NavigableMap<String, byte[]> snapshot() {
     final NavigableMap<String, byte[]> snapshot = new TreeMap<>();
     values.forEach((final var key, final var value) -> snapshot.put(key, copy(value)));

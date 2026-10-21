@@ -66,7 +66,6 @@ import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -452,13 +451,16 @@ public final class Sequence {
     }
   }
 
-  /** Compares every record of the prefix with the model. */
+  /**
+   * Compares every record of the prefix with the model, in order: a scan with a partition key reads
+   * one shard, so it returns the records in key order.
+   */
   private void verifyPrefix(final String prefix) {
     final NavigableMap<String, byte[]> expected = model.live(prefix);
-    final NavigableMap<String, byte[]> actual =
+    final Map<String, byte[]> actual =
         retried(
             () -> {
-              final NavigableMap<String, byte[]> records = new TreeMap<>();
+              final Map<String, byte[]> records = new LinkedHashMap<>();
               try (final CloseableIterable<GetResult> results =
                   client.rangeScan(
                       prefix + "-", prefix + "-~", Set.of(RangeScanOption.PartitionKey(prefix)))) {
@@ -468,7 +470,7 @@ public final class Sequence {
               }
               return records;
             });
-    if (!expected.keySet().equals(actual.keySet())
+    if (!List.copyOf(expected.keySet()).equals(List.copyOf(actual.keySet()))
         || expected.entrySet().stream()
             .anyMatch(
                 (final Map.Entry<String, byte[]> entry) ->
@@ -557,7 +559,7 @@ public final class Sequence {
     return new String(value, StandardCharsets.UTF_8);
   }
 
-  private static String describe(final NavigableMap<String, byte[]> records) {
+  private static String describe(final Map<String, byte[]> records) {
     return SummaryUtils.summarize(
         records.entrySet().stream()
             .map(

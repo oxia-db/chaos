@@ -44,10 +44,9 @@ class MemoryInferenceStoreTest {
   }
 
   @Test
-  void scansAndListsExclusiveEndRangesInOrder() {
+  void scansExclusiveEndRangesInOrder() {
     assertThat(inference.range("b", "f"))
         .containsExactly(new KeyValue("b", bytes("two")), new KeyValue("d", bytes("four")));
-    assertThat(inference.list("b", "f")).containsExactly("b", "d");
   }
 
   @Test
@@ -57,7 +56,7 @@ class MemoryInferenceStoreTest {
 
     inference.deleteRange("c", "g");
 
-    assertThat(inference.list("a", "z")).isEmpty();
+    assertThat(inference.range("a", "z")).isEmpty();
   }
 
   @Test
