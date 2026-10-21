@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.testcase;
+package io.oxia.chaos.testcase.basickv;
 
 import static io.oxia.chaos.util.KeyValueUtils.sortedByKey;
 import static io.oxia.chaos.util.Timing.addSaturated;
