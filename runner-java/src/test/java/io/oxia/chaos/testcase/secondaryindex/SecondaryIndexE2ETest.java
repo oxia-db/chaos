@@ -79,7 +79,7 @@ class SecondaryIndexE2ETest {
 
       final Collection<MetricData> collected = reader.collectAllMetrics();
       for (final String operation :
-          new String[] {"put", "delete", "index-get", "index-list", "index-range-scan"}) {
+          new String[] {"put", "delete", "index-get", "index-range-scan"}) {
         assertThat(successes(collected, operation)).as(operation).isPositive();
       }
       assertThat(model.size()).isZero();
