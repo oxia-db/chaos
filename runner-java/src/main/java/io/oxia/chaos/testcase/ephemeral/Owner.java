@@ -59,7 +59,12 @@ final class Owner implements AutoCloseable {
 
   private static final String READY = "READY";
   private static final Set<PutOption> EPHEMERAL = Set.of(PutOption.AsEphemeralRecord);
-  private static final List<String> JVM_OPTIONS = List.of("-Xmx128m", "-XX:+UseSerialGC");
+  private static final List<String> JVM_OPTIONS =
+      List.of(
+          "-Xmx128m",
+          "-XX:+UseSerialGC",
+          "--sun-misc-unsafe-memory-access=allow",
+          "--enable-native-access=ALL-UNNAMED");
   // Marks the end of the child's stdout; compared by identity.
   private static final String END_OF_STREAM = new String("EOF");
 
