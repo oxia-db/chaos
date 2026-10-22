@@ -186,6 +186,16 @@ runnerJob:
   tolerations: []
   affinity: {}
 
+# Before each upgrade, delete this release's correctness workflows from earlier revisions, including
+# ones applied outside Helm, with their nodes and health-check pods. Runs only where the Chaos Mesh
+# Workflow API is installed.
+workflowCleanup:
+  enabled: true
+  image:
+    repository: registry.k8s.io/kubectl
+    tag: v1.36.5
+    pullPolicy: IfNotPresent
+
 serviceAccount:
   create: true
   annotations: {}

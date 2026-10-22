@@ -1,0 +1,98 @@
+{{- if and .Values.workflowCleanup.enabled (.Capabilities.APIVersions.Has "chaos-mesh.org/v1alpha1/Workflow") }}
+{{- $name := printf "%s-workflow-cleanup" (include "oxia-chaos.fullname" .) | trunc 63 | trimSuffix "-" }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workflow-cleanup
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-1"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workflow-cleanup
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-1"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+  - apiGroups:
+      - chaos-mesh.org
+    resources:
+      - workflows
+    verbs:
+      - get
+      - list
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workflow-cleanup
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-1"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "oxia-chaos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: workflow-cleanup
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 240
+  template:
+    metadata:
+      labels:
+        {{- include "oxia-chaos.labels" . | nindent 8 }}
+        app.kubernetes.io/component: workflow-cleanup
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ $name }}
+      containers:
+        - name: kubectl
+          image: {{ printf "%s:%s" .Values.workflowCleanup.image.repository .Values.workflowCleanup.image.tag | quote }}
+          imagePullPolicy: {{ .Values.workflowCleanup.image.pullPolicy }}
+          args:
+            - delete
+            - workflows.chaos-mesh.org
+            - {{ printf "--namespace=%s" .Release.Namespace | quote }}
+            - {{ printf "--selector=app.kubernetes.io/instance=%s,app.kubernetes.io/part-of=oxia-chaos,app.kubernetes.io/component=correctness,helm.sh/revision!=%d" .Release.Name .Release.Revision | quote }}
+            - --ignore-not-found
+            - --timeout=2m
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+{{- end }}
