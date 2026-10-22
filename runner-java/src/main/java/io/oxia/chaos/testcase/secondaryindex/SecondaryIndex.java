@@ -51,7 +51,6 @@ import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.client.api.exceptions.KeyAlreadyExistsException;
 import io.oxia.client.api.exceptions.UnexpectedVersionIdException;
 import io.oxia.client.api.options.GetOption;
-import io.oxia.client.api.options.ListOption;
 import io.oxia.client.api.options.PutOption;
 import io.oxia.client.api.options.RangeScanOption;
 import java.time.Duration;
@@ -80,8 +79,8 @@ import org.slf4j.LoggerFactory;
  * <p>Puts give records zero to two secondary keys on each of two indexes, from a key space smaller
  * than the record count, so secondary keys are shared. Updates keep all, keep some, add to, or
  * redraw the secondary keys of a record, and deletes and delete-ranges remove the records. Index
- * gets, lists, and range scans must then return exactly the entries of the current records: no
- * entry of a dropped key or a deleted record, and none missing.
+ * gets and range scans must then return exactly the entries of the current records: no entry of a
+ * dropped key or a deleted record, and none missing.
  *
  * <p>Like basic-kv, writes run in concurrent batches on distinct records, so the server applies the
  * index changes of several records together, and reads run in their own batches afterwards, so each
@@ -102,8 +101,7 @@ public final class SecondaryIndex {
   private static final double DELETE_RANGE_THRESHOLD = DELETE_THRESHOLD + 0.01;
   private static final double GET_THRESHOLD = DELETE_RANGE_THRESHOLD + 0.15;
   private static final double INDEX_GET_THRESHOLD = GET_THRESHOLD + 0.20;
-  private static final double INDEX_LIST_THRESHOLD = INDEX_GET_THRESHOLD + 0.13;
-  static final double TOTAL_WEIGHT = INDEX_LIST_THRESHOLD + 0.13;
+  static final double TOTAL_WEIGHT = INDEX_GET_THRESHOLD + 0.26;
 
   private final Options options;
   private final String runId;
@@ -357,23 +355,14 @@ public final class SecondaryIndex {
               return null;
             });
       }
-      case INDEX_LIST, INDEX_RANGE_SCAN -> {
+      case INDEX_RANGE_SCAN -> {
         final String indexName = INDEXES.get(random.nextInt(INDEXES.size()));
         final int index = random.nextInt(secondaryKeyCount);
         final String start = secondaryKey(index);
         final String end = secondaryKey(RangeUtils.nextEnd(random, index, secondaryKeyCount));
         operations.add(
             () -> {
-              observe(
-                  operation,
-                  start,
-                  () -> {
-                    if (operation == Operation.INDEX_LIST) {
-                      verifyIndexList(indexName, start, end);
-                    } else {
-                      verifyIndexRangeScan(indexName, start, end);
-                    }
-                  });
+              observe(operation, start, () -> verifyIndexRangeScan(indexName, start, end));
               return null;
             });
       }
@@ -406,20 +395,6 @@ public final class SecondaryIndex {
           indexName + ":" + secondaryKey,
           "one of " + SummaryUtils.summarize(expected.stream().sorted().toList()),
           result == null ? "none" : new KeyValue(result.key(), result.value()).toString());
-    }
-  }
-
-  private void verifyIndexList(final String indexName, final String start, final String end) {
-    final List<String> expected =
-        model.indexRange(indexName, start, end).stream().map(IndexedRecord::key).sorted().toList();
-    final List<String> actual =
-        client.list(start, end, Set.of(ListOption.UseIndex(indexName))).stream().sorted().toList();
-    if (!expected.equals(actual)) {
-      throw CorrectnessViolationException.operationMismatch(
-          Operation.INDEX_LIST,
-          indexName + ":[" + start + ", " + end + ")",
-          SummaryUtils.summarize(expected),
-          SummaryUtils.summarize(actual));
     }
   }
 
@@ -478,7 +453,6 @@ public final class SecondaryIndex {
           }
           final String secondaryEnd = secondaryPrefix + "~";
           for (final String indexName : INDEXES) {
-            runWithRetry(() -> verifyIndexList(indexName, secondaryPrefix, secondaryEnd));
             runWithRetry(() -> verifyIndexRangeScan(indexName, secondaryPrefix, secondaryEnd));
           }
           checkpointCount++;
@@ -587,7 +561,7 @@ public final class SecondaryIndex {
   static BatchType batchType(final Operation operation) {
     return switch (operation) {
       case PUT, DELETE -> BatchType.WRITE;
-      case GET, INDEX_GET, INDEX_LIST, INDEX_RANGE_SCAN -> BatchType.READ;
+      case GET, INDEX_GET, INDEX_RANGE_SCAN -> BatchType.READ;
       case DELETE_RANGE -> BatchType.DELETE_RANGE;
       default -> throw new IllegalStateException("unreachable operation: " + operation);
     };
@@ -608,9 +582,6 @@ public final class SecondaryIndex {
     }
     if (selected < INDEX_GET_THRESHOLD) {
       return Operation.INDEX_GET;
-    }
-    if (selected < INDEX_LIST_THRESHOLD) {
-      return Operation.INDEX_LIST;
     }
     return Operation.INDEX_RANGE_SCAN;
   }

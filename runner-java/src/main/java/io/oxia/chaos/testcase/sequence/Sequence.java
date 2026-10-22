@@ -30,6 +30,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.inference.KeyValue;
 import io.oxia.chaos.inference.SequenceModel;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
@@ -62,11 +63,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -452,27 +451,28 @@ public final class Sequence {
     }
   }
 
-  /** Compares every record of the prefix with the model. */
+  /** Compares every record of the prefix with the model, in key order within the shard. */
   private void verifyPrefix(final String prefix) {
-    final NavigableMap<String, byte[]> expected = model.live(prefix);
-    final NavigableMap<String, byte[]> actual =
+    final List<KeyValue> expected =
+        model.live(prefix).entrySet().stream()
+            .map(
+                (final Map.Entry<String, byte[]> entry) ->
+                    new KeyValue(entry.getKey(), entry.getValue()))
+            .toList();
+    final List<KeyValue> actual =
         retried(
             () -> {
-              final NavigableMap<String, byte[]> records = new TreeMap<>();
+              final List<KeyValue> records = new ArrayList<>();
               try (final CloseableIterable<GetResult> results =
                   client.rangeScan(
                       prefix + "-", prefix + "-~", Set.of(RangeScanOption.PartitionKey(prefix)))) {
                 for (final GetResult result : results) {
-                  records.put(result.key(), result.value());
+                  records.add(new KeyValue(result.key(), result.value()));
                 }
               }
               return records;
             });
-    if (!expected.keySet().equals(actual.keySet())
-        || expected.entrySet().stream()
-            .anyMatch(
-                (final Map.Entry<String, byte[]> entry) ->
-                    !Arrays.equals(entry.getValue(), actual.get(entry.getKey())))) {
+    if (!expected.equals(actual)) {
       throw CorrectnessViolationException.checkpointMismatch(
           prefix + ": " + describe(expected), describe(actual));
     }
@@ -557,12 +557,10 @@ public final class Sequence {
     return new String(value, StandardCharsets.UTF_8);
   }
 
-  private static String describe(final NavigableMap<String, byte[]> records) {
+  private static String describe(final List<KeyValue> records) {
     return SummaryUtils.summarize(
-        records.entrySet().stream()
-            .map(
-                (final Map.Entry<String, byte[]> entry) ->
-                    entry.getKey() + "=" + text(entry.getValue()))
+        records.stream()
+            .map((final KeyValue record) -> record.key() + "=" + text(record.value()))
             .toList());
   }
 }

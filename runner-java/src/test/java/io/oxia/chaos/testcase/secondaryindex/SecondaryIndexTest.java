@@ -51,8 +51,7 @@ class SecondaryIndexTest {
     assertShare(counts, samples, Operation.DELETE_RANGE, 0.01);
     assertShare(counts, samples, Operation.GET, 0.15);
     assertShare(counts, samples, Operation.INDEX_GET, 0.20);
-    assertShare(counts, samples, Operation.INDEX_LIST, 0.13);
-    assertShare(counts, samples, Operation.INDEX_RANGE_SCAN, 0.13);
+    assertShare(counts, samples, Operation.INDEX_RANGE_SCAN, 0.26);
     assertThat(SecondaryIndex.selectOperation(0)).isEqualTo(Operation.PUT);
     assertThat(SecondaryIndex.selectOperation(Math.nextDown(SecondaryIndex.TOTAL_WEIGHT)))
         .isEqualTo(Operation.INDEX_RANGE_SCAN);
@@ -64,8 +63,7 @@ class SecondaryIndexTest {
     assertThat(SecondaryIndex.batchType(Operation.DELETE)).isEqualTo(BatchType.WRITE);
     assertThat(SecondaryIndex.batchType(Operation.DELETE_RANGE)).isEqualTo(BatchType.DELETE_RANGE);
     for (final Operation operation :
-        List.of(
-            Operation.GET, Operation.INDEX_GET, Operation.INDEX_LIST, Operation.INDEX_RANGE_SCAN)) {
+        List.of(Operation.GET, Operation.INDEX_GET, Operation.INDEX_RANGE_SCAN)) {
       assertThat(SecondaryIndex.batchType(operation)).isEqualTo(BatchType.READ);
     }
   }
