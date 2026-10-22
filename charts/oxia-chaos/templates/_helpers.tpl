@@ -62,7 +62,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- $seconds -}}
 {{- end }}
 
-{{/* Workflow task that waits until every Oxia server reports healthy. Takes a dict with root and name. */}}
+{{/* Workflow task that waits until every Oxia server reports healthy and the leader of every shard
+of every namespace serves a range scan. Takes a dict with root and name. */}}
 {{- define "oxia-chaos.healthCheckTemplate" -}}
 {{- $cluster := index .root.Values "oxia-cluster" -}}
 - name: {{ .name }}
@@ -76,7 +77,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
         - /bin/sh
         - -ec
       args:
-        - for ordinal in 0 1 2; do until oxia health --host={{ .root.Release.Name }}-$ordinal.{{ .root.Release.Name }}-svc --port=6649; do sleep 2; done; done
+        - |
+          for ordinal in 0 1 2; do until oxia health --host={{ .root.Release.Name }}-$ordinal.{{ .root.Release.Name }}-svc --port=6649; do sleep 2; done; done
+          for namespace in{{ range $cluster.namespaces }} {{ .name }}{{ end }}; do
+            until oxia client range-scan --service-address={{ include "oxia-chaos.serviceAddress" .root }} --namespace=$namespace --request-timeout=10s --key-min=oxia-chaos-health-check --key-max=oxia-chaos-health-check0 >/dev/null; do sleep 2; done
+          done
       resources:
         requests:
           cpu: 10m
