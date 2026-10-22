@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 /**
  * An owner child process and the parent-side handle that drives it.
@@ -252,6 +253,8 @@ final class Owner implements AutoCloseable {
    * request timeouts in milliseconds.
    */
   public static void main(final String[] args) throws Exception {
+    SLF4JBridgeHandler.removeHandlersForRootLogger();
+    SLF4JBridgeHandler.install();
     if (args.length != 5) {
       throw new IllegalArgumentException(
           "usage: <service-address> <namespace> <client-identifier> <session-timeout-ms>"

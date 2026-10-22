@@ -42,6 +42,7 @@ dependencies {
     implementation("info.picocli:picocli:4.7.7")
     implementation("io.opentelemetry:opentelemetry-sdk")
     implementation("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
+    implementation("org.slf4j:jul-to-slf4j:2.0.16")
     implementation("org.slf4j:slf4j-api:2.0.16")
     runtimeOnly("io.opentelemetry:opentelemetry-exporter-otlp")
     runtimeOnly("io.opentelemetry:opentelemetry-exporter-prometheus")

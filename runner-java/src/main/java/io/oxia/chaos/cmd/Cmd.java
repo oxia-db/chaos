@@ -43,9 +43,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.LongSupplier;
-import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
@@ -121,6 +121,8 @@ public final class Cmd implements Callable<Integer> {
   private Duration checkpointInterval;
 
   public static void main(final String[] args) {
+    SLF4JBridgeHandler.removeHandlersForRootLogger();
+    SLF4JBridgeHandler.install();
     final int exitCode = commandLine(new Cmd()).execute(args);
     System.exit(exitCode);
   }
@@ -327,8 +329,6 @@ public final class Cmd implements Callable<Integer> {
   }
 
   private static AutoConfiguredOpenTelemetrySdk configureOpenTelemetry() {
-    java.util.logging.Logger.getLogger("io.opentelemetry.api.GlobalOpenTelemetry")
-        .setLevel(Level.WARNING);
     return AutoConfiguredOpenTelemetrySdk.builder()
         .disableShutdownHook()
         .addPropertiesSupplier(
