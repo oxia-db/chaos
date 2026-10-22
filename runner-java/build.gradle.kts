@@ -64,6 +64,8 @@ dependencies {
 application {
     mainClass = "io.oxia.chaos.cmd.Cmd"
     applicationName = "oxia-chaos"
+    applicationDefaultJvmArgs =
+        listOf("--sun-misc-unsafe-memory-access=allow", "--enable-native-access=ALL-UNNAMED")
 }
 
 tasks.test {
