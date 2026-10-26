@@ -104,16 +104,15 @@ contain the complete 90-day history and all required channels and test cases.
 Channel IDs and tested server versions are:
 
 - `stable`: the `oxia/oxia:nightly-stable` image built daily from
-  `release-0.16`.
-- `beta`: the `oxia/oxia:nightly-beta` image built daily from `main`, which is
-  the `0.17` server line.
+  `release-0.18`, the `0.18` server line.
+- `beta`: the `oxia/oxia:nightly-beta` image built daily from `main`.
 
 The source tags and displayed fallback versions are defined once in
 `config/oxia-channels.json`. Update that file when a channel advances; both the
 correctness deployment plan and status publisher consume it.
 
 Pin each nightly deployment to its resolved immutable digest, but publish the
-tested release line (`0.16` or `0.17`) from the channel configuration. Do not
+tested server line (`0.18` or `main`) from the channel configuration. Do not
 expose the internal image digest as the public server version.
 
 Testcase IDs are:
