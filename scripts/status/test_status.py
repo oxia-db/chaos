@@ -69,7 +69,7 @@ data:
                     self.assertEqual(len(test_case["history"]), WINDOW_DAYS)
             latest = summary["channels"][0]["testCases"][0]["history"][-1]
             self.assertEqual(latest["result"], "passed")
-            self.assertEqual(summary["channels"][1]["serverVersion"], "0.17")
+            self.assertEqual(summary["channels"][1]["serverVersion"], "main")
 
     def test_missing_artifact_becomes_failed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

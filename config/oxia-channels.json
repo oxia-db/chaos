@@ -1,12 +1,12 @@
 {
   "stable": {
     "imageTag": "nightly-stable",
-    "serverVersion": "0.16",
+    "serverVersion": "0.18",
     "resolveDigest": true
   },
   "beta": {
     "imageTag": "nightly-beta",
-    "serverVersion": "0.17",
+    "serverVersion": "main",
     "resolveDigest": true
   }
 }
