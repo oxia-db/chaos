@@ -182,6 +182,10 @@ runnerJob:
   annotations: {}
   labels: {}
   activeDeadlineSeconds: 25200
+  # Run every case without end in a StatefulSet of one pod, instead of a Job that ends after the
+  # profile's duration. The runner then checks every checkpoint until it's stopped, and stays up
+  # after a correctness violation. The profile's duration and activeDeadlineSeconds don't apply.
+  continuous: false
   metrics:
     enabled: true
     port: 9464
