@@ -3,15 +3,9 @@
 {{- if not (has $profile (list "quick" "six-hour" "six-hour-periodic" "pipeline")) -}}
 {{- fail (printf "unsupported chaosWorkflow.profile %q" $profile) -}}
 {{- end }}
-{{- $killContainer := .Values.chaosWorkflow.periodicPodKill.container | default "" -}}
-{{- if not (has $killContainer (list "" "server" "coordinator")) -}}
-{{- fail (printf "unsupported chaosWorkflow.periodicPodKill.container %q" $killContainer) -}}
-{{- end }}
-{{- $killInterval := .Values.chaosWorkflow.periodicPodKill.interval -}}
-{{- $killIntervalSeconds := include "oxia-chaos.durationSeconds" (dict "value" $killInterval "field" "chaosWorkflow.periodicPodKill.interval") | atoi -}}
 ---
 apiVersion: chaos-mesh.org/v1alpha1
-kind: Workflow
+kind: {{ ternary "Schedule" "Workflow" .Values.chaosWorkflow.repeat }}
 metadata:
   name: {{ printf "%s-%s-correctness-r%d" (include "oxia-chaos.fullname" .) $profile .Release.Revision | trunc 63 | trimSuffix "-" }}
   namespace: {{ .Release.Namespace | quote }}
@@ -23,6 +17,28 @@ metadata:
     oxia.chaos/channel: {{ required "channel is required" .Values.channel | quote }}
     oxia.chaos/profile: {{ $profile | quote }}
 spec:
+{{- if .Values.chaosWorkflow.repeat }}
+  # Start the workflow again once the previous one is accomplished, without end.
+  schedule: "@every 1m"
+  concurrencyPolicy: Forbid
+  historyLimit: 2
+  type: Workflow
+  workflow:
+{{- include "oxia-chaos.correctnessWorkflowSpec" . | indent 2 }}
+{{- else }}
+{{- include "oxia-chaos.correctnessWorkflowSpec" . }}
+{{- end }}
+{{- end }}
+
+{{/* The spec of the correctness workflow for the profile. Takes the root context. */}}
+{{- define "oxia-chaos.correctnessWorkflowSpec" }}
+{{- $profile := .Values.chaosWorkflow.profile -}}
+{{- $killContainer := .Values.chaosWorkflow.periodicPodKill.container | default "" -}}
+{{- if not (has $killContainer (list "" "server" "coordinator")) -}}
+{{- fail (printf "unsupported chaosWorkflow.periodicPodKill.container %q" $killContainer) -}}
+{{- end }}
+{{- $killInterval := .Values.chaosWorkflow.periodicPodKill.interval -}}
+{{- $killIntervalSeconds := include "oxia-chaos.durationSeconds" (dict "value" $killInterval "field" "chaosWorkflow.periodicPodKill.interval") | atoi -}}
 {{- if eq $profile "quick" }}
   entry: quick-pipeline
   templates:

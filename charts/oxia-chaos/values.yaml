@@ -135,6 +135,9 @@ cases:
 
 chaosWorkflow:
   enabled: false
+  # Repeat the workflow without end: a Chaos Mesh Schedule starts it again within a minute once the
+  # previous one is accomplished, and never runs two at once. Use it with runnerJob.continuous.
+  repeat: false
   # Supported profiles: quick, six-hour, six-hour-periodic, pipeline.
   profile: six-hour
   periodicPodKill:
