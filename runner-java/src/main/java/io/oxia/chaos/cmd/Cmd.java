@@ -148,10 +148,6 @@ public final class Cmd implements Callable<Integer> {
           .addKeyValue("case", options.caseName())
           .setCause(error)
           .log("correctness violation");
-      if (options.infinite()) {
-        // A restart would start a new run and bury the violation, so stay up until stopped
-        return waitUntilStopped();
-      }
       return CORRECTNESS_VIOLATION_EXIT_CODE;
     } catch (final InterruptedException error) {
       Thread.currentThread().interrupt();
@@ -215,94 +211,109 @@ public final class Cmd implements Callable<Integer> {
                 .requestTimeout(REQUEST_TIMEOUT)
                 .openTelemetry(openTelemetry)
                 .syncClient()) {
-      switch (options.caseName()) {
-        case Options.BASIC_KV ->
-            runOnVirtualThread(
-                () -> {
-                  new BasicKv(
-                          options,
-                          runId,
-                          client,
-                          openTelemetry,
-                          inference,
-                          metrics,
-                          REQUEST_TIMEOUT)
-                      .run();
-                  return null;
-                });
-        case Options.EPHEMERAL ->
-            runOnVirtualThread(
-                () -> {
-                  new Ephemeral(
-                          options,
-                          runId,
-                          options.namespace(),
-                          client,
-                          openTelemetry,
-                          ephemeralModel,
-                          metrics,
-                          REQUEST_TIMEOUT,
-                          Ephemeral.Settings.DEFAULT)
-                      .run();
-                  return null;
-                });
-        case Options.SECONDARY_INDEX ->
-            runOnVirtualThread(
-                () -> {
-                  new SecondaryIndex(
-                          options,
-                          runId,
-                          client,
-                          openTelemetry,
-                          secondaryIndexModel,
-                          metrics,
-                          REQUEST_TIMEOUT)
-                      .run();
-                  return null;
-                });
-        case Options.SEQUENCE ->
-            runOnVirtualThread(
-                () -> {
-                  new Sequence(
-                          options,
-                          runId,
-                          client,
-                          openTelemetry,
-                          sequenceModel,
-                          metrics,
-                          REQUEST_TIMEOUT)
-                      .run();
-                  return null;
-                });
-        case Options.NOTIFICATION ->
-            runOnVirtualThread(
-                () -> {
-                  new Notifications(
-                          options,
-                          runId,
-                          client,
-                          openTelemetry,
-                          inference,
-                          metrics,
-                          REQUEST_TIMEOUT)
-                      .run();
-                  return null;
-                });
-        case Options.VERSIONING ->
-            runOnVirtualThread(
-                () -> {
-                  new Versioning(
-                          options,
-                          runId,
-                          client,
-                          openTelemetry,
-                          versionModel,
-                          metrics,
-                          REQUEST_TIMEOUT)
-                      .run();
-                  return null;
-                });
-        default -> throw new IllegalArgumentException("unsupported case: " + options.caseName());
+      try {
+        switch (options.caseName()) {
+          case Options.BASIC_KV ->
+              runOnVirtualThread(
+                  () -> {
+                    new BasicKv(
+                            options,
+                            runId,
+                            client,
+                            openTelemetry,
+                            inference,
+                            metrics,
+                            REQUEST_TIMEOUT)
+                        .run();
+                    return null;
+                  });
+          case Options.EPHEMERAL ->
+              runOnVirtualThread(
+                  () -> {
+                    new Ephemeral(
+                            options,
+                            runId,
+                            options.namespace(),
+                            client,
+                            openTelemetry,
+                            ephemeralModel,
+                            metrics,
+                            REQUEST_TIMEOUT,
+                            Ephemeral.Settings.DEFAULT)
+                        .run();
+                    return null;
+                  });
+          case Options.SECONDARY_INDEX ->
+              runOnVirtualThread(
+                  () -> {
+                    new SecondaryIndex(
+                            options,
+                            runId,
+                            client,
+                            openTelemetry,
+                            secondaryIndexModel,
+                            metrics,
+                            REQUEST_TIMEOUT)
+                        .run();
+                    return null;
+                  });
+          case Options.SEQUENCE ->
+              runOnVirtualThread(
+                  () -> {
+                    new Sequence(
+                            options,
+                            runId,
+                            client,
+                            openTelemetry,
+                            sequenceModel,
+                            metrics,
+                            REQUEST_TIMEOUT)
+                        .run();
+                    return null;
+                  });
+          case Options.NOTIFICATION ->
+              runOnVirtualThread(
+                  () -> {
+                    new Notifications(
+                            options,
+                            runId,
+                            client,
+                            openTelemetry,
+                            inference,
+                            metrics,
+                            REQUEST_TIMEOUT)
+                        .run();
+                    return null;
+                  });
+          case Options.VERSIONING ->
+              runOnVirtualThread(
+                  () -> {
+                    new Versioning(
+                            options,
+                            runId,
+                            client,
+                            openTelemetry,
+                            versionModel,
+                            metrics,
+                            REQUEST_TIMEOUT)
+                        .run();
+                    return null;
+                  });
+          default -> throw new IllegalArgumentException("unsupported case: " + options.caseName());
+        }
+      } catch (final CorrectnessViolationException error) {
+        if (!options.infinite()) {
+          throw error;
+        }
+        LOGGER
+            .atError()
+            .addKeyValue("case", options.caseName())
+            .addKeyValue("run_id", runId)
+            .setCause(error)
+            .log("correctness violation");
+        // A restart would start a new run and bury the violation: stay up until stopped, and keep
+        // serving the metrics that report it
+        return waitUntilStopped();
       }
     }
 
