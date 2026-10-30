@@ -67,6 +67,22 @@ while [ "$(date +%s)" -lt "$end" ]; do
     fi
   fi
 
+  # The runner pods of the newest Job revision, or of the StatefulSets when the cases run without end.
+  if [ -n "$revision" ]; then
+    runner_pods="$RUNNERS,helm.sh/revision=$revision"
+  else
+    runner_pods="$RUNNERS"
+  fi
+
+  # A runner without end restarts only when it fails: report every restart.
+  runner_restarts=$(kubectl -n "$NS" get pods -l "$runner_pods" \
+    -o jsonpath='{range .items[*]}{range .status.containerStatuses[?(@.lastState.terminated)]}{.name} {.lastState.terminated.reason} {.lastState.terminated.exitCode} {.lastState.terminated.finishedAt}{"\n"}{end}{end}' \
+    | grep . | grep -vxF -f "$OUT/state/restarts")
+  if [ -n "$runner_restarts" ]; then
+    echo "$runner_restarts" >> "$OUT/state/restarts"
+    alert "runner restarted: $runner_restarts"
+  fi
+
   # Containers that restarted in place. A pod kill recreates the pod instead, so this is not chaos.
   restarts=$(kubectl -n "$NS" get pods -l "oxia_cluster=$RELEASE" \
     -o jsonpath='{range .items[*]}{range .status.containerStatuses[?(@.lastState.terminated)]}{.name} {.lastState.terminated.reason} {.lastState.terminated.finishedAt}{"\n"}{end}{end}')
@@ -84,20 +100,18 @@ while [ "$(date +%s)" -lt "$end" ]; do
         archive "$pod" "$container" | python3 -I "$SKILL/scripts/logsig.py" "$pod-$container"
       done
     done
-    if [ -n "$revision" ]; then
-      for pod in $(kubectl -n "$NS" get pods -l "$RUNNERS,helm.sh/revision=$revision" -o jsonpath='{.items[*].metadata.name}'); do
-        lines=$(archive "$pod" runner)
-        [ -n "$IGNORE" ] && echo "$pod" | grep -qE "$IGNORE" && continue
-        [ -f "$OUT/state/$pod.checkpoint" ] || echo "$now" > "$OUT/state/$pod.checkpoint"
-        echo "$lines" | grep -q 'checkpoint passed' && echo "$now" > "$OUT/state/$pod.checkpoint"
-        attempt=$(echo "$lines" | grep -oE 'attempt=[0-9]+' | cut -d= -f2 | sort -n | tail -1)
-        [ "${attempt:-0}" -ge "$MAX_ATTEMPT" ] && printf '%s\tretry attempt %s\t%s\n' "$pod" "$attempt" \
-          "$(echo "$lines" | grep "attempt=$attempt " | tail -1)"
-        [ $((now - $(cat "$OUT/state/$pod.checkpoint"))) -ge "$STALL" ] && printf '%s\tstalled\tno checkpoint for %ss\n' \
-          "$pod" $((now - $(cat "$OUT/state/$pod.checkpoint")))
-        echo "$lines" | python3 -I "$SKILL/scripts/logsig.py" "$pod"
-      done
-    fi
+    for pod in $(kubectl -n "$NS" get pods -l "$runner_pods" -o jsonpath='{.items[*].metadata.name}'); do
+      lines=$(archive "$pod" runner)
+      [ -n "$IGNORE" ] && echo "$pod" | grep -qE "$IGNORE" && continue
+      [ -f "$OUT/state/$pod.checkpoint" ] || echo "$now" > "$OUT/state/$pod.checkpoint"
+      echo "$lines" | grep -q 'checkpoint passed' && echo "$now" > "$OUT/state/$pod.checkpoint"
+      attempt=$(echo "$lines" | grep -oE 'attempt=[0-9]+' | cut -d= -f2 | sort -n | tail -1)
+      [ "${attempt:-0}" -ge "$MAX_ATTEMPT" ] && printf '%s\tretry attempt %s\t%s\n' "$pod" "$attempt" \
+        "$(echo "$lines" | grep "attempt=$attempt " | tail -1)"
+      [ $((now - $(cat "$OUT/state/$pod.checkpoint"))) -ge "$STALL" ] && printf '%s\tstalled\tno checkpoint for %ss\n' \
+        "$pod" $((now - $(cat "$OUT/state/$pod.checkpoint")))
+      echo "$lines" | python3 -I "$SKILL/scripts/logsig.py" "$pod"
+    done
   )
   [ -z "$signatures" ] && { sleep "$INTERVAL"; continue; }
 
