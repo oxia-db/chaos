@@ -87,6 +87,11 @@ duration, such as `1m`, and then heals it. The chart rejects a pipeline
 that lasts longer than any enabled case. The correctness check records one
 injection per fault.
 
+Set `runnerJob.continuous=true` to run every case without end: each case runs
+in a StatefulSet of one pod with `--duration=infinite` and checks every
+checkpoint until it's stopped, instead of a Job that ends after the profile's
+duration. The fault pipeline then isn't limited by the cases' duration.
+
 Delete the local cluster when finished:
 
 ```shell

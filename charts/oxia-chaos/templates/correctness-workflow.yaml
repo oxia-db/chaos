@@ -126,7 +126,7 @@ spec:
 {{- $total = add $total $duration $recovery }}
 {{- end }}
 {{- range $caseName, $case := .Values.cases }}
-{{- if $case.enabled }}
+{{- if and $case.enabled (not $.Values.runnerJob.continuous) }}
 {{- $caseDuration := include "oxia-chaos.durationSeconds" (dict "value" (index $case.profiles $.Values.testProfile).duration "field" (printf "cases.%s.profiles.%s.duration" $caseName $.Values.testProfile)) | atoi }}
 {{- if gt $total $caseDuration }}
 {{- fail (printf "chaosWorkflow.pipeline lasts %ds, longer than the %ds of case %s: the last stages would run without a workload" $total $caseDuration $caseName) }}

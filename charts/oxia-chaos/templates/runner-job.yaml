@@ -4,11 +4,19 @@
 {{- range $caseName, $case := $root.Values.cases }}
 {{- if $case.enabled -}}
 {{- $caseProfile := required (printf "cases.%s.profiles.%s is required" $caseName $root.Values.testProfile) (index $case.profiles $root.Values.testProfile) }}
+{{- $continuous := $root.Values.runnerJob.continuous }}
 ---
+{{- if $continuous }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ printf "%s-%s-%s" (include "oxia-chaos.fullname" $root) $runnerName $caseName | trunc 63 | trimSuffix "-" }}
+{{- else }}
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ printf "%s-%s-%s-r%d" (include "oxia-chaos.fullname" $root) $runnerName $caseName $root.Release.Revision | trunc 63 | trimSuffix "-" }}
+{{- end }}
   labels:
     {{- include "oxia-chaos.labels" $root | nindent 4 }}
     app.kubernetes.io/component: runner
@@ -18,15 +26,29 @@ metadata:
     oxia.chaos/runner: {{ $runnerName | quote }}
     oxia.chaos/case: {{ $caseName | quote }}
 spec:
+  {{- if $continuous }}
+  # One pod at a time, so a case never has two writers in its namespace
+  replicas: 1
+  serviceName: ""
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $root.Release.Name | quote }}
+      app.kubernetes.io/component: runner
+      oxia.chaos/runner: {{ $runnerName | quote }}
+      oxia.chaos/case: {{ $caseName | quote }}
+  {{- else }}
   backoffLimit: 0
   activeDeadlineSeconds: {{ $root.Values.runnerJob.activeDeadlineSeconds }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "oxia-chaos.labels" $root | nindent 8 }}
         app.kubernetes.io/component: runner
         app.kubernetes.io/part-of: oxia-chaos
+        {{- if not $continuous }}
         helm.sh/revision: {{ $root.Release.Revision | quote }}
+        {{- end }}
         oxia.chaos/channel: {{ required "channel is required" $root.Values.channel | quote }}
         oxia.chaos/runner: {{ $runnerName | quote }}
         oxia.chaos/case: {{ $caseName | quote }}
@@ -45,7 +67,7 @@ spec:
         {{- end }}
       {{- end }}
     spec:
-      restartPolicy: Never
+      restartPolicy: {{ ternary "Always" "Never" $continuous }}
       serviceAccountName: {{ include "oxia-chaos.serviceAccountName" $root }}
       {{- with $root.Values.runnerJob.imagePullSecrets }}
       imagePullSecrets:
@@ -75,7 +97,7 @@ spec:
           args:
             - {{ printf "--case=%s" $caseName | quote }}
             - {{ printf "--service-address=%s" (include "oxia-chaos.serviceAddress" $root) | quote }}
-            - {{ printf "--duration=%s" $caseProfile.duration | quote }}
+            - {{ printf "--duration=%s" (ternary "infinite" $caseProfile.duration $continuous) | quote }}
             - {{ printf "--key-count=%v" $caseProfile.keyCount | quote }}
             - {{ printf "--rate=%v" $caseProfile.rate | quote }}
             - {{ printf "--batch-size=%v" $caseProfile.batchSize | quote }}
