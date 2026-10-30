@@ -20,6 +20,9 @@ spec:
 {{- if .Values.chaosWorkflow.repeat }}
   # Start the workflow again once the previous one is accomplished, without end.
   schedule: "@every 1m"
+  # Count only the start missed in the last minute: the controller stops scheduling after 100
+  # missed starts, and every minute that a workflow runs is one under Forbid
+  startingDeadlineSeconds: 60
   concurrencyPolicy: Forbid
   historyLimit: 2
   type: Workflow
