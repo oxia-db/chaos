@@ -31,6 +31,7 @@ import io.oxia.chaos.testcase.notification.Notifications;
 import io.oxia.chaos.testcase.secondaryindex.SecondaryIndex;
 import io.oxia.chaos.testcase.sequence.Sequence;
 import io.oxia.chaos.testcase.versioning.Versioning;
+import io.oxia.chaos.util.DnsCacheUtils;
 import io.oxia.chaos.util.DurationConverter;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -125,6 +126,7 @@ public final class Cmd implements Callable<Integer> {
   private Duration checkpointInterval;
 
   public static void main(final String[] args) {
+    DnsCacheUtils.limitCaching();
     SLF4JBridgeHandler.removeHandlersForRootLogger();
     SLF4JBridgeHandler.install();
     final int exitCode = commandLine(new Cmd()).execute(args);
