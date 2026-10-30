@@ -80,8 +80,10 @@ make -C deploy up CHAOS_PROFILE=pipeline
 ```
 
 Edit `chaosWorkflow.pipeline` in the chart values to change the stages. A
-stage's `fault` is `pod-kill` or `container-kill`, and `container-kill` also
-takes a `container`, `server` or `coordinator`. The chart rejects a pipeline
+stage's `fault` is `pod-kill`, `container-kill` or `network-partition`.
+`container-kill` also takes a `container`, `server` or `coordinator`.
+`network-partition` cuts one server pod off the network for its `partition`
+duration, such as `1m`, and then heals it. The chart rejects a pipeline
 that lasts longer than any enabled case. The correctness check records one
 injection per fault.
 

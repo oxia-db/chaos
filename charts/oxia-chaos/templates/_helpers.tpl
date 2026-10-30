@@ -115,8 +115,18 @@ podChaos:
   mode: one
   selector:
     {{- include "oxia-chaos.serverSelector" .root | nindent 4 }}
+{{- else if eq $stage.fault "network-partition" }}
+{{- $_ := include "oxia-chaos.durationSeconds" (dict "value" $stage.partition "field" (printf "%s.partition" $field)) }}
+templateType: NetworkChaos
+deadline: {{ $stage.partition | quote }}
+networkChaos:
+  action: partition
+  direction: both
+  mode: one
+  selector:
+    {{- include "oxia-chaos.serverSelector" .root | nindent 4 }}
 {{- else }}
-{{- fail (printf "%s.fault must be pod-kill or container-kill, got %q" $field (toString $stage.fault)) }}
+{{- fail (printf "%s.fault must be pod-kill, container-kill or network-partition, got %q" $field (toString $stage.fault)) }}
 {{- end }}
 {{- end }}
 
