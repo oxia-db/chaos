@@ -38,6 +38,7 @@ gets fresh credentials:
 | `cluster unreachable` | `kubectl` failed. Credentials probably expired. Never treat this as "no new logs". |
 | `job <name> Failed` / `Complete` | A runner ended. Read its log for `correctness violation` or `runner failed`. |
 | `container restarted` | A container restarted in place, for example `OOMKilled`. A pod kill recreates the pod instead, so this is not chaos. When the chaos kills containers in place (`container-kill`), set `RESTART_ALERT=OOMKilled` so only the restarts it did not cause alert. |
+| `runner restarted` | A runner container restarted. Runners without end (`runnerJob.continuous`) run in StatefulSets and restart only when they fail, so read the previous log with `kubectl logs --previous`. |
 | `stalled` | A runner logged no `checkpoint passed` for `STALL` seconds (default 180). |
 | `retry attempt N` | An operation was retried `MAX_ATTEMPT` times (default 20, about 1.5 minutes): a shard is unavailable for longer than a failover should take. |
 | `always-alert signature` | A line that always needs a look, such as `correctness violation` or `Election aborted`. |
