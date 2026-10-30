@@ -15,6 +15,7 @@
  */
 package io.oxia.chaos.testcase.ephemeral;
 
+import io.oxia.chaos.util.DnsCacheUtils;
 import io.oxia.chaos.util.OxiaExceptionUtils;
 import io.oxia.client.api.GetResult;
 import io.oxia.client.api.OxiaClientBuilder;
@@ -253,6 +254,7 @@ final class Owner implements AutoCloseable {
    * request timeouts in milliseconds.
    */
   public static void main(final String[] args) throws Exception {
+    DnsCacheUtils.limitCaching();
     SLF4JBridgeHandler.removeHandlersForRootLogger();
     SLF4JBridgeHandler.install();
     if (args.length != 5) {
