@@ -168,6 +168,14 @@ chaosWorkflow:
         container: server
         duration: 2h40m
         interval: 5m
+      # Another fault is network-partition: it cuts one server pod off the network, from the other
+      # servers, the clients, the Kubernetes API and DNS, for the partition duration, then heals it.
+      # The loopback stays up, so the pod keeps passing its probes and isn't restarted.
+      # - name: network-partition
+      #   fault: network-partition
+      #   partition: 1m
+      #   duration: 2h40m
+      #   interval: 5m
 
 runnerJob:
   imagePullSecrets: []
