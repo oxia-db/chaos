@@ -39,6 +39,10 @@ public record Options(
   public static final List<String> CASES =
       List.of(BASIC_KV, EPHEMERAL, SECONDARY_INDEX, SEQUENCE, NOTIFICATION, VERSIONING);
   public static final Duration DEFAULT_DURATION = Duration.ofMinutes(10);
+
+  /** A workload duration that never ends: the case runs checkpoints until it's stopped. */
+  public static final Duration INFINITE = Duration.ofNanos(Long.MAX_VALUE);
+
   public static final int DEFAULT_KEY_COUNT = 10_000;
   public static final int DEFAULT_RATE = 258;
   public static final int DEFAULT_BATCH_SIZE = 100;
@@ -64,6 +68,10 @@ public record Options(
     if (batchSize <= 0) {
       throw new IllegalArgumentException("--batch-size must be greater than zero");
     }
+  }
+
+  public boolean infinite() {
+    return INFINITE.equals(duration);
   }
 
   public String namespace() {

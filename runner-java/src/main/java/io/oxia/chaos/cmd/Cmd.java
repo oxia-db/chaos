@@ -39,6 +39,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
@@ -49,6 +50,7 @@ import org.slf4j.bridge.SLF4JBridgeHandler;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
+import picocli.CommandLine.ITypeConverter;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
@@ -86,9 +88,11 @@ public final class Cmd implements Callable<Integer> {
   @Option(
       names = "--duration",
       defaultValue = "10m",
-      converter = DurationConverter.class,
+      converter = WorkloadDurationConverter.class,
       paramLabel = "DURATION",
-      description = "Workload duration after warmup. Default: ${DEFAULT-VALUE}.")
+      description =
+          "Workload duration after warmup, or infinite to run checkpoints until stopped."
+              + " Default: ${DEFAULT-VALUE}.")
   private Duration duration;
 
   @Option(
@@ -144,6 +148,10 @@ public final class Cmd implements Callable<Integer> {
           .addKeyValue("case", options.caseName())
           .setCause(error)
           .log("correctness violation");
+      if (options.infinite()) {
+        // A restart would start a new run and bury the violation, so stay up until stopped
+        return waitUntilStopped();
+      }
       return CORRECTNESS_VIOLATION_EXIT_CODE;
     } catch (final InterruptedException error) {
       Thread.currentThread().interrupt();
@@ -191,7 +199,7 @@ public final class Cmd implements Callable<Integer> {
         .addKeyValue("namespace", options.namespace())
         .addKeyValue("run_id", runId)
         .addKeyValue("seed", options.seed())
-        .addKeyValue("duration", options.duration())
+        .addKeyValue("duration", options.infinite() ? "infinite" : options.duration())
         .addKeyValue("key_count", options.keyCount())
         .addKeyValue("rate", options.rate())
         .addKeyValue("batch_size", options.batchSize())
@@ -302,6 +310,15 @@ public final class Cmd implements Callable<Integer> {
     return ExitCode.OK;
   }
 
+  static int waitUntilStopped() {
+    try {
+      new CountDownLatch(1).await();
+    } catch (final InterruptedException error) {
+      Thread.currentThread().interrupt();
+    }
+    return CORRECTNESS_VIOLATION_EXIT_CODE;
+  }
+
   static CommandLine commandLine(final Cmd runner) {
     return new CommandLine(runner);
   }
@@ -341,6 +358,17 @@ public final class Cmd implements Callable<Integer> {
                     "otel.traces.exporter", "none",
                     "otel.logs.exporter", "none"))
         .build();
+  }
+
+  /** Parses a workload duration, which can also be infinite. */
+  static final class WorkloadDurationConverter implements ITypeConverter<Duration> {
+
+    @Override
+    public Duration convert(final String value) {
+      return "infinite".equalsIgnoreCase(value)
+          ? Options.INFINITE
+          : new DurationConverter().convert(value);
+    }
   }
 
   /** Lists the supported cases in the --case help. */

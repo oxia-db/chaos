@@ -108,6 +108,30 @@ class CmdTest {
   }
 
   @Test
+  void parsesAnInfiniteDuration() {
+    final Options options =
+        parse("--case=basic-kv", "--service-address=oxia:6648", "--duration=infinite");
+
+    assertThat(options.duration()).isEqualTo(Options.INFINITE);
+    assertThat(options.infinite()).isTrue();
+    assertThat(parse("--case=basic-kv", "--service-address=oxia:6648").infinite()).isFalse();
+  }
+
+  @Test
+  void waitsUntilStoppedAfterAViolation() throws Exception {
+    final AtomicReference<Integer> exitCode = new AtomicReference<>();
+    final Thread waiter = Thread.ofVirtual().start(() -> exitCode.set(Cmd.waitUntilStopped()));
+
+    waiter.join(Duration.ofMillis(200));
+    assertThat(waiter.isAlive()).isTrue();
+
+    waiter.interrupt();
+    waiter.join(Duration.ofSeconds(5));
+    assertThat(waiter.isAlive()).isFalse();
+    assertThat(exitCode.get()).isEqualTo(Cmd.CORRECTNESS_VIOLATION_EXIT_CODE);
+  }
+
+  @Test
   void requiresCaseAndServiceAddress() {
     assertThatThrownBy(() -> parse("--service-address=oxia:6648"))
         .isInstanceOf(CommandLine.MissingParameterException.class)
