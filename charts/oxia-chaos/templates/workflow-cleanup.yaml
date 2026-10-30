@@ -30,6 +30,7 @@ rules:
       - chaos-mesh.org
     resources:
       - workflows
+      - schedules
     verbs:
       - get
       - list
@@ -84,7 +85,7 @@ spec:
           imagePullPolicy: {{ .Values.workflowCleanup.image.pullPolicy }}
           args:
             - delete
-            - workflows.chaos-mesh.org
+            - workflows.chaos-mesh.org,schedules.chaos-mesh.org
             - {{ printf "--namespace=%s" .Release.Namespace | quote }}
             - {{ printf "--selector=app.kubernetes.io/instance=%s,app.kubernetes.io/part-of=oxia-chaos,app.kubernetes.io/component=correctness,helm.sh/revision!=%d" .Release.Name .Release.Revision | quote }}
             - --ignore-not-found
