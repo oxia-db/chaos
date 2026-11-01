@@ -114,9 +114,9 @@ public final class BasicKv implements TestCase {
   /** Runs warmup, the timed workload and a final checkpoint. */
   @Override
   public void start() throws InterruptedException {
-    warmup();
-    executeWorkload();
-    checkpoint(Checkpoint.FINAL);
+    doWarmUp();
+    doWorkload();
+    doCheckpoint(Checkpoint.FINAL);
     LOGGER
         .atInfo()
         .addKeyValue("run_id", runId)
@@ -126,7 +126,7 @@ public final class BasicKv implements TestCase {
   }
 
   /** Writes the guards and every key. */
-  private void warmup() {
+  private void doWarmUp() {
     final Span span = tracer.spanBuilder("basic-kv.warmup").setNoParent().startSpan();
     final long started = System.nanoTime();
     try (final Scope ignored = Context.root().makeCurrent()) {
@@ -163,7 +163,7 @@ public final class BasicKv implements TestCase {
     }
   }
 
-  private void executeWorkload() throws InterruptedException {
+  private void doWorkload() throws InterruptedException {
     final long started = System.nanoTime();
     final long deadline = addSaturated(started, options.duration().toNanos());
     long nextCheckpoint = addSaturated(started, options.checkpointInterval().toNanos());
@@ -201,7 +201,7 @@ public final class BasicKv implements TestCase {
 
         final long now = System.nanoTime();
         if (now >= nextCheckpoint && now < deadline) {
-          checkpoint(Checkpoint.PERIODIC);
+          doCheckpoint(Checkpoint.PERIODIC);
           nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
         }
       }
@@ -381,7 +381,7 @@ public final class BasicKv implements TestCase {
     }
   }
 
-  private void checkpoint(final Checkpoint checkpoint) {
+  private void doCheckpoint(final Checkpoint checkpoint) {
     final long started = System.nanoTime();
     telemetry.checkpoint(
         checkpoint,
