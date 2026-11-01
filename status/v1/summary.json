@@ -1,20 +1,16 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-31T08:33:45Z",
+  "generatedAt": "2026-11-01T08:35:51Z",
   "windowDays": 90,
   "channels": [
     {
       "id": "stable",
       "serverVersion": "0.18",
-      "updatedAt": "2026-10-31T08:33:45Z",
+      "updatedAt": "2026-11-01T08:35:51Z",
       "testCases": [
         {
           "id": "basic-kv",
           "history": [
-            {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
             {
               "date": "2026-08-04",
               "result": "not_run"
@@ -458,6 +454,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -465,10 +466,6 @@
           "id": "ephemeral",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -838,6 +835,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -845,10 +847,6 @@
           "id": "notification",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -1218,6 +1216,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -1225,10 +1228,6 @@
           "id": "sequences",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -1598,6 +1597,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -1605,10 +1609,6 @@
           "id": "secondary-index",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -1978,6 +1978,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -1985,10 +1990,6 @@
           "id": "versioning",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -2358,6 +2359,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         }
@@ -2377,15 +2383,11 @@
     {
       "id": "beta",
       "serverVersion": "main",
-      "updatedAt": "2026-10-31T08:33:45Z",
+      "updatedAt": "2026-11-01T08:35:51Z",
       "testCases": [
         {
           "id": "basic-kv",
           "history": [
-            {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
             {
               "date": "2026-08-04",
               "result": "not_run"
@@ -2829,6 +2831,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -2836,10 +2843,6 @@
           "id": "ephemeral",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -3209,6 +3212,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -3216,10 +3224,6 @@
           "id": "notification",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -3589,6 +3593,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -3596,10 +3605,6 @@
           "id": "sequences",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -3969,6 +3974,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -3976,10 +3986,6 @@
           "id": "secondary-index",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -4349,6 +4355,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         },
@@ -4356,10 +4367,6 @@
           "id": "versioning",
           "history": [
             {
-              "date": "2026-08-03",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-04",
               "result": "not_run"
             },
@@ -4729,6 +4736,11 @@
               "date": "2026-10-31",
               "result": "passed",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41159815974"
+            },
+            {
+              "date": "2026-11-01",
+              "result": "passed",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/41265143166"
             }
           ]
         }
