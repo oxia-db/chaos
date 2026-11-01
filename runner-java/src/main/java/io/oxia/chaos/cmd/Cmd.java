@@ -18,7 +18,7 @@ package io.oxia.chaos.cmd;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.oxia.chaos.error.ViolationException;
-import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.obser.Metrics;
 import io.oxia.chaos.testcase.CaseContext;
 import io.oxia.chaos.testcase.TestCaseRunner;
 import io.oxia.chaos.testcase.basickv.BasicKv;

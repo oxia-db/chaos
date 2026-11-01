@@ -15,7 +15,7 @@
  */
 package io.oxia.chaos.testcase.secondaryindex;
 
-import static io.oxia.chaos.observability.MetricTestUtils.successes;
+import static io.oxia.chaos.obser.MetricTestUtils.successes;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -23,7 +23,7 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.obser.Metrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.client.api.options.ListOption;

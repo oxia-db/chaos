@@ -12,7 +12,7 @@ This file provides guidance to coding agents working with code in this repositor
 ## Java Conventions
 
 - Declare immutable fields, method parameters, and local variables as `final`, including variables used only inside methods.
-- Keep command-line code in `cmd`, test implementations in `testcase`, operation constants in `ops`, inference implementations in `inference`, telemetry in `observability`, shared exceptions in `error`, and reusable helpers in `util`.
+- Keep command-line code in `cmd`, test implementations in `testcase`, operation constants in `ops`, telemetry in `obser`, shared exceptions in `error`, and reusable helpers in `util`.
 - Keep runner CLI options compatible across language implementations. Do not add language-specific public options without updating the shared Helm chart contract.
 - Format Java with Spotless and target Java 25.
 - Keep the runner on Java 24 or later. Cases run on virtual threads, and before Java 24 a virtual thread that blocks inside `synchronized`, as Failsafe's timeout does when it cancels its timer, keeps its carrier thread and can deadlock the case.

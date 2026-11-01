@@ -18,7 +18,7 @@ package io.oxia.chaos.testcase;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.obser.Metrics;
 import io.oxia.client.api.SyncOxiaClient;
 import java.time.Duration;
 

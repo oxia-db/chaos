@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.observability;
+package io.oxia.chaos.obser;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.metrics.data.LongPointData;

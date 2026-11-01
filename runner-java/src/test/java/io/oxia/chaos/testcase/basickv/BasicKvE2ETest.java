@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.obser.Metrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.testcase.CaseContext;
 import io.oxia.chaos.testcase.TestCaseRunner;
