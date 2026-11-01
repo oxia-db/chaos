@@ -19,19 +19,15 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.error.ViolationException;
-import io.oxia.chaos.util.ExceptionUtils;
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.spi.LoggingEventBuilder;
 
-/** Runs the phases of a case inside its run span. */
-@Slf4j
+/** Runs a case inside its run span. */
 public final class TestCaseRunner {
 
   private TestCaseRunner() {}
 
   /**
-   * Runs bootstrap, execute and verify, then shuts the case down. A shutdown failure is suppressed
-   * into the failure of an earlier phase, so the earlier one is the one reported.
+   * Starts the case, then closes it. A close failure is suppressed into the failure of the run, so
+   * the run's failure is the one reported.
    */
   public static void run(final TestCase testCase, final CaseContext context)
       throws InterruptedException {
@@ -46,42 +42,23 @@ public final class TestCaseRunner {
             .setAttribute("test.key_count", context.options().keyCount())
             .startSpan();
 
-    Throwable failure = null;
-    try (final Scope ignored = runSpan.makeCurrent()) {
-      testCase.bootstrap();
-      testCase.execute();
-      testCase.verify();
+    // The case closes before the scope, so its cleanup stays inside the run span
+    try (final Scope ignored = runSpan.makeCurrent();
+        testCase) {
+      testCase.start();
       runSpan.setStatus(StatusCode.OK);
     } catch (final ViolationException error) {
-      failure = error;
       context.metrics().recordSafetyViolation();
       runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
       throw error;
     } catch (final InterruptedException error) {
-      failure = error;
       runSpan.recordException(error).setStatus(StatusCode.ERROR, "interrupted");
       throw error;
     } catch (final RuntimeException error) {
-      failure = error;
       runSpan.recordException(error).setStatus(StatusCode.ERROR, "execution failure");
       throw error;
     } finally {
-      try {
-        testCase.shutdown();
-      } catch (final RuntimeException shutdownError) {
-        if (failure != null) {
-          ExceptionUtils.addSuppressedIfDistinct(failure, shutdownError);
-        } else {
-          throw shutdownError;
-        }
-      } finally {
-        runSpan.end();
-      }
+      runSpan.end();
     }
-
-    final LoggingEventBuilder completed =
-        LOGGER.atInfo().addKeyValue("case", name).addKeyValue("run_id", context.runId());
-    testCase.summary().forEach(completed::addKeyValue);
-    completed.log("case completed");
   }
 }

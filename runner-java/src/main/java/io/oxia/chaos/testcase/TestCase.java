@@ -15,29 +15,19 @@
  */
 package io.oxia.chaos.testcase;
 
-import java.util.Map;
-
 /**
- * A correctness case. {@link TestCaseRunner} runs the phases in order and always shuts the case
- * down, whether or not an earlier phase failed.
+ * A correctness case. {@link TestCaseRunner} starts it and always closes it, whether or not it
+ * failed.
  */
-public interface TestCase {
+public interface TestCase extends AutoCloseable {
 
   /** The case name, as accepted by the runner's case option. */
   String name();
 
-  /** Prepares the state the workload starts from, such as warmup keys or subscriptions. */
-  void bootstrap() throws InterruptedException;
-
-  /** Runs the timed workload, including its periodic checkpoints. */
-  void execute() throws InterruptedException;
-
-  /** Checks the final state once the workload ended. */
-  void verify() throws InterruptedException;
+  /** Runs the case to its end: warmup, the timed workload and the final check. */
+  void start() throws InterruptedException;
 
   /** Releases what the case holds and deletes what it wrote. */
-  void shutdown();
-
-  /** Counters logged when the case completes. */
-  Map<String, Object> summary();
+  @Override
+  void close();
 }

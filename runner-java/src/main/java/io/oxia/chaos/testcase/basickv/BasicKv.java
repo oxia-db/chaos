@@ -110,9 +110,22 @@ public final class BasicKv implements TestCase {
     return Options.BASIC_KV;
   }
 
-  /** Writes the guards and every key. */
+  /** Runs warmup, the timed workload and a final checkpoint. */
   @Override
-  public void bootstrap() {
+  public void start() throws InterruptedException {
+    warmup();
+    executeWorkload();
+    checkpoint(Checkpoint.FINAL);
+    LOGGER
+        .atInfo()
+        .addKeyValue("run_id", runId)
+        .addKeyValue("operations", operationCount)
+        .addKeyValue("checkpoints", checkpointCount)
+        .log("basic-kv completed");
+  }
+
+  /** Writes the guards and every key. */
+  private void warmup() {
     final Span span = tracer.spanBuilder("basic-kv.warmup").setNoParent().startSpan();
     final long started = System.nanoTime();
     try (final Scope ignored = Context.root().makeCurrent()) {
@@ -149,8 +162,7 @@ public final class BasicKv implements TestCase {
     }
   }
 
-  @Override
-  public void execute() throws InterruptedException {
+  private void executeWorkload() throws InterruptedException {
     final long started = System.nanoTime();
     final long deadline = addSaturated(started, options.duration().toNanos());
     long nextCheckpoint = addSaturated(started, options.checkpointInterval().toNanos());
@@ -408,23 +420,13 @@ public final class BasicKv implements TestCase {
         });
   }
 
-  @Override
-  public void verify() {
-    checkpoint(Checkpoint.FINAL);
-  }
-
   /** Deletes every key the case wrote, guards included. */
   @Override
-  public void shutdown() {
+  public void close() {
     runWithRetry(
         () -> client.deleteRange(keyGenerator.lowerGuardKey(), keyGenerator.afterUpperGuardKey()));
     reference.clear();
     LOGGER.atInfo().addKeyValue("run_id", runId).log("basic-kv cleanup completed");
-  }
-
-  @Override
-  public Map<String, Object> summary() {
-    return Map.of("operations", operationCount, "checkpoints", checkpointCount);
   }
 
   static BatchType selectBatch(final double selected) {
