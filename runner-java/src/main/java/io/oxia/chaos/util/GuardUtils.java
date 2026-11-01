@@ -15,22 +15,22 @@
  */
 package io.oxia.chaos.util;
 
-import io.oxia.chaos.inference.InferenceStore;
 import io.oxia.client.api.SyncOxiaClient;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
-/** Utilities for installing stable comparison guards in Oxia and its inference store. */
+/** Utilities for installing stable comparison guards in Oxia and a case's reference state. */
 public final class GuardUtils {
 
   private GuardUtils() {}
 
   public static void putReferenceGuard(
       final SyncOxiaClient client,
-      final InferenceStore inference,
+      final Map<String, byte[]> reference,
       final String key,
       final String name) {
     final byte[] value = ("guard-" + name).getBytes(StandardCharsets.UTF_8);
     client.put(key, value);
-    inference.put(key, value);
+    reference.put(key, value);
   }
 }

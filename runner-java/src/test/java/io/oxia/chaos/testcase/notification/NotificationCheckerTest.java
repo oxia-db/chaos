@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.inference;
+package io.oxia.chaos.testcase.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.oxia.chaos.error.CorrectnessViolationException;
-import io.oxia.chaos.inference.NotificationChecker.Covered;
-import io.oxia.chaos.inference.NotificationChecker.Delete;
-import io.oxia.chaos.inference.NotificationChecker.Match;
-import io.oxia.chaos.inference.NotificationChecker.Observed;
-import io.oxia.chaos.inference.NotificationChecker.Put;
-import io.oxia.chaos.inference.NotificationChecker.Write;
+import io.oxia.chaos.testcase.notification.NotificationChecker.Covered;
+import io.oxia.chaos.testcase.notification.NotificationChecker.Delete;
+import io.oxia.chaos.testcase.notification.NotificationChecker.Match;
+import io.oxia.chaos.testcase.notification.NotificationChecker.Observed;
+import io.oxia.chaos.testcase.notification.NotificationChecker.Put;
+import io.oxia.chaos.testcase.notification.NotificationChecker.Write;
 import io.oxia.client.api.Notification;
 import io.oxia.client.api.Notification.KeyCreated;
 import io.oxia.client.api.Notification.KeyDeleted;

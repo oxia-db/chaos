@@ -18,13 +18,9 @@ package io.oxia.chaos.cmd;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.oxia.chaos.error.CorrectnessViolationException;
-import io.oxia.chaos.inference.EphemeralModel;
-import io.oxia.chaos.inference.InferenceStore;
-import io.oxia.chaos.inference.MemoryInferenceStore;
-import io.oxia.chaos.inference.SecondaryIndexModel;
-import io.oxia.chaos.inference.SequenceModel;
-import io.oxia.chaos.inference.VersionModel;
 import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.testcase.CaseContext;
+import io.oxia.chaos.testcase.TestCaseRunner;
 import io.oxia.chaos.testcase.basickv.BasicKv;
 import io.oxia.chaos.testcase.ephemeral.Ephemeral;
 import io.oxia.chaos.testcase.notification.Notifications;
@@ -44,7 +40,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.LongSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -177,19 +172,6 @@ public final class Cmd implements Callable<Integer> {
     final String runId = UUID.randomUUID().toString();
     final AutoConfiguredOpenTelemetrySdk configuredTelemetry = configureOpenTelemetry();
     final OpenTelemetrySdk openTelemetry = configuredTelemetry.getOpenTelemetrySdk();
-    final InferenceStore inference = new MemoryInferenceStore();
-    final EphemeralModel ephemeralModel = new EphemeralModel();
-    final SecondaryIndexModel secondaryIndexModel = new SecondaryIndexModel();
-    final SequenceModel sequenceModel = new SequenceModel();
-    final VersionModel versionModel = new VersionModel();
-    final LongSupplier referenceKeyCount =
-        switch (options.caseName()) {
-          case Options.EPHEMERAL -> ephemeralModel::size;
-          case Options.SECONDARY_INDEX -> secondaryIndexModel::size;
-          case Options.SEQUENCE -> sequenceModel::size;
-          case Options.VERSIONING -> versionModel::size;
-          default -> inference::size;
-        };
 
     LOGGER
         .atInfo()
@@ -205,7 +187,7 @@ public final class Cmd implements Callable<Integer> {
         .log("starting chaos case");
 
     try (openTelemetry;
-        final Metrics metrics = new Metrics(openTelemetry, options.caseName(), referenceKeyCount);
+        final Metrics metrics = new Metrics(openTelemetry, options.caseName());
         final SyncOxiaClient client =
             OxiaClientBuilder.create(options.serviceAddress())
                 .namespace(options.namespace())
@@ -215,20 +197,15 @@ public final class Cmd implements Callable<Integer> {
                 .syncClient()) {
       try {
         switch (options.caseName()) {
-          case Options.BASIC_KV ->
-              runOnVirtualThread(
-                  () -> {
-                    new BasicKv(
-                            options,
-                            runId,
-                            client,
-                            openTelemetry,
-                            inference,
-                            metrics,
-                            REQUEST_TIMEOUT)
-                        .run();
-                    return null;
-                  });
+          case Options.BASIC_KV -> {
+            final CaseContext context =
+                new CaseContext(options, runId, client, openTelemetry, metrics, REQUEST_TIMEOUT);
+            runOnVirtualThread(
+                () -> {
+                  TestCaseRunner.run(new BasicKv(context), context);
+                  return null;
+                });
+          }
           case Options.EPHEMERAL ->
               runOnVirtualThread(
                   () -> {
@@ -238,7 +215,6 @@ public final class Cmd implements Callable<Integer> {
                             options.namespace(),
                             client,
                             openTelemetry,
-                            ephemeralModel,
                             metrics,
                             REQUEST_TIMEOUT,
                             Ephemeral.Settings.DEFAULT)
@@ -249,27 +225,14 @@ public final class Cmd implements Callable<Integer> {
               runOnVirtualThread(
                   () -> {
                     new SecondaryIndex(
-                            options,
-                            runId,
-                            client,
-                            openTelemetry,
-                            secondaryIndexModel,
-                            metrics,
-                            REQUEST_TIMEOUT)
+                            options, runId, client, openTelemetry, metrics, REQUEST_TIMEOUT)
                         .run();
                     return null;
                   });
           case Options.SEQUENCE ->
               runOnVirtualThread(
                   () -> {
-                    new Sequence(
-                            options,
-                            runId,
-                            client,
-                            openTelemetry,
-                            sequenceModel,
-                            metrics,
-                            REQUEST_TIMEOUT)
+                    new Sequence(options, runId, client, openTelemetry, metrics, REQUEST_TIMEOUT)
                         .run();
                     return null;
                   });
@@ -277,27 +240,14 @@ public final class Cmd implements Callable<Integer> {
               runOnVirtualThread(
                   () -> {
                     new Notifications(
-                            options,
-                            runId,
-                            client,
-                            openTelemetry,
-                            inference,
-                            metrics,
-                            REQUEST_TIMEOUT)
+                            options, runId, client, openTelemetry, metrics, REQUEST_TIMEOUT)
                         .run();
                     return null;
                   });
           case Options.VERSIONING ->
               runOnVirtualThread(
                   () -> {
-                    new Versioning(
-                            options,
-                            runId,
-                            client,
-                            openTelemetry,
-                            versionModel,
-                            metrics,
-                            REQUEST_TIMEOUT)
+                    new Versioning(options, runId, client, openTelemetry, metrics, REQUEST_TIMEOUT)
                         .run();
                     return null;
                   });

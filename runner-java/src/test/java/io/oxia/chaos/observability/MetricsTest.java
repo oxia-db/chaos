@@ -35,7 +35,7 @@ class MetricsTest {
     final OpenTelemetrySdk openTelemetry =
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
     try (provider;
-        final Metrics metrics = new Metrics(openTelemetry, "basic-kv", () -> 0)) {
+        final Metrics metrics = new Metrics(openTelemetry, "basic-kv")) {
       metrics.recordOperation("put", "success", 0.006);
       metrics.recordCheckpoint("periodic", "success", 0.25);
 

@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.inference;
+package io.oxia.chaos.testcase.versioning;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.oxia.chaos.error.CorrectnessViolationException;
-import io.oxia.chaos.inference.VersionModel.Attempt;
-import io.oxia.chaos.inference.VersionModel.Kind;
-import io.oxia.chaos.inference.VersionModel.Observed;
-import io.oxia.chaos.inference.VersionModel.RecordVersion;
+import io.oxia.chaos.testcase.versioning.VersionModel.Attempt;
+import io.oxia.chaos.testcase.versioning.VersionModel.Kind;
+import io.oxia.chaos.testcase.versioning.VersionModel.Observed;
+import io.oxia.chaos.testcase.versioning.VersionModel.RecordVersion;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

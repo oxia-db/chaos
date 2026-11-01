@@ -19,10 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.inference.InferenceStore;
-import io.oxia.chaos.inference.MemoryInferenceStore;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.BatchType;
+import io.oxia.chaos.testcase.CaseContext;
+import io.oxia.chaos.testcase.TestCaseRunner;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.testcontainers.OxiaContainer;
@@ -46,7 +46,7 @@ class BasicKvE2ETest {
 
   @Test
   void runsBasicKvAgainstThreeShardOxiaAndCleansUpItsKeys() throws Exception {
-    assertThat(BasicKv.selectBatch(new SplittableRandom(SEED).nextDouble(BasicKv.TOTAL_WEIGHT)))
+    assertThat(BasicKv.selectBatch(new SplittableRandom(SEED).nextDouble(Constants.TOTAL_WEIGHT)))
         .isEqualTo(BatchType.DELETE_RANGE);
 
     final String runId = "testcontainers-e2e";
@@ -61,17 +61,16 @@ class BasicKvE2ETest {
             100,
             Duration.ofMillis(500),
             SEED);
-    final InferenceStore inference = new MemoryInferenceStore();
     final OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
-    try (final Metrics metrics = new Metrics(openTelemetry, Options.BASIC_KV, inference::size);
+    try (final Metrics metrics = new Metrics(openTelemetry, Options.BASIC_KV);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
-      new BasicKv(options, runId, client, openTelemetry, inference, metrics, Duration.ofSeconds(30))
-          .run();
+      final CaseContext context =
+          new CaseContext(options, runId, client, openTelemetry, metrics, Duration.ofSeconds(30));
+      TestCaseRunner.run(new BasicKv(context), context);
 
       final String runPrefix = "/oxia-chaos/runs/" + runId + "/keys/key-";
-      assertThat(inference.size()).isZero();
       assertThat(client.list(runPrefix, runPrefix + "zz")).isEmpty();
     }
   }

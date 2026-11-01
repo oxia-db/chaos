@@ -48,7 +48,10 @@ dependencies {
     runtimeOnly("io.opentelemetry:opentelemetry-exporter-prometheus")
     runtimeOnly("org.slf4j:slf4j-simple:2.0.16")
 
+    compileOnly("org.projectlombok:lombok:1.18.48")
+
     annotationProcessor("info.picocli:picocli-codegen:4.7.7")
+    annotationProcessor("org.projectlombok:lombok:1.18.48")
 
     testImplementation(platform("org.junit:junit-bom:5.11.3"))
     testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))

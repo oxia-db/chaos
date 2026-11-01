@@ -21,7 +21,6 @@ import static io.oxia.chaos.testcase.ephemeral.Ephemeral.DrainVerdict.LEAKED;
 import static io.oxia.chaos.testcase.ephemeral.Ephemeral.DrainVerdict.WAITING;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.oxia.chaos.inference.EphemeralRecord;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnedValue;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnedVersion;

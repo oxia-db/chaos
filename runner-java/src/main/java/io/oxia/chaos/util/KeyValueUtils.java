@@ -15,7 +15,6 @@
  */
 package io.oxia.chaos.util;
 
-import io.oxia.chaos.inference.KeyValue;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;

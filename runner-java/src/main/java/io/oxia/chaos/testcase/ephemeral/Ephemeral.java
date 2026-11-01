@@ -29,8 +29,6 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
-import io.oxia.chaos.inference.EphemeralModel;
-import io.oxia.chaos.inference.EphemeralRecord;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
@@ -58,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SplittableRandom;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -130,7 +129,6 @@ public final class Ephemeral {
   private final String runId;
   private final String namespace;
   private final SyncOxiaClient observer;
-  private final EphemeralModel model;
   private final Metrics metrics;
   private final Tracer tracer;
   private final CaseTelemetry telemetry;
@@ -140,6 +138,9 @@ public final class Ephemeral {
   private final Timeout<Object> observerAttemptTimeout;
   private final ValueGenerator valueGenerator;
   private final List<Slot> slots;
+  // The records live owners must hold, by key.
+  private final ConcurrentSkipListMap<String, EphemeralRecord> reference =
+      new ConcurrentSkipListMap<>();
 
   private boolean finishing;
   private boolean faulted;
@@ -154,7 +155,6 @@ public final class Ephemeral {
       final String namespace,
       final SyncOxiaClient observer,
       final OpenTelemetry openTelemetry,
-      final EphemeralModel model,
       final Metrics metrics,
       final Duration retryTimeout,
       final Settings settings) {
@@ -162,8 +162,8 @@ public final class Ephemeral {
     this.runId = runId;
     this.namespace = namespace;
     this.observer = observer;
-    this.model = model;
     this.metrics = metrics;
+    metrics.observeReferenceKeys(reference::size);
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.telemetry = new CaseTelemetry(tracer, metrics, Options.EPHEMERAL);
     this.settings = settings;
@@ -320,7 +320,7 @@ public final class Ephemeral {
               key,
               () -> {
                 ownerCall(() -> slot.owner.delete(key));
-                model.delete(key);
+                reference.remove(key);
               });
       default -> throw new IllegalStateException("unreachable operation: " + operation);
     }
@@ -328,7 +328,8 @@ public final class Ephemeral {
 
   private void putOwned(final Slot slot, final String key, final byte[] value) {
     final OwnedVersion version = ownerCall(() -> slot.owner.put(key, value));
-    model.put(new EphemeralRecord(key, value, slot.owner.clientIdentifier(), owned(key, version)));
+    reference.put(
+        key, new EphemeralRecord(key, value, slot.owner.clientIdentifier(), owned(key, version)));
   }
 
   private long owned(final String key, final OwnedVersion version) {
@@ -339,9 +340,11 @@ public final class Ephemeral {
     return version.sessionId().get();
   }
 
-  /** Compares an observed record with the model, probing the owner when the record is missing. */
+  /**
+   * Compares an observed record with the reference, probing the owner when the record is missing.
+   */
   private void verify(final Slot slot, final String key, final Optional<OwnedValue> actual) {
-    final Optional<EphemeralRecord> expected = model.get(key);
+    final Optional<EphemeralRecord> expected = Optional.ofNullable(reference.get(key));
     if (expected.isEmpty()) {
       if (actual.isPresent()) {
         throw CorrectnessViolationException.operationMismatch(
@@ -378,7 +381,7 @@ public final class Ephemeral {
         .addKeyValue("previous_session", expected.sessionId())
         .addKeyValue("current_session", current)
         .log("ephemeral owner session was replaced");
-    model.put(expected.withSessionId(current));
+    reference.put(expected.key(), expected.withSessionId(current));
   }
 
   private void checkpoint(final Checkpoint checkpoint) {
@@ -408,7 +411,8 @@ public final class Ephemeral {
   /** Verifies every record of a live owner's slice and returns how many are expected. */
   private int verifySlot(final Slot slot) {
     final Map<String, OwnedValue> present = scan(slot);
-    final List<EphemeralRecord> expected = model.range(slot.prefix, slot.end());
+    final List<EphemeralRecord> expected =
+        List.copyOf(reference.subMap(slot.prefix, slot.end()).values());
     for (final EphemeralRecord record : expected) {
       verify(slot, record.key(), Optional.ofNullable(present.remove(record.key())));
     }
@@ -422,10 +426,9 @@ public final class Ephemeral {
   /** Ends an owner and starts tracking how its records disappear. */
   private void endOwner(final Slot slot, final Operation mode) throws InterruptedException {
     verifySlot(slot);
-    final Map<String, EphemeralRecord> expected = new LinkedHashMap<>();
-    for (final EphemeralRecord record : model.removeRange(slot.prefix, slot.end())) {
-      expected.put(record.key(), record);
-    }
+    final Map<String, EphemeralRecord> expected =
+        new LinkedHashMap<>(reference.subMap(slot.prefix, slot.end()));
+    reference.subMap(slot.prefix, slot.end()).clear();
     final String owner = slot.owner.clientIdentifier();
     final long ended;
     if (mode == Operation.OWNER_CRASH) {
@@ -480,10 +483,9 @@ public final class Ephemeral {
             .findFirst()
             .orElseThrow(() -> error);
     noteFault();
-    final Map<String, EphemeralRecord> expected = new LinkedHashMap<>();
-    for (final EphemeralRecord record : model.removeRange(slot.prefix, slot.end())) {
-      expected.put(record.key(), record);
-    }
+    final Map<String, EphemeralRecord> expected =
+        new LinkedHashMap<>(reference.subMap(slot.prefix, slot.end()));
+    reference.subMap(slot.prefix, slot.end()).clear();
     slot.owner.close();
     slot.owner = null;
     slot.drain =
@@ -664,7 +666,7 @@ public final class Ephemeral {
     for (final Slot slot : slots) {
       observerCall(() -> observer.deleteRange(slot.prefix, slot.end()));
     }
-    model.clear();
+    reference.clear();
     LOGGER.atInfo().addKeyValue("run_id", runId).log("ephemeral cleanup completed");
   }
 

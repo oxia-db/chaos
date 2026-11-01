@@ -23,7 +23,6 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.inference.VersionModel;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -58,7 +57,6 @@ class VersioningE2ETest {
             50,
             Duration.ofSeconds(2),
             307L);
-    final VersionModel model = new VersionModel();
     final InMemoryMetricReader reader = InMemoryMetricReader.create();
     final SdkMeterProvider provider =
         SdkMeterProvider.builder().registerMetricReader(reader).build();
@@ -66,11 +64,10 @@ class VersioningE2ETest {
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
 
     try (provider;
-        final Metrics metrics = new Metrics(openTelemetry, Options.VERSIONING, model::size);
+        final Metrics metrics = new Metrics(openTelemetry, Options.VERSIONING);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
-      new Versioning(options, runId, client, openTelemetry, model, metrics, Duration.ofSeconds(30))
-          .run();
+      new Versioning(options, runId, client, openTelemetry, metrics, Duration.ofSeconds(30)).run();
 
       final Collection<MetricData> collected = reader.collectAllMetrics();
       for (final String operation :

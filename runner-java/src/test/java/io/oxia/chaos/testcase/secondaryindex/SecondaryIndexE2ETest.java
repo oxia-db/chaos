@@ -23,7 +23,6 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.inference.SecondaryIndexModel;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -62,7 +61,6 @@ class SecondaryIndexE2ETest {
             100,
             Duration.ofSeconds(2),
             307L);
-    final SecondaryIndexModel model = new SecondaryIndexModel();
     final InMemoryMetricReader reader = InMemoryMetricReader.create();
     final SdkMeterProvider provider =
         SdkMeterProvider.builder().registerMetricReader(reader).build();
@@ -70,11 +68,10 @@ class SecondaryIndexE2ETest {
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
 
     try (provider;
-        final Metrics metrics = new Metrics(openTelemetry, Options.SECONDARY_INDEX, model::size);
+        final Metrics metrics = new Metrics(openTelemetry, Options.SECONDARY_INDEX);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
-      new SecondaryIndex(
-              options, runId, client, openTelemetry, model, metrics, Duration.ofSeconds(30))
+      new SecondaryIndex(options, runId, client, openTelemetry, metrics, Duration.ofSeconds(30))
           .run();
 
       final Collection<MetricData> collected = reader.collectAllMetrics();
@@ -82,7 +79,6 @@ class SecondaryIndexE2ETest {
           new String[] {"put", "delete", "index-get", "index-range-scan"}) {
         assertThat(successes(collected, operation)).as(operation).isPositive();
       }
-      assertThat(model.size()).isZero();
       final String secondaryPrefix = "oxia-chaos-" + runId + "-";
       for (final String indexName : SecondaryIndex.INDEXES) {
         assertThat(

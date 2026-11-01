@@ -23,7 +23,6 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.inference.EphemeralModel;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -64,7 +63,6 @@ class EphemeralE2ETest {
             Duration.ofSeconds(5),
             Duration.ofSeconds(4),
             Duration.ofSeconds(5));
-    final EphemeralModel model = new EphemeralModel();
     final InMemoryMetricReader reader = InMemoryMetricReader.create();
     final SdkMeterProvider provider =
         SdkMeterProvider.builder().registerMetricReader(reader).build();
@@ -72,7 +70,7 @@ class EphemeralE2ETest {
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
 
     try (provider;
-        final Metrics metrics = new Metrics(openTelemetry, Options.EPHEMERAL, model::size);
+        final Metrics metrics = new Metrics(openTelemetry, Options.EPHEMERAL);
         final SyncOxiaClient observer =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
       new Ephemeral(
@@ -81,7 +79,6 @@ class EphemeralE2ETest {
               "default",
               observer,
               openTelemetry,
-              model,
               metrics,
               Duration.ofSeconds(30),
               settings)
@@ -91,7 +88,6 @@ class EphemeralE2ETest {
       assertThat(successes(collected, "owner-crash")).isPositive();
       assertThat(successes(collected, "owner-close")).isPositive();
       assertThat(successes(collected, "ephemeral-put")).isPositive();
-      assertThat(model.size()).isZero();
       for (final String slot : new String[] {"a", "b"}) {
         final String prefix = "/oxia-chaos/runs/" + runId + "/ephemeral/" + slot + "/key-";
         assertThat(observer.list(prefix, prefix + "~")).isEmpty();

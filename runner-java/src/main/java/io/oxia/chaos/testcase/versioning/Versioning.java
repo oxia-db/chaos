@@ -29,14 +29,13 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
-import io.oxia.chaos.inference.VersionModel;
-import io.oxia.chaos.inference.VersionModel.Kind;
-import io.oxia.chaos.inference.VersionModel.Observed;
-import io.oxia.chaos.inference.VersionModel.RecordVersion;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.testcase.versioning.VersionModel.Kind;
+import io.oxia.chaos.testcase.versioning.VersionModel.Observed;
+import io.oxia.chaos.testcase.versioning.VersionModel.RecordVersion;
 import io.oxia.chaos.util.BatchUtils;
 import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.RatePacer;
@@ -92,7 +91,7 @@ public final class Versioning {
   private final Options options;
   private final String runId;
   private final SyncOxiaClient client;
-  private final VersionModel model;
+  private final VersionModel model = new VersionModel();
   private final Metrics metrics;
   private final Tracer tracer;
   private final CaseTelemetry telemetry;
@@ -108,13 +107,12 @@ public final class Versioning {
       final String runId,
       final SyncOxiaClient client,
       final OpenTelemetry openTelemetry,
-      final VersionModel model,
       final Metrics metrics,
       final Duration retryTimeout) {
     this.options = options;
     this.runId = runId;
     this.client = client;
-    this.model = model;
+    metrics.observeReferenceKeys(model::size);
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.telemetry = new CaseTelemetry(tracer, metrics, Options.VERSIONING);

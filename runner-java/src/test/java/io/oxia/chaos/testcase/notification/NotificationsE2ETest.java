@@ -23,8 +23,6 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.inference.InferenceStore;
-import io.oxia.chaos.inference.MemoryInferenceStore;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -63,7 +61,6 @@ class NotificationsE2ETest {
             20,
             Duration.ofSeconds(1),
             211L);
-    final InferenceStore inference = new MemoryInferenceStore();
     final InMemoryMetricReader reader = InMemoryMetricReader.create();
     final SdkMeterProvider provider =
         SdkMeterProvider.builder().registerMetricReader(reader).build();
@@ -71,11 +68,10 @@ class NotificationsE2ETest {
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
 
     try (provider;
-        final Metrics metrics = new Metrics(openTelemetry, Options.NOTIFICATION, inference::size);
+        final Metrics metrics = new Metrics(openTelemetry, Options.NOTIFICATION);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
-      new Notifications(
-              options, runId, client, openTelemetry, inference, metrics, Duration.ofSeconds(30))
+      new Notifications(options, runId, client, openTelemetry, metrics, Duration.ofSeconds(30))
           .run();
 
       final Collection<MetricData> collected = reader.collectAllMetrics();
@@ -85,7 +81,6 @@ class NotificationsE2ETest {
       assertThat(successes(collected, KIND, "periodic")).isPositive();
       assertThat(successes(collected, KIND, "final")).isOne();
       final String prefix = "/oxia-chaos/runs/" + runId + "/notification/key-";
-      assertThat(inference.size()).isZero();
       assertThat(client.list(prefix, prefix + "~")).isEmpty();
     }
   }

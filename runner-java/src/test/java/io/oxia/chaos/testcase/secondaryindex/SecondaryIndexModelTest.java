@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.inference;
+package io.oxia.chaos.testcase.secondaryindex;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.oxia.chaos.inference.SecondaryIndexModel.IndexedRecord;
+import io.oxia.chaos.testcase.secondaryindex.SecondaryIndexModel.IndexedRecord;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;

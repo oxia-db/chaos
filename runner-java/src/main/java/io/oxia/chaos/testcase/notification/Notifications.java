@@ -30,14 +30,12 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
-import io.oxia.chaos.inference.InferenceStore;
-import io.oxia.chaos.inference.KeyValue;
-import io.oxia.chaos.inference.NotificationChecker;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.ExceptionUtils;
+import io.oxia.chaos.util.KeyValue;
 import io.oxia.chaos.util.RatePacer;
 import io.oxia.chaos.util.RetryUtils;
 import io.oxia.chaos.util.SummaryUtils;
@@ -58,6 +56,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -95,7 +94,6 @@ public final class Notifications {
   private final Options options;
   private final String runId;
   private final SyncOxiaClient client;
-  private final InferenceStore inference;
   private final Metrics metrics;
   private final Tracer tracer;
   private final CaseTelemetry telemetry;
@@ -106,6 +104,8 @@ public final class Notifications {
   private final String prefix;
   private final List<String> keys;
   private final NotificationChecker checker;
+  // What Oxia must hold: every acknowledged write applied in order.
+  private final ConcurrentSkipListMap<String, byte[]> reference = new ConcurrentSkipListMap<>();
 
   private volatile long lastFaultNanos;
   private volatile boolean faulted;
@@ -118,14 +118,13 @@ public final class Notifications {
       final String runId,
       final SyncOxiaClient client,
       final OpenTelemetry openTelemetry,
-      final InferenceStore inference,
       final Metrics metrics,
       final Duration retryTimeout) {
     this.options = options;
     this.runId = runId;
     this.client = client;
-    this.inference = inference;
     this.metrics = metrics;
+    metrics.observeReferenceKeys(reference::size);
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.telemetry = new CaseTelemetry(tracer, metrics, Options.NOTIFICATION);
     // Notifications of acknowledged writes must arrive within the window a write may retry in
@@ -181,7 +180,7 @@ public final class Notifications {
       try {
         final String end = prefix + "~";
         Failsafe.with(retryPolicy, attemptTimeout).run(() -> client.deleteRange(prefix, end));
-        inference.deleteRange(prefix, end);
+        reference.clear();
       } catch (final RuntimeException cleanupError) {
         if (failure != null) {
           ExceptionUtils.addSuppressedIfDistinct(failure, cleanupError);
@@ -221,7 +220,7 @@ public final class Notifications {
               .version()
               .versionId());
       putAt.put(key, System.nanoTime());
-      inference.put(key, value);
+      reference.put(key, value);
     }
     // The initial puts of many keys can take long under faults: only waiting for them is bounded
     final long deadline = addSaturated(System.nanoTime(), deliveryTimeout.toNanos());
@@ -290,7 +289,7 @@ public final class Notifications {
               return null;
             });
         checker.rangeDeleted(start, end);
-        inference.deleteRange(start, end);
+        reference.subMap(start, end).clear();
         rangeCount++;
         operationCount++;
       } else {
@@ -320,7 +319,7 @@ public final class Notifications {
                         put.result().version().versionId(),
                         put.result().version().modificationsCount(),
                         put.attempts());
-                    inference.put(key, value);
+                    reference.put(key, value);
                   };
                 });
           } else {
@@ -330,7 +329,7 @@ public final class Notifications {
                       observe(Operation.DELETE, key, () -> client.delete(key));
                   return () -> {
                     checker.delete(key, delete.result(), delete.attempts());
-                    inference.delete(key);
+                    reference.remove(key);
                   };
                 });
           }
@@ -407,7 +406,10 @@ public final class Notifications {
                     }
                     return scanned;
                   });
-      final List<KeyValue> expected = inference.range(prefix, end);
+      final List<KeyValue> expected =
+          reference.subMap(prefix, end).entrySet().stream()
+              .map(entry -> new KeyValue(entry.getKey(), entry.getValue()))
+              .toList();
       if (expected.size() != actual.size()) {
         throw CorrectnessViolationException.checkpointMismatch(
             SummaryUtils.summarize(expected.stream().map(KeyValue::key).sorted().toList()),

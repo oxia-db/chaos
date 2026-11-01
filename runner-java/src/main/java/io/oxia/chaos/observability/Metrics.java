@@ -41,11 +41,9 @@ public final class Metrics implements AutoCloseable {
   private final LongCounter safetyViolations;
   private final LongCounter sessionReplacements;
   private final ObservableLongGauge referenceKeys;
+  private volatile LongSupplier referenceKeyCount = () -> 0;
 
-  public Metrics(
-      final OpenTelemetry openTelemetry,
-      final String caseName,
-      final LongSupplier referenceKeyCount) {
+  public Metrics(final OpenTelemetry openTelemetry, final String caseName) {
     caseAttributes = Attributes.builder().put("case", caseName).build();
     final var meter = openTelemetry.getMeter(INSTRUMENTATION_SCOPE);
     operations =
@@ -90,11 +88,16 @@ public final class Metrics implements AutoCloseable {
         meter
             .gaugeBuilder("oxia.chaos.reference.keys")
             .ofLongs()
-            .setDescription("Keys currently held by the inference store")
+            .setDescription("Keys currently held by the case's reference state")
             .setUnit("{key}")
             .buildWithCallback(
                 (final var measurement) ->
                     measurement.record(referenceKeyCount.getAsLong(), caseAttributes));
+  }
+
+  /** Reports the size of the reference state the case checks Oxia against. */
+  public void observeReferenceKeys(final LongSupplier count) {
+    referenceKeyCount = count;
   }
 
   public void recordOperation(

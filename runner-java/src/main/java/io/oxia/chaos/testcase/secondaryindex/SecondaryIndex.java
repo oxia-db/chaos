@@ -29,17 +29,16 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
-import io.oxia.chaos.inference.KeyValue;
-import io.oxia.chaos.inference.SecondaryIndexModel;
-import io.oxia.chaos.inference.SecondaryIndexModel.IndexedRecord;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.testcase.secondaryindex.SecondaryIndexModel.IndexedRecord;
 import io.oxia.chaos.util.BatchUtils;
 import io.oxia.chaos.util.DeleteUtils;
 import io.oxia.chaos.util.ExceptionUtils;
+import io.oxia.chaos.util.KeyValue;
 import io.oxia.chaos.util.RangeUtils;
 import io.oxia.chaos.util.RatePacer;
 import io.oxia.chaos.util.RetryUtils;
@@ -106,7 +105,7 @@ public final class SecondaryIndex {
   private final Options options;
   private final String runId;
   private final SyncOxiaClient client;
-  private final SecondaryIndexModel model;
+  private final SecondaryIndexModel model = new SecondaryIndexModel();
   private final Metrics metrics;
   private final Tracer tracer;
   private final CaseTelemetry telemetry;
@@ -126,13 +125,12 @@ public final class SecondaryIndex {
       final String runId,
       final SyncOxiaClient client,
       final OpenTelemetry openTelemetry,
-      final SecondaryIndexModel model,
       final Metrics metrics,
       final Duration retryTimeout) {
     this.options = options;
     this.runId = runId;
     this.client = client;
-    this.model = model;
+    metrics.observeReferenceKeys(model::size);
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.telemetry = new CaseTelemetry(tracer, metrics, Options.SECONDARY_INDEX);

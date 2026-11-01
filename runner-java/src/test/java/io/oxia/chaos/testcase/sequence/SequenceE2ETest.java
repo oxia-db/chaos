@@ -23,7 +23,6 @@ import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.inference.SequenceModel;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
@@ -68,7 +67,6 @@ class SequenceE2ETest {
             100,
             Duration.ofSeconds(2),
             211L);
-    final SequenceModel model = new SequenceModel();
     final InMemoryMetricReader reader = InMemoryMetricReader.create();
     final SdkMeterProvider provider =
         SdkMeterProvider.builder().registerMetricReader(reader).build();
@@ -76,17 +74,15 @@ class SequenceE2ETest {
         OpenTelemetrySdk.builder().setMeterProvider(provider).build();
 
     try (provider;
-        final Metrics metrics = new Metrics(openTelemetry, Options.SEQUENCE, model::size);
+        final Metrics metrics = new Metrics(openTelemetry, Options.SEQUENCE);
         final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
-      new Sequence(options, runId, client, openTelemetry, model, metrics, Duration.ofSeconds(30))
-          .run();
+      new Sequence(options, runId, client, openTelemetry, metrics, Duration.ofSeconds(30)).run();
 
       final Collection<MetricData> collected = reader.collectAllMetrics();
       assertThat(successes(collected, "sequence-put")).isPositive();
       assertThat(successes(collected, "get")).isPositive();
       assertThat(successes(collected, "delete")).isPositive();
-      assertThat(model.size()).isZero();
       final String runPrefix = "/oxia-chaos/runs/" + runId + "/sequence/";
       assertThat(client.list(runPrefix, runPrefix + "~")).isEmpty();
     }

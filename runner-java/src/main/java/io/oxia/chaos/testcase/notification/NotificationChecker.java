@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.inference;
+package io.oxia.chaos.testcase.notification;
 
 import io.oxia.chaos.error.CorrectnessViolationException;
 import io.oxia.client.api.Notification;

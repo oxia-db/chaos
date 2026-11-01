@@ -15,13 +15,22 @@
  */
 package io.oxia.chaos.testcase.basickv;
 
+import static io.oxia.chaos.testcase.basickv.Constants.CEILING_THRESHOLD;
+import static io.oxia.chaos.testcase.basickv.Constants.DELETE_RANGE_THRESHOLD;
+import static io.oxia.chaos.testcase.basickv.Constants.DELETE_THRESHOLD;
+import static io.oxia.chaos.testcase.basickv.Constants.FLOOR_THRESHOLD;
+import static io.oxia.chaos.testcase.basickv.Constants.GET_THRESHOLD;
+import static io.oxia.chaos.testcase.basickv.Constants.HIGHER_THRESHOLD;
+import static io.oxia.chaos.testcase.basickv.Constants.LOWER_THRESHOLD;
+import static io.oxia.chaos.testcase.basickv.Constants.OPERATION_ATTEMPT_TIMEOUT;
+import static io.oxia.chaos.testcase.basickv.Constants.PUT_THRESHOLD;
+import static io.oxia.chaos.testcase.basickv.Constants.TOTAL_WEIGHT;
 import static io.oxia.chaos.util.KeyValueUtils.sortedByKey;
 import static io.oxia.chaos.util.Timing.addSaturated;
 import static io.oxia.chaos.util.Timing.elapsedMillis;
 
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -29,18 +38,17 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.CorrectnessViolationException;
-import io.oxia.chaos.inference.InferenceStore;
-import io.oxia.chaos.inference.KeyValue;
 import io.oxia.chaos.observability.CaseTelemetry;
-import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.testcase.CaseContext;
+import io.oxia.chaos.testcase.TestCase;
 import io.oxia.chaos.util.BatchUtils;
 import io.oxia.chaos.util.DeleteUtils;
-import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.GuardUtils;
 import io.oxia.chaos.util.KeyGenerator;
+import io.oxia.chaos.util.KeyValue;
 import io.oxia.chaos.util.RangeUtils;
 import io.oxia.chaos.util.RatePacer;
 import io.oxia.chaos.util.RetryUtils;
@@ -50,132 +58,68 @@ import io.oxia.client.api.CloseableIterable;
 import io.oxia.client.api.GetResult;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.client.api.options.GetOption;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /** The basic key/value correctness case, including its fixed operation distribution. */
-public final class BasicKv {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(BasicKv.class);
-  private static final String INSTRUMENTATION_SCOPE = "io.oxia.chaos.basic-kv";
-  private static final Duration OPERATION_ATTEMPT_TIMEOUT = Duration.ofSeconds(10);
-  private static final double PUT_THRESHOLD = 0.20;
-  private static final double GET_THRESHOLD = PUT_THRESHOLD + 0.15;
-  private static final double FLOOR_THRESHOLD = GET_THRESHOLD + 0.05;
-  private static final double CEILING_THRESHOLD = FLOOR_THRESHOLD + 0.05;
-  private static final double LOWER_THRESHOLD = CEILING_THRESHOLD + 0.05;
-  private static final double HIGHER_THRESHOLD = LOWER_THRESHOLD + 0.05;
-  private static final double DELETE_THRESHOLD = HIGHER_THRESHOLD + 0.08;
-  private static final double DELETE_RANGE_THRESHOLD = DELETE_THRESHOLD + 0.0025;
-  static final double TOTAL_WEIGHT = DELETE_RANGE_THRESHOLD + 0.05;
+@Slf4j
+public final class BasicKv implements TestCase {
 
   private final Options options;
   private final String runId;
   private final SyncOxiaClient client;
-  private final InferenceStore inference;
-  private final Metrics metrics;
   private final Tracer tracer;
   private final CaseTelemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
   private final KeyGenerator keyGenerator;
   private final ValueGenerator valueGenerator;
+  // What Oxia must hold: every acknowledged write applied in order.
+  private final ConcurrentSkipListMap<String, byte[]> reference = new ConcurrentSkipListMap<>();
 
   private long operationCount;
   private long checkpointCount;
 
-  public BasicKv(
-      final Options options,
-      final String runId,
-      final SyncOxiaClient client,
-      final OpenTelemetry openTelemetry,
-      final InferenceStore inference,
-      final Metrics metrics,
-      final Duration retryTimeout) {
-    this.options = options;
-    this.runId = runId;
-    this.client = client;
-    this.inference = inference;
-    this.metrics = metrics;
-    this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
-    this.telemetry = new CaseTelemetry(tracer, metrics, Options.BASIC_KV);
-    this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
-    this.attemptTimeout = RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, retryTimeout);
+  public BasicKv(final CaseContext context) {
+    this.options = context.options();
+    this.runId = context.runId();
+    this.client = context.client();
+    this.tracer = context.tracer(Options.BASIC_KV);
+    this.telemetry = new CaseTelemetry(tracer, context.metrics(), Options.BASIC_KV);
+    this.retryPolicy = RetryUtils.retryPolicy(context.retryTimeout());
+    this.attemptTimeout =
+        RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, context.retryTimeout());
     this.keyGenerator = new KeyGenerator(runId);
     this.valueGenerator = new ValueGenerator(options.seed());
+    context.metrics().observeReferenceKeys(reference::size);
   }
 
-  /** Runs warmup, the timed workload, a final checkpoint, and mandatory cleanup. */
-  public void run() throws InterruptedException {
-    final Span runSpan =
-        tracer
-            .spanBuilder("basic-kv.run")
-            .setAttribute("test.case", Options.BASIC_KV)
-            .setAttribute("test.run_id", runId)
-            .setAttribute("test.seed", options.seed())
-            .setAttribute("test.key_count", options.keyCount())
-            .startSpan();
-
-    Throwable failure = null;
-    try (final Scope ignored = runSpan.makeCurrent()) {
-      warmup();
-      executeWorkload();
-      checkpoint(Checkpoint.FINAL);
-      runSpan.setStatus(StatusCode.OK);
-    } catch (final CorrectnessViolationException error) {
-      failure = error;
-      metrics.recordSafetyViolation();
-      runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
-      throw error;
-    } catch (final InterruptedException error) {
-      failure = error;
-      runSpan.recordException(error).setStatus(StatusCode.ERROR, "interrupted");
-      throw error;
-    } catch (final RuntimeException error) {
-      failure = error;
-      runSpan.recordException(error).setStatus(StatusCode.ERROR, "execution failure");
-      throw error;
-    } finally {
-      try {
-        cleanup();
-      } catch (final RuntimeException cleanupError) {
-        if (failure != null) {
-          ExceptionUtils.addSuppressedIfDistinct(failure, cleanupError);
-        } else {
-          throw cleanupError;
-        }
-      } finally {
-        runSpan.end();
-      }
-    }
-
-    LOGGER
-        .atInfo()
-        .addKeyValue("run_id", runId)
-        .addKeyValue("operations", operationCount)
-        .addKeyValue("checkpoints", checkpointCount)
-        .log("basic-kv completed");
+  @Override
+  public String name() {
+    return Options.BASIC_KV;
   }
 
-  private void warmup() {
+  /** Writes the guards and every key. */
+  @Override
+  public void bootstrap() {
     final Span span = tracer.spanBuilder("basic-kv.warmup").setNoParent().startSpan();
     final long started = System.nanoTime();
     try (final Scope ignored = Context.root().makeCurrent()) {
       runWithRetry(
           () ->
               GuardUtils.putReferenceGuard(
-                  client, inference, keyGenerator.lowerGuardKey(), "lower"));
+                  client, reference, keyGenerator.lowerGuardKey(), "lower"));
       for (int index = 0; index < options.keyCount(); index++) {
         final int keyIndex = index;
         final String key = keyGenerator.key(keyIndex);
@@ -183,13 +127,13 @@ public final class BasicKv {
         runWithRetry(
             () -> {
               client.put(key, value);
-              inference.put(key, value);
+              reference.put(key, value);
             });
       }
       runWithRetry(
           () ->
               GuardUtils.putReferenceGuard(
-                  client, inference, keyGenerator.upperGuardKey(), "upper"));
+                  client, reference, keyGenerator.upperGuardKey(), "upper"));
       span.setAttribute("test.keys", options.keyCount()).setStatus(StatusCode.OK);
       LOGGER
           .atInfo()
@@ -205,7 +149,8 @@ public final class BasicKv {
     }
   }
 
-  private void executeWorkload() throws InterruptedException {
+  @Override
+  public void execute() throws InterruptedException {
     final long started = System.nanoTime();
     final long deadline = addSaturated(started, options.duration().toNanos());
     long nextCheckpoint = addSaturated(started, options.checkpointInterval().toNanos());
@@ -222,7 +167,7 @@ public final class BasicKv {
                 ? Math.min(options.batchSize(), options.keyCount())
                 : options.batchSize();
         final List<Callable<Void>> operations = new ArrayList<>(maximumBatchSize);
-        final List<Runnable> inferenceUpdates = new ArrayList<>(maximumBatchSize);
+        final List<Runnable> referenceUpdates = new ArrayList<>(maximumBatchSize);
         final Set<Integer> writeKeys = new HashSet<>(maximumBatchSize);
         int generated = 0;
         while (generated < maximumBatchSize && System.nanoTime() < deadline) {
@@ -231,13 +176,13 @@ public final class BasicKv {
             break;
           }
           final long sequence = operationCount + generated;
-          addNextOperation(batchType, random, sequence, writeKeys, operations, inferenceUpdates);
+          addNextOperation(batchType, random, sequence, writeKeys, operations, referenceUpdates);
           generated++;
         }
 
         BatchUtils.executeConcurrentBatch(executor, operations);
-        for (final Runnable inferenceUpdate : inferenceUpdates) {
-          inferenceUpdate.run();
+        for (final Runnable referenceUpdate : referenceUpdates) {
+          referenceUpdate.run();
         }
         operationCount += generated;
 
@@ -256,11 +201,11 @@ public final class BasicKv {
       final long sequence,
       final Set<Integer> writeKeys,
       final List<Callable<Void>> operations,
-      final List<Runnable> inferenceUpdates) {
+      final List<Runnable> referenceUpdates) {
     switch (batchType) {
-      case WRITE -> addWriteOperation(random, sequence, writeKeys, operations, inferenceUpdates);
+      case WRITE -> addWriteOperation(random, sequence, writeKeys, operations, referenceUpdates);
       case READ -> addReadOperation(random, operations);
-      case DELETE_RANGE -> addDeleteRangeOperation(random, operations, inferenceUpdates);
+      case DELETE_RANGE -> addDeleteRangeOperation(random, operations, referenceUpdates);
       default -> throw new IllegalStateException("unreachable batch type: " + batchType);
     }
   }
@@ -270,7 +215,7 @@ public final class BasicKv {
       final long sequence,
       final Set<Integer> writeKeys,
       final List<Callable<Void>> operations,
-      final List<Runnable> inferenceUpdates) {
+      final List<Runnable> referenceUpdates) {
     final Operation operation = selectOperationForBatch(BatchType.WRITE, random);
     final int index = nextUniqueWriteIndex(random, writeKeys);
     final String key = keyGenerator.key(index);
@@ -283,17 +228,17 @@ public final class BasicKv {
               observe(operation, key, () -> client.put(key, value));
               return null;
             });
-        inferenceUpdates.add(() -> inference.put(key, value));
+        referenceUpdates.add(() -> reference.put(key, value));
       }
       case DELETE -> {
-        final boolean expected = inference.get(key).isPresent();
+        final boolean expected = reference.containsKey(key);
         operations.add(
             () -> {
               final AtomicBoolean attempted = new AtomicBoolean();
               observe(operation, key, () -> verifyDelete(operation, key, expected, attempted));
               return null;
             });
-        inferenceUpdates.add(() -> inference.delete(key));
+        referenceUpdates.add(() -> reference.remove(key));
       }
       default -> throw new IllegalStateException("unreachable write operation: " + operation);
     }
@@ -334,7 +279,7 @@ public final class BasicKv {
   private void addDeleteRangeOperation(
       final SplittableRandom random,
       final List<Callable<Void>> operations,
-      final List<Runnable> inferenceUpdates) {
+      final List<Runnable> referenceUpdates) {
     final int index = random.nextInt(options.keyCount());
     final String key = keyGenerator.key(index);
     final String endKey = keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
@@ -343,7 +288,7 @@ public final class BasicKv {
           observe(Operation.DELETE_RANGE, key, () -> client.deleteRange(key, endKey));
           return null;
         });
-    inferenceUpdates.add(() -> inference.deleteRange(key, endKey));
+    referenceUpdates.add(() -> reference.subMap(key, endKey).clear());
   }
 
   private int nextUniqueWriteIndex(final SplittableRandom random, final Set<Integer> writeKeys) {
@@ -381,13 +326,19 @@ public final class BasicKv {
 
   private Optional<KeyValue> expectedGet(final Operation operation, final String key) {
     return switch (operation) {
-      case GET -> inference.get(key);
-      case FLOOR -> inference.floor(key);
-      case CEILING -> inference.ceiling(key);
-      case LOWER -> inference.lower(key);
-      case HIGHER -> inference.higher(key);
+      case GET -> Optional.ofNullable(reference.get(key)).map(value -> new KeyValue(key, value));
+      case FLOOR -> keyValue(reference.floorEntry(key));
+      case CEILING -> keyValue(reference.ceilingEntry(key));
+      case LOWER -> keyValue(reference.lowerEntry(key));
+      case HIGHER -> keyValue(reference.higherEntry(key));
       default -> throw new IllegalArgumentException("not a get operation: " + operation);
     };
+  }
+
+  private static Optional<KeyValue> keyValue(final Map.Entry<String, byte[]> entry) {
+    return entry == null
+        ? Optional.empty()
+        : Optional.of(new KeyValue(entry.getKey(), entry.getValue()));
   }
 
   private void verifyDelete(
@@ -400,7 +351,10 @@ public final class BasicKv {
   }
 
   private void verifyRangeScan(final Operation operation, final String key, final String endKey) {
-    final List<KeyValue> expected = sortedByKey(inference.range(key, endKey));
+    final List<KeyValue> expected =
+        reference.subMap(key, endKey).entrySet().stream()
+            .map(entry -> new KeyValue(entry.getKey(), entry.getValue()))
+            .toList();
     final List<KeyValue> unorderedActual = new ArrayList<>();
     try (final CloseableIterable<GetResult> results = client.rangeScan(key, endKey)) {
       for (final GetResult result : results) {
@@ -421,7 +375,10 @@ public final class BasicKv {
         () -> {
           final String firstKey = keyGenerator.lowerGuardKey();
           final String afterLastKey = keyGenerator.afterUpperGuardKey();
-          final List<KeyValue> expected = sortedByKey(inference.range(firstKey, afterLastKey));
+          final List<KeyValue> expected =
+              reference.subMap(firstKey, afterLastKey).entrySet().stream()
+                  .map(entry -> new KeyValue(entry.getKey(), entry.getValue()))
+                  .toList();
           final List<KeyValue> unorderedActual = new ArrayList<>();
           runWithRetry(
               () -> {
@@ -451,11 +408,23 @@ public final class BasicKv {
         });
   }
 
-  private void cleanup() {
+  @Override
+  public void verify() {
+    checkpoint(Checkpoint.FINAL);
+  }
+
+  /** Deletes every key the case wrote, guards included. */
+  @Override
+  public void shutdown() {
     runWithRetry(
         () -> client.deleteRange(keyGenerator.lowerGuardKey(), keyGenerator.afterUpperGuardKey()));
-    inference.clear();
+    reference.clear();
     LOGGER.atInfo().addKeyValue("run_id", runId).log("basic-kv cleanup completed");
+  }
+
+  @Override
+  public Map<String, Object> summary() {
+    return Map.of("operations", operationCount, "checkpoints", checkpointCount);
   }
 
   static BatchType selectBatch(final double selected) {

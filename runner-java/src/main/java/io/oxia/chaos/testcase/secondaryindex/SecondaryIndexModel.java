@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.oxia.chaos.inference;
+package io.oxia.chaos.testcase.secondaryindex;
 
 import java.util.ArrayList;
 import java.util.List;
