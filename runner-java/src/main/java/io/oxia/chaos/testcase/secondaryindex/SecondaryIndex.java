@@ -28,7 +28,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.BatchType;
@@ -161,7 +161,7 @@ public final class SecondaryIndex {
       executeWorkload();
       checkpoint(Checkpoint.FINAL);
       runSpan.setStatus(StatusCode.OK);
-    } catch (final CorrectnessViolationException error) {
+    } catch (final ViolationException error) {
       failure = error;
       metrics.recordSafetyViolation();
       runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
@@ -373,7 +373,7 @@ public final class SecondaryIndex {
     final GetResult result = client.get(key);
     final byte[] actual = result == null ? null : result.value();
     if (!Arrays.equals(expected, actual)) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           Operation.GET, key, describe(expected), describe(actual));
     }
   }
@@ -388,7 +388,7 @@ public final class SecondaryIndex {
             : expected.contains(result.key())
                 && Arrays.equals(model.get(result.key()).orElseThrow().value(), result.value());
     if (!matches) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           Operation.INDEX_GET,
           indexName + ":" + secondaryKey,
           "one of " + SummaryUtils.summarize(expected.stream().sorted().toList()),
@@ -411,7 +411,7 @@ public final class SecondaryIndex {
     }
     final List<KeyValue> actual = sortedByKey(unorderedActual);
     if (!expected.equals(actual)) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           Operation.INDEX_RANGE_SCAN,
           indexName + ":[" + start + ", " + end + ")",
           SummaryUtils.summarize(expected),
@@ -446,7 +446,7 @@ public final class SecondaryIndex {
               });
           final List<KeyValue> actual = sortedByKey(unorderedActual);
           if (!expected.equals(actual)) {
-            throw CorrectnessViolationException.checkpointMismatch(
+            throw ViolationException.checkpointMismatch(
                 SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
           }
           final String secondaryEnd = secondaryPrefix + "~";

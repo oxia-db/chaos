@@ -28,7 +28,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
@@ -137,7 +137,7 @@ public final class Versioning {
       executeWorkload();
       checkpoint(Checkpoint.FINAL);
       runSpan.setStatus(StatusCode.OK);
-    } catch (final CorrectnessViolationException error) {
+    } catch (final ViolationException error) {
       failure = error;
       metrics.recordSafetyViolation();
       runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
@@ -303,7 +303,7 @@ public final class Versioning {
                             key,
                             Set.of(
                                 DeleteOption.IfVersionIdEquals(predecessor.get().versionId())))) {
-                          throw CorrectnessViolationException.operationMismatch(
+                          throw ViolationException.operationMismatch(
                               operation, key, "deleted or an unexpected version", "not found");
                         }
                         model.applied(key, registered, Optional.empty());
@@ -357,7 +357,7 @@ public final class Versioning {
                     throw new IllegalStateException(
                         "put conditional on a version failed as a create: " + key, error);
                   }
-                  throw CorrectnessViolationException.operationMismatch(
+                  throw ViolationException.operationMismatch(
                       operation,
                       key,
                       "rejected for version " + staleVersionId,
@@ -441,7 +441,7 @@ public final class Versioning {
 
   private static RecordVersion recordVersion(final String key, final Version version) {
     if (version.sessionId().isPresent() || version.clientIdentifier().isPresent()) {
-      throw CorrectnessViolationException.versionHistory(
+      throw ViolationException.versionHistory(
           key, "a persistent record has session metadata: " + version);
     }
     return new RecordVersion(

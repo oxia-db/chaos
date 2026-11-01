@@ -18,7 +18,7 @@ package io.oxia.chaos.testcase;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Scope;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.util.ExceptionUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.spi.LoggingEventBuilder;
@@ -52,7 +52,7 @@ public final class TestCaseRunner {
       testCase.execute();
       testCase.verify();
       runSpan.setStatus(StatusCode.OK);
-    } catch (final CorrectnessViolationException error) {
+    } catch (final ViolationException error) {
       failure = error;
       context.metrics().recordSafetyViolation();
       runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());

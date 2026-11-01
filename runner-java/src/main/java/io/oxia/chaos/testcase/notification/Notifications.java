@@ -29,7 +29,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
@@ -163,7 +163,7 @@ public final class Notifications {
       executeWorkload(executor);
       checkpoint(Checkpoint.FINAL);
       runSpan.setStatus(StatusCode.OK);
-    } catch (final CorrectnessViolationException error) {
+    } catch (final ViolationException error) {
       failure = error;
       metrics.recordSafetyViolation();
       runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
@@ -411,7 +411,7 @@ public final class Notifications {
               .map(entry -> new KeyValue(entry.getKey(), entry.getValue()))
               .toList();
       if (expected.size() != actual.size()) {
-        throw CorrectnessViolationException.checkpointMismatch(
+        throw ViolationException.checkpointMismatch(
             SummaryUtils.summarize(expected.stream().map(KeyValue::key).sorted().toList()),
             SummaryUtils.summarize(actual.keySet().stream().sorted().toList()));
       }
@@ -421,7 +421,7 @@ public final class Notifications {
         if (result == null
             || !Arrays.equals(record.value(), result.value())
             || !notified.equals(Optional.of(result.version().versionId()))) {
-          throw CorrectnessViolationException.checkpointMismatch(
+          throw ViolationException.checkpointMismatch(
               record + " notified at version " + notified.map(String::valueOf).orElse("none"),
               result == null
                   ? "absent"

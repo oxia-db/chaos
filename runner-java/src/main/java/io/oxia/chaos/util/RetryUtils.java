@@ -19,7 +19,7 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
 import dev.failsafe.TimeoutExceededException;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.client.grpc.OxiaStatusException;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
@@ -94,25 +94,25 @@ public final class RetryUtils {
       final RetryPolicy<Object> retryPolicy,
       final Timeout<Object> attemptTimeout,
       final Runnable action) {
-    final AtomicReference<CorrectnessViolationException> violation = new AtomicReference<>();
+    final AtomicReference<ViolationException> violation = new AtomicReference<>();
     try {
       Failsafe.with(retryPolicy, attemptTimeout)
           .run(
               () -> {
                 // An attempt runs on the calling thread, so the previous one has already ended
-                final CorrectnessViolationException previous = violation.get();
+                final ViolationException previous = violation.get();
                 if (previous != null) {
                   throw previous;
                 }
                 try {
                   action.run();
-                } catch (final CorrectnessViolationException error) {
+                } catch (final ViolationException error) {
                   violation.set(error);
                   throw error;
                 }
               });
     } catch (final RuntimeException error) {
-      final CorrectnessViolationException found = violation.get();
+      final ViolationException found = violation.get();
       if (found == null) {
         throw error;
       }

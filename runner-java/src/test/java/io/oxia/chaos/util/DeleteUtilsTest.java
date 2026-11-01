@@ -18,7 +18,7 @@ package io.oxia.chaos.util;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.ops.Operation;
 import org.junit.jupiter.api.Test;
 
@@ -31,9 +31,9 @@ class DeleteUtilsTest {
     assertThatCode(() -> DeleteUtils.verifyDelete(Operation.DELETE, "k", false, false, false))
         .doesNotThrowAnyException();
     assertThatThrownBy(() -> DeleteUtils.verifyDelete(Operation.DELETE, "k", true, false, false))
-        .isInstanceOf(CorrectnessViolationException.class);
+        .isInstanceOf(ViolationException.class);
     assertThatThrownBy(() -> DeleteUtils.verifyDelete(Operation.DELETE, "k", false, true, false))
-        .isInstanceOf(CorrectnessViolationException.class);
+        .isInstanceOf(ViolationException.class);
   }
 
   @Test
@@ -43,6 +43,6 @@ class DeleteUtilsTest {
     assertThatCode(() -> DeleteUtils.verifyDelete(Operation.DELETE, "k", true, true, true))
         .doesNotThrowAnyException();
     assertThatThrownBy(() -> DeleteUtils.verifyDelete(Operation.DELETE, "k", false, true, true))
-        .isInstanceOf(CorrectnessViolationException.class);
+        .isInstanceOf(ViolationException.class);
   }
 }

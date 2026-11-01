@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.testcase.versioning.VersionModel.Attempt;
 import io.oxia.chaos.testcase.versioning.VersionModel.Kind;
 import io.oxia.chaos.testcase.versioning.VersionModel.Observed;
@@ -54,7 +54,7 @@ class VersionModelTest {
     update(model, "b", CREATED, UPDATED);
 
     assertThatThrownBy(() -> update(model, "c", CREATED, new RecordVersion(12, 100, 130, 1)))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("two writes replaced version 5");
   }
 
@@ -64,7 +64,7 @@ class VersionModelTest {
 
     assertThatThrownBy(
             () -> model.read(KEY, model.begin(KEY), Optional.of(new Observed("ghost", CREATED))))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("no accepted write");
   }
 
@@ -76,7 +76,7 @@ class VersionModelTest {
 
     assertThatThrownBy(
             () -> model.read(KEY, model.begin(KEY), Optional.of(new Observed("a", CREATED))))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("read version 5 after version 9");
   }
 
@@ -97,7 +97,7 @@ class VersionModelTest {
     create(model, "a", CREATED);
 
     assertThatThrownBy(() -> model.read(KEY, model.begin(KEY), Optional.empty()))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("found no record though version 5 was current");
   }
 
@@ -146,7 +146,7 @@ class VersionModelTest {
     model.checkpoint(Map.of(KEY, new Observed("a", CREATED)));
 
     assertThatThrownBy(() -> model.read(KEY, model.begin(KEY), Optional.empty()))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("found no record");
   }
 
@@ -179,7 +179,7 @@ class VersionModelTest {
     create(model, "a", CREATED);
 
     assertThatThrownBy(() -> update(model, "b", CREATED, new RecordVersion(9, 100, 120, 3)))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("one more modification");
   }
 
@@ -213,7 +213,7 @@ class VersionModelTest {
     model.rejected(KEY, model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b"), false);
 
     assertThatThrownBy(() -> model.checkpoint(Map.of(KEY, new Observed("b", UPDATED))))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("rejected is visible");
   }
 
@@ -225,7 +225,7 @@ class VersionModelTest {
     model.read(KEY, model.begin(KEY), Optional.of(new Observed("b", UPDATED)));
 
     assertThatThrownBy(() -> model.rejected(KEY, pending, true))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("rejected a write that a read already showed");
   }
 
@@ -236,7 +236,7 @@ class VersionModelTest {
     model.rejected(KEY, model.attempt(KEY, Kind.UPDATE, Optional.of(CREATED), "b"), true);
 
     assertThatThrownBy(() -> model.checkpoint(Map.of(KEY, new Observed("a", CREATED))))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("no other write conflicts");
   }
 
@@ -267,7 +267,7 @@ class VersionModelTest {
     model.rejected(KEY, model.attempt(KEY, Kind.CREATE, Optional.empty(), "a"), true);
 
     assertThatThrownBy(() -> model.checkpoint(Map.of()))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("no other write conflicts");
   }
 
@@ -277,7 +277,7 @@ class VersionModelTest {
     create(model, "a", CREATED);
 
     assertThatThrownBy(() -> model.checkpoint(Map.of()))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("no write replaced it");
   }
 
@@ -298,7 +298,7 @@ class VersionModelTest {
         KEY, model.attempt(KEY, Kind.DELETE, Optional.of(CREATED), null), Optional.empty());
 
     assertThatThrownBy(() -> model.checkpoint(Map.of(KEY, new Observed("a", CREATED))))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("still current");
   }
 
@@ -311,7 +311,7 @@ class VersionModelTest {
 
     assertThatThrownBy(
             () -> model.read(KEY, model.begin(KEY), Optional.of(new Observed("a", CREATED))))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("no accepted write");
     assertThatCode(() -> update(model, "c", UPDATED, new RecordVersion(14, 100, 140, 2)))
         .doesNotThrowAnyException();
@@ -324,7 +324,7 @@ class VersionModelTest {
 
     assertThatThrownBy(
             () -> model.read(KEY, model.begin(KEY), Optional.of(new Observed("a", UPDATED))))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("observed");
   }
 

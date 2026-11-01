@@ -17,7 +17,7 @@ package io.oxia.chaos.cmd;
 
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.testcase.CaseContext;
 import io.oxia.chaos.testcase.TestCaseRunner;
@@ -139,7 +139,7 @@ public final class Cmd implements Callable<Integer> {
 
     try {
       return run(options);
-    } catch (final CorrectnessViolationException error) {
+    } catch (final ViolationException error) {
       LOGGER
           .atError()
           .addKeyValue("case", options.caseName())
@@ -253,7 +253,7 @@ public final class Cmd implements Callable<Integer> {
                   });
           default -> throw new IllegalArgumentException("unsupported case: " + options.caseName());
         }
-      } catch (final CorrectnessViolationException error) {
+      } catch (final ViolationException error) {
         if (!options.infinite()) {
           throw error;
         }

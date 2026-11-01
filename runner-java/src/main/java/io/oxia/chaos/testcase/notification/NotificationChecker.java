@@ -15,7 +15,7 @@
  */
 package io.oxia.chaos.testcase.notification;
 
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.client.api.Notification;
 import io.oxia.client.api.Notification.KeyCreated;
 import io.oxia.client.api.Notification.KeyDeleted;
@@ -152,12 +152,12 @@ public final class NotificationChecker implements Consumer<Notification> {
    * Matches every acknowledged write with its notifications while no write is in flight. Returns
    * the notifications still missing; when none are, keeps the matched state and drops the history.
    *
-   * @throws CorrectnessViolationException for a notification that no valid history explains
+   * @throws ViolationException for a notification that no valid history explains
    */
   public synchronized List<String> check() {
     if (!unexpected.isEmpty()) {
       final Notification notification = unexpected.getFirst();
-      throw CorrectnessViolationException.notificationMismatch(
+      throw ViolationException.notificationMismatch(
           notification.key(), "no notification outside the case's writes", describe(notification));
     }
     final List<String> missing = new ArrayList<>();
@@ -219,15 +219,15 @@ public final class NotificationChecker implements Consumer<Notification> {
             final Notification notification = observed.get(next).notification();
             final long notified = putVersion(notification);
             if (notified < 0 || notified > put.versionId()) {
-              throw CorrectnessViolationException.notificationMismatch(
+              throw ViolationException.notificationMismatch(
                   key, expectedPut(exists, put.versionId()), describe(notification));
             }
             if (notified <= versionId) {
-              throw CorrectnessViolationException.notificationMismatch(
+              throw ViolationException.notificationMismatch(
                   key, "a version after " + versionId, describe(notification));
             }
             if ((notification instanceof KeyCreated) == exists) {
-              throw CorrectnessViolationException.notificationMismatch(
+              throw ViolationException.notificationMismatch(
                   key, expectedPut(exists, notified), describe(notification));
             }
             arrival = observed.get(next).arrival();
@@ -236,7 +236,7 @@ public final class NotificationChecker implements Consumer<Notification> {
             versionId = notified;
             if (notified == put.versionId()) {
               if ((notification instanceof KeyCreated) != (put.modificationsCount() == 0)) {
-                throw CorrectnessViolationException.notificationMismatch(
+                throw ViolationException.notificationMismatch(
                     key,
                     "a notification matching modificationsCount=" + put.modificationsCount(),
                     describe(notification));
@@ -245,18 +245,18 @@ public final class NotificationChecker implements Consumer<Notification> {
             }
             // An attempt that failed was applied before the one that succeeded
             if (++failedAttemptsApplied >= put.attempts()) {
-              throw CorrectnessViolationException.notificationMismatch(
+              throw ViolationException.notificationMismatch(
                   key, expectedPut(false, put.versionId()), describe(notification));
             }
           }
         }
         case final Delete delete -> {
           if (delete.deleted() && !exists) {
-            throw CorrectnessViolationException.notificationMismatch(
+            throw ViolationException.notificationMismatch(
                 key, "a notification of the record that the delete found", "the key was deleted");
           }
           if (exists && !delete.deleted() && delete.attempts() == 1) {
-            throw CorrectnessViolationException.notificationMismatch(
+            throw ViolationException.notificationMismatch(
                 key, "a delete that finds the record", "the delete found no record");
           }
           if (exists) {
@@ -266,7 +266,7 @@ public final class NotificationChecker implements Consumer<Notification> {
             }
             final Notification notification = observed.get(next).notification();
             if (!(notification instanceof KeyDeleted)) {
-              throw CorrectnessViolationException.notificationMismatch(
+              throw ViolationException.notificationMismatch(
                   key, "KeyDeleted", describe(notification));
             }
             arrival = observed.get(next).arrival();
@@ -287,7 +287,7 @@ public final class NotificationChecker implements Consumer<Notification> {
             if (before == Long.MAX_VALUE) {
               return Match.missing("a notification of the range delete " + covered.range());
             }
-            throw CorrectnessViolationException.notificationMismatch(
+            throw ViolationException.notificationMismatch(
                 key,
                 "KeyRangeDelete " + covered.range(),
                 describe(observed.get(next).notification()));
@@ -298,7 +298,7 @@ public final class NotificationChecker implements Consumer<Notification> {
       }
     }
     if (next < observed.size()) {
-      throw CorrectnessViolationException.notificationMismatch(
+      throw ViolationException.notificationMismatch(
           key, "no notification after the last write", describe(observed.get(next).notification()));
     }
     return new Match(exists, versionId, arrival, Optional.empty());

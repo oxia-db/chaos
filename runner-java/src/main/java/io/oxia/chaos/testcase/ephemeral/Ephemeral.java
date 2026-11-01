@@ -28,7 +28,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
@@ -224,7 +224,7 @@ public final class Ephemeral {
       endOwnerAtFinish(slots.get(1), Operation.OWNER_CLOSE);
       awaitDrains();
       runSpan.setStatus(StatusCode.OK);
-    } catch (final CorrectnessViolationException error) {
+    } catch (final ViolationException error) {
       failure = error;
       metrics.recordSafetyViolation();
       runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
@@ -334,7 +334,7 @@ public final class Ephemeral {
 
   private long owned(final String key, final OwnedVersion version) {
     if (version.sessionId().isEmpty()) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           Operation.EPHEMERAL_PUT, key, "a session id", "none");
     }
     return version.sessionId().get();
@@ -347,7 +347,7 @@ public final class Ephemeral {
     final Optional<EphemeralRecord> expected = Optional.ofNullable(reference.get(key));
     if (expected.isEmpty()) {
       if (actual.isPresent()) {
-        throw CorrectnessViolationException.operationMismatch(
+        throw ViolationException.operationMismatch(
             Operation.GET, key, "absent", describe(actual.get()));
       }
       return;
@@ -357,7 +357,7 @@ public final class Ephemeral {
       return;
     }
     if (!matches(expected.get(), actual.get())) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           Operation.GET, key, expected.get().toString(), describe(actual.get()));
     }
   }
@@ -371,7 +371,7 @@ public final class Ephemeral {
     final OwnedVersion version = ownerCall(() -> slot.owner.put(expected.key(), expected.value()));
     final long current = owned(expected.key(), version);
     if (current == expected.sessionId()) {
-      throw CorrectnessViolationException.ephemeralLost(expected.key(), expected.sessionId());
+      throw ViolationException.ephemeralLost(expected.key(), expected.sessionId());
     }
     metrics.recordSessionReplacement();
     LOGGER
@@ -417,7 +417,7 @@ public final class Ephemeral {
       verify(slot, record.key(), Optional.ofNullable(present.remove(record.key())));
     }
     if (!present.isEmpty()) {
-      throw CorrectnessViolationException.checkpointMismatch(
+      throw ViolationException.checkpointMismatch(
           SummaryUtils.summarize(expected), "unexpected " + describe(present));
     }
     return expected.size();
@@ -526,11 +526,11 @@ public final class Ephemeral {
       final EphemeralRecord expected = drain.records.get(entry.getKey());
       if (drain.mode == Operation.OWNER_LOST) {
         if (!entry.getValue().version().clientIdentifier().equals(Optional.of(drain.owner))) {
-          throw CorrectnessViolationException.operationMismatch(
+          throw ViolationException.operationMismatch(
               drain.mode, entry.getKey(), "owner=" + drain.owner, describe(entry.getValue()));
         }
       } else if (expected == null || !matches(expected, entry.getValue())) {
-        throw CorrectnessViolationException.operationMismatch(
+        throw ViolationException.operationMismatch(
             drain.mode,
             entry.getKey(),
             expected == null ? "absent" : expected.toString(),
@@ -546,12 +546,11 @@ public final class Ephemeral {
         Duration.ofNanos(scanStarted - drain.endedNanos),
         Duration.ofNanos(scanEnded - drain.endedNanos))) {
       case EARLY_EXPIRY ->
-          throw CorrectnessViolationException.earlyExpiry(
+          throw ViolationException.earlyExpiry(
               drain.owner, drain.records.size(), present.size(), elapsedMillis);
       case LEAKED -> {
         metrics.recordOperation(drain.mode.label(), "error", elapsedSeconds(drain.endedNanos));
-        throw CorrectnessViolationException.ephemeralLeaked(
-            drain.owner, describe(present), elapsedMillis);
+        throw ViolationException.ephemeralLeaked(drain.owner, describe(present), elapsedMillis);
       }
       case DRAINED -> {
         metrics.recordOperation(drain.mode.label(), "success", elapsedSeconds(drain.endedNanos));

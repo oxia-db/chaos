@@ -15,7 +15,7 @@
  */
 package io.oxia.chaos.testcase.versioning;
 
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -169,7 +169,7 @@ public final class VersionModel {
   public synchronized void rejected(
       final String key, final Attempt attempt, final boolean firstAttempt) {
     if (attempt.status == Status.APPLIED) {
-      throw CorrectnessViolationException.versionHistory(
+      throw ViolationException.versionHistory(
           key, "the server rejected a write that a read already showed: " + attempt.describe());
     }
     if (attempt.status != Status.PENDING) {
@@ -238,7 +238,7 @@ public final class VersionModel {
       // registered before it is sent, so it is known by now
       final Attempt current = history.producers.get(committedBefore);
       if (current != null && !replaced(history).contains(committedBefore)) {
-        throw CorrectnessViolationException.versionHistory(
+        throw ViolationException.versionHistory(
             key,
             "found no record though version "
                 + committedBefore
@@ -250,13 +250,13 @@ public final class VersionModel {
     final Observed record = observed.get();
     final Attempt attempt = history.puts.get(record.value());
     if (attempt == null) {
-      throw CorrectnessViolationException.versionHistory(
+      throw ViolationException.versionHistory(
           key, "read a value that no accepted write of the key wrote: " + record);
     }
     adopt(key, history, attempt, record.version());
     final long versionId = record.version().versionId();
     if (versionId < committedBefore) {
-      throw CorrectnessViolationException.versionHistory(
+      throw ViolationException.versionHistory(
           key,
           "read version "
               + versionId
@@ -273,23 +273,23 @@ public final class VersionModel {
       final String key, final History history, final Attempt attempt, final RecordVersion version) {
     if (attempt.status == Status.APPLIED) {
       if (!Objects.equals(attempt.version, version)) {
-        throw CorrectnessViolationException.versionHistory(
+        throw ViolationException.versionHistory(
             key, "observed " + version + " for " + attempt.describe());
       }
       return;
     }
     if (attempt.status == Status.REJECTED) {
-      throw CorrectnessViolationException.versionHistory(
+      throw ViolationException.versionHistory(
           key, "a write that the server rejected is visible: " + attempt.describe());
     }
     if (attempt.kind != Kind.DELETE) {
       final String mismatch = metadataMismatch(attempt.kind, attempt.predecessor, version);
       if (mismatch != null) {
-        throw CorrectnessViolationException.versionHistory(
+        throw ViolationException.versionHistory(
             key, mismatch + ": " + version + " for " + attempt.describe());
       }
       if (version.versionId() <= attempt.committedBefore) {
-        throw CorrectnessViolationException.versionHistory(
+        throw ViolationException.versionHistory(
             key,
             "write got version "
                 + version.versionId()
@@ -300,7 +300,7 @@ public final class VersionModel {
       }
       final Attempt producer = history.producers.putIfAbsent(version.versionId(), attempt);
       if (producer != null) {
-        throw CorrectnessViolationException.versionHistory(
+        throw ViolationException.versionHistory(
             key,
             "two writes got the same version: " + producer.describe() + ", " + attempt.describe());
       }
@@ -309,7 +309,7 @@ public final class VersionModel {
       final Attempt replaced =
           history.consumers.putIfAbsent(attempt.predecessor.versionId(), attempt);
       if (replaced != null) {
-        throw CorrectnessViolationException.versionHistory(
+        throw ViolationException.versionHistory(
             key,
             "two writes replaced version "
                 + attempt.predecessor.versionId()
@@ -330,7 +330,7 @@ public final class VersionModel {
     final Optional<Long> current =
         observed.map((final Observed record) -> record.version().versionId());
     if (current.isPresent() && history.consumers.containsKey(current.get())) {
-      throw CorrectnessViolationException.versionHistory(
+      throw ViolationException.versionHistory(
           key,
           "version "
               + current.get()
@@ -340,7 +340,7 @@ public final class VersionModel {
     for (final Map.Entry<Long, Attempt> producer : history.producers.entrySet()) {
       if (!current.equals(Optional.of(producer.getKey()))
           && !replaced.contains(producer.getKey())) {
-        throw CorrectnessViolationException.versionHistory(
+        throw ViolationException.versionHistory(
             key,
             "version "
                 + producer.getKey()
@@ -361,7 +361,7 @@ public final class VersionModel {
               ? !history.producers.isEmpty()
               : replaced.contains(attempt.predecessor.versionId());
       if (!explained) {
-        throw CorrectnessViolationException.versionHistory(
+        throw ViolationException.versionHistory(
             key,
             "the server rejected a write that no other write conflicts with: "
                 + attempt.describe()

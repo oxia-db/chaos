@@ -29,7 +29,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
 import io.oxia.chaos.ops.Checkpoint;
@@ -176,7 +176,7 @@ public final class Sequence {
       executeWorkload();
       checkpoint(Checkpoint.FINAL);
       runSpan.setStatus(StatusCode.OK);
-    } catch (final CorrectnessViolationException error) {
+    } catch (final ViolationException error) {
       failure = error;
       metrics.recordSafetyViolation();
       runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
@@ -322,7 +322,7 @@ public final class Sequence {
       }
     }
     if (acknowledged.size() != count) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           Operation.SEQUENCE_PUT,
           prefix,
           count + " distinct keys",
@@ -335,7 +335,7 @@ public final class Sequence {
             .assign(prefix, deltas, failedAttempts, acknowledged)
             .orElseThrow(
                 () ->
-                    CorrectnessViolationException.operationMismatch(
+                    ViolationException.operationMismatch(
                         Operation.SEQUENCE_PUT,
                         prefix,
                         "consecutive keys from "
@@ -351,7 +351,7 @@ public final class Sequence {
       if (record == null
           || failedValues.stream()
               .noneMatch((final byte[] value) -> Arrays.equals(value, record.value()))) {
-        throw CorrectnessViolationException.operationMismatch(
+        throw ViolationException.operationMismatch(
             Operation.SEQUENCE_PUT,
             key,
             "a record of a failed put",
@@ -401,7 +401,7 @@ public final class Sequence {
     final byte[] expected = model.get(prefix, key).orElseThrow();
     final GetResult result = retried(() -> client.get(key, Set.of(GetOption.PartitionKey(prefix))));
     if (result == null || !Arrays.equals(expected, result.value())) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           Operation.GET, key, text(expected), result == null ? "absent" : text(result.value()));
     }
   }
@@ -409,7 +409,7 @@ public final class Sequence {
   private void validateDeliveries(final String prefix) {
     final Optional<String> violation = model.validateDeliveries(prefix);
     if (violation.isPresent()) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           Operation.SEQUENCE_UPDATE, prefix, "non-decreasing assigned keys", violation.get());
     }
   }
@@ -471,7 +471,7 @@ public final class Sequence {
               return records;
             });
     if (!expected.equals(actual)) {
-      throw CorrectnessViolationException.checkpointMismatch(
+      throw ViolationException.checkpointMismatch(
           prefix + ": " + describe(expected), describe(actual));
     }
   }

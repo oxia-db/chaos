@@ -37,7 +37,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
@@ -319,7 +319,7 @@ public final class BasicKv implements TestCase {
     final Optional<KeyValue> actual =
         result == null ? Optional.empty() : Optional.of(new KeyValue(result.key(), result.value()));
     if (!expected.equals(actual)) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           operation, key, expected.toString(), actual.toString());
     }
   }
@@ -363,7 +363,7 @@ public final class BasicKv implements TestCase {
     }
     final List<KeyValue> actual = sortedByKey(unorderedActual);
     if (!expected.equals(actual)) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           operation, key, SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
     }
   }
@@ -392,7 +392,7 @@ public final class BasicKv implements TestCase {
               });
           final List<KeyValue> actual = sortedByKey(unorderedActual);
           if (!expected.equals(actual)) {
-            throw CorrectnessViolationException.checkpointMismatch(
+            throw ViolationException.checkpointMismatch(
                 SummaryUtils.summarize(expected), SummaryUtils.summarize(actual));
           }
           checkpointCount++;

@@ -18,15 +18,15 @@ package io.oxia.chaos.error;
 import io.oxia.chaos.ops.Operation;
 
 /** Signals a correctness failure distinct from an infrastructure or availability failure. */
-public final class CorrectnessViolationException extends RuntimeException {
+public final class ViolationException extends RuntimeException {
 
-  public CorrectnessViolationException(final String message) {
+  public ViolationException(final String message) {
     super(message);
   }
 
-  public static CorrectnessViolationException operationMismatch(
+  public static ViolationException operationMismatch(
       final Operation operation, final String key, final String expected, final String actual) {
-    return new CorrectnessViolationException(
+    return new ViolationException(
         "operation mismatch: operation="
             + operation.label()
             + ", key="
@@ -37,24 +37,22 @@ public final class CorrectnessViolationException extends RuntimeException {
             + actual);
   }
 
-  public static CorrectnessViolationException checkpointMismatch(
-      final String expected, final String actual) {
-    return new CorrectnessViolationException(
+  public static ViolationException checkpointMismatch(final String expected, final String actual) {
+    return new ViolationException(
         "checkpoint mismatch: expected=" + expected + ", actual=" + actual);
   }
 
-  public static CorrectnessViolationException ephemeralLost(
-      final String key, final long sessionId) {
-    return new CorrectnessViolationException(
+  public static ViolationException ephemeralLost(final String key, final long sessionId) {
+    return new ViolationException(
         "ephemeral record lost while its session was alive: key="
             + key
             + ", sessionId="
             + sessionId);
   }
 
-  public static CorrectnessViolationException earlyExpiry(
+  public static ViolationException earlyExpiry(
       final String owner, final int expected, final int present, final long elapsedMillis) {
-    return new CorrectnessViolationException(
+    return new ViolationException(
         "ephemeral records expired before the session timeout: owner="
             + owner
             + ", expected="
@@ -65,9 +63,9 @@ public final class CorrectnessViolationException extends RuntimeException {
             + elapsedMillis);
   }
 
-  public static CorrectnessViolationException ephemeralLeaked(
+  public static ViolationException ephemeralLeaked(
       final String owner, final String remaining, final long elapsedMillis) {
-    return new CorrectnessViolationException(
+    return new ViolationException(
         "ephemeral records outlived their ended owner: owner="
             + owner
             + ", remaining="
@@ -76,15 +74,13 @@ public final class CorrectnessViolationException extends RuntimeException {
             + elapsedMillis);
   }
 
-  public static CorrectnessViolationException notificationMismatch(
+  public static ViolationException notificationMismatch(
       final String key, final String expected, final String actual) {
-    return new CorrectnessViolationException(
+    return new ViolationException(
         "notification mismatch: key=" + key + ", expected=" + expected + ", actual=" + actual);
   }
 
-  public static CorrectnessViolationException versionHistory(
-      final String key, final String detail) {
-    return new CorrectnessViolationException(
-        "version history violation: key=" + key + ", " + detail);
+  public static ViolationException versionHistory(final String key, final String detail) {
+    return new ViolationException("version history violation: key=" + key + ", " + detail);
   }
 }

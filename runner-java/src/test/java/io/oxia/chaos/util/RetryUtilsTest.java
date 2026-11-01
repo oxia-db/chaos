@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,7 +58,7 @@ class RetryUtilsTest {
 
   @Test
   void reportsAViolationOfAnAttemptThatEndsAfterTheAttemptTimeout() {
-    final CorrectnessViolationException violation = new CorrectnessViolationException("mismatch");
+    final ViolationException violation = new ViolationException("mismatch");
     final AtomicInteger attempts = new AtomicInteger();
 
     assertThatThrownBy(
@@ -82,7 +82,7 @@ class RetryUtilsTest {
 
   @Test
   void neverRetriesAViolation() {
-    final CorrectnessViolationException violation = new CorrectnessViolationException("mismatch");
+    final ViolationException violation = new ViolationException("mismatch");
     final AtomicInteger attempts = new AtomicInteger();
 
     assertThatThrownBy(

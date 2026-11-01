@@ -15,7 +15,7 @@
  */
 package io.oxia.chaos.util;
 
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.ops.Operation;
 
 /** Checks delete results against the reference model. */
@@ -35,7 +35,7 @@ public final class DeleteUtils {
       final boolean actual,
       final boolean retry) {
     if (expected != actual && !(retry && expected)) {
-      throw CorrectnessViolationException.operationMismatch(
+      throw ViolationException.operationMismatch(
           operation, key, Boolean.toString(expected), Boolean.toString(actual));
     }
   }

@@ -18,7 +18,7 @@ package io.oxia.chaos.testcase.notification;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.oxia.chaos.error.CorrectnessViolationException;
+import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.testcase.notification.NotificationChecker.Covered;
 import io.oxia.chaos.testcase.notification.NotificationChecker.Delete;
 import io.oxia.chaos.testcase.notification.NotificationChecker.Match;
@@ -151,7 +151,7 @@ class NotificationCheckerTest {
                     List.of(
                         new Put(12, 1, 1), new Covered("[a, b)", List.of(2L)), new Put(14, 0, 1)),
                     around))
-        .isInstanceOf(CorrectnessViolationException.class);
+        .isInstanceOf(ViolationException.class);
     assertThatThrownBy(
             () ->
                 NotificationChecker.match(
@@ -160,7 +160,7 @@ class NotificationCheckerTest {
                     List.of(
                         new Put(12, 1, 1), new Covered("[a, b)", List.of(6L)), new Put(14, 0, 1)),
                     around))
-        .isInstanceOf(CorrectnessViolationException.class);
+        .isInstanceOf(ViolationException.class);
   }
 
   @Test
@@ -224,7 +224,7 @@ class NotificationCheckerTest {
     // The key's shard notified the put that follows the range delete before the range delete
     checker.accept(new KeyCreated(KEY, 5));
     checker.accept(new KeyRangeDelete(KEY, end));
-    assertThatThrownBy(checker::check).isInstanceOf(CorrectnessViolationException.class);
+    assertThatThrownBy(checker::check).isInstanceOf(ViolationException.class);
   }
 
   @Test
@@ -232,12 +232,12 @@ class NotificationCheckerTest {
     final NotificationChecker keys = new NotificationChecker(PREFIX, List.of(KEY));
     keys.start(Map.of(KEY, 3L));
     keys.accept(new KeyCreated(PREFIX + "unknown", 5));
-    assertThatThrownBy(keys::check).isInstanceOf(CorrectnessViolationException.class);
+    assertThatThrownBy(keys::check).isInstanceOf(ViolationException.class);
 
     final NotificationChecker ranges = new NotificationChecker(PREFIX, List.of(KEY));
     ranges.start(Map.of(KEY, 3L));
     ranges.accept(new KeyRangeDelete(KEY, KEY + "~1"));
-    assertThatThrownBy(ranges::check).isInstanceOf(CorrectnessViolationException.class);
+    assertThatThrownBy(ranges::check).isInstanceOf(ViolationException.class);
   }
 
   private static KeyCreated created(final long versionId) {
@@ -265,7 +265,7 @@ class NotificationCheckerTest {
   private static void assertViolation(
       final Match previous, final List<Write> writes, final Notification... notifications) {
     assertThatThrownBy(() -> match(previous, writes, notifications))
-        .isInstanceOf(CorrectnessViolationException.class)
+        .isInstanceOf(ViolationException.class)
         .hasMessageContaining("key=" + KEY);
   }
 }
