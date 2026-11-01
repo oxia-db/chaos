@@ -105,7 +105,7 @@ public final class SecondaryIndex {
   private final Options options;
   private final String runId;
   private final SyncOxiaClient client;
-  private final SecondaryIndexModel model = new SecondaryIndexModel();
+  private final SecondaryIndexModel model;
   private final Metrics metrics;
   private final Tracer tracer;
   private final Telemetry telemetry;
@@ -130,6 +130,7 @@ public final class SecondaryIndex {
     this.options = options;
     this.runId = runId;
     this.client = client;
+    this.model = new SecondaryIndexModel();
     metrics.observeReferenceKeys(model::size);
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);

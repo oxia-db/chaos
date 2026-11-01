@@ -91,7 +91,7 @@ public final class Versioning {
   private final Options options;
   private final String runId;
   private final SyncOxiaClient client;
-  private final VersionModel model = new VersionModel();
+  private final VersionModel model;
   private final Metrics metrics;
   private final Tracer tracer;
   private final Telemetry telemetry;
@@ -112,6 +112,7 @@ public final class Versioning {
     this.options = options;
     this.runId = runId;
     this.client = client;
+    this.model = new VersionModel();
     metrics.observeReferenceKeys(model::size);
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);

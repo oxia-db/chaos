@@ -86,7 +86,7 @@ public final class BasicKv implements TestCase {
   private final KeyGenerator keyGenerator;
   private final ValueGenerator valueGenerator;
   // What Oxia must hold: every acknowledged write applied in order.
-  private final ConcurrentSkipListMap<String, byte[]> reference = new ConcurrentSkipListMap<>();
+  private final ConcurrentSkipListMap<String, byte[]> reference;
 
   private long operationCount;
   private long checkpointCount;
@@ -102,6 +102,7 @@ public final class BasicKv implements TestCase {
         RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, context.retryTimeout());
     this.keyGenerator = new KeyGenerator(runId);
     this.valueGenerator = new ValueGenerator(options.seed());
+    this.reference = new ConcurrentSkipListMap<>();
     context.metrics().observeReferenceKeys(reference::size);
   }
 

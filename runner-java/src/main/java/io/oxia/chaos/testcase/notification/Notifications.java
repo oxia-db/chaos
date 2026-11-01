@@ -105,7 +105,7 @@ public final class Notifications {
   private final List<String> keys;
   private final NotificationChecker checker;
   // What Oxia must hold: every acknowledged write applied in order.
-  private final ConcurrentSkipListMap<String, byte[]> reference = new ConcurrentSkipListMap<>();
+  private final ConcurrentSkipListMap<String, byte[]> reference;
 
   private volatile long lastFaultNanos;
   private volatile boolean faulted;
@@ -124,6 +124,7 @@ public final class Notifications {
     this.runId = runId;
     this.client = client;
     this.metrics = metrics;
+    this.reference = new ConcurrentSkipListMap<>();
     metrics.observeReferenceKeys(reference::size);
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.telemetry = new Telemetry(tracer, metrics, Options.NOTIFICATION);

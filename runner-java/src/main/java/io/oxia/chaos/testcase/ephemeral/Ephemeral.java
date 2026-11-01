@@ -139,8 +139,7 @@ public final class Ephemeral {
   private final ValueGenerator valueGenerator;
   private final List<Slot> slots;
   // The records live owners must hold, by key.
-  private final ConcurrentSkipListMap<String, EphemeralRecord> reference =
-      new ConcurrentSkipListMap<>();
+  private final ConcurrentSkipListMap<String, EphemeralRecord> reference;
 
   private boolean finishing;
   private boolean faulted;
@@ -163,6 +162,7 @@ public final class Ephemeral {
     this.namespace = namespace;
     this.observer = observer;
     this.metrics = metrics;
+    this.reference = new ConcurrentSkipListMap<>();
     metrics.observeReferenceKeys(reference::size);
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
     this.telemetry = new Telemetry(tracer, metrics, Options.EPHEMERAL);

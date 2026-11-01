@@ -105,7 +105,7 @@ public final class Sequence {
   private final Options options;
   private final String runId;
   private final SyncOxiaClient client;
-  private final SequenceModel model = new SequenceModel();
+  private final SequenceModel model;
   private final Metrics metrics;
   private final Tracer tracer;
   private final Telemetry telemetry;
@@ -132,6 +132,7 @@ public final class Sequence {
     this.options = options;
     this.runId = runId;
     this.client = client;
+    this.model = new SequenceModel();
     metrics.observeReferenceKeys(model::size);
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
