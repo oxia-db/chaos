@@ -26,13 +26,13 @@ import io.oxia.chaos.ops.Operation;
 import java.util.function.IntSupplier;
 
 /** Traces and measures the operations and checkpoints of one case. */
-public final class CaseTelemetry {
+public final class Telemetry {
 
   private final Tracer tracer;
   private final Metrics metrics;
   private final String caseName;
 
-  public CaseTelemetry(final Tracer tracer, final Metrics metrics, final String caseName) {
+  public Telemetry(final Tracer tracer, final Metrics metrics, final String caseName) {
     this.tracer = tracer;
     this.metrics = metrics;
     this.caseName = caseName;

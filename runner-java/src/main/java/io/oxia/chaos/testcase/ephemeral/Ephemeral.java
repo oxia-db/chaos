@@ -29,8 +29,8 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.ViolationException;
-import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.observability.Telemetry;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnedValue;
@@ -131,7 +131,7 @@ public final class Ephemeral {
   private final SyncOxiaClient observer;
   private final Metrics metrics;
   private final Tracer tracer;
-  private final CaseTelemetry telemetry;
+  private final Telemetry telemetry;
   private final Settings settings;
   private final RetryPolicy<Object> retryPolicy;
   private final RetryPolicy<Object> spawnPolicy;
@@ -165,7 +165,7 @@ public final class Ephemeral {
     this.metrics = metrics;
     metrics.observeReferenceKeys(reference::size);
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
-    this.telemetry = new CaseTelemetry(tracer, metrics, Options.EPHEMERAL);
+    this.telemetry = new Telemetry(tracer, metrics, Options.EPHEMERAL);
     this.settings = settings;
     this.retryPolicy =
         RetryUtils.retryPolicy(

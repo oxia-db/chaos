@@ -38,7 +38,7 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.ViolationException;
-import io.oxia.chaos.observability.CaseTelemetry;
+import io.oxia.chaos.observability.Telemetry;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
@@ -80,7 +80,7 @@ public final class BasicKv implements TestCase {
   private final String runId;
   private final SyncOxiaClient client;
   private final Tracer tracer;
-  private final CaseTelemetry telemetry;
+  private final Telemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
   private final KeyGenerator keyGenerator;
@@ -96,7 +96,7 @@ public final class BasicKv implements TestCase {
     this.runId = context.runId();
     this.client = context.client();
     this.tracer = context.tracer(Options.BASIC_KV);
-    this.telemetry = new CaseTelemetry(tracer, context.metrics(), Options.BASIC_KV);
+    this.telemetry = new Telemetry(tracer, context.metrics(), Options.BASIC_KV);
     this.retryPolicy = RetryUtils.retryPolicy(context.retryTimeout());
     this.attemptTimeout =
         RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, context.retryTimeout());

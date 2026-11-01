@@ -29,8 +29,8 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.ViolationException;
-import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.observability.Telemetry;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
@@ -108,7 +108,7 @@ public final class SecondaryIndex {
   private final SecondaryIndexModel model = new SecondaryIndexModel();
   private final Metrics metrics;
   private final Tracer tracer;
-  private final CaseTelemetry telemetry;
+  private final Telemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
   private final ValueGenerator valueGenerator;
@@ -133,7 +133,7 @@ public final class SecondaryIndex {
     metrics.observeReferenceKeys(model::size);
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
-    this.telemetry = new CaseTelemetry(tracer, metrics, Options.SECONDARY_INDEX);
+    this.telemetry = new Telemetry(tracer, metrics, Options.SECONDARY_INDEX);
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
     this.attemptTimeout = RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, retryTimeout);
     this.valueGenerator = new ValueGenerator(options.seed());

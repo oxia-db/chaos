@@ -30,8 +30,8 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.ViolationException;
-import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.observability.Telemetry;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.DeleteUtils;
@@ -108,7 +108,7 @@ public final class Sequence {
   private final SequenceModel model = new SequenceModel();
   private final Metrics metrics;
   private final Tracer tracer;
-  private final CaseTelemetry telemetry;
+  private final Telemetry telemetry;
   private final Duration retryTimeout;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
@@ -135,7 +135,7 @@ public final class Sequence {
     metrics.observeReferenceKeys(model::size);
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
-    this.telemetry = new CaseTelemetry(tracer, metrics, Options.SEQUENCE);
+    this.telemetry = new Telemetry(tracer, metrics, Options.SEQUENCE);
     this.retryTimeout = retryTimeout;
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
     this.attemptTimeout = RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, retryTimeout);

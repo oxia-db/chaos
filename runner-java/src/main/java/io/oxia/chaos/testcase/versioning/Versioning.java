@@ -29,8 +29,8 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.ViolationException;
-import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.observability.Telemetry;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.testcase.versioning.VersionModel.Kind;
@@ -94,7 +94,7 @@ public final class Versioning {
   private final VersionModel model = new VersionModel();
   private final Metrics metrics;
   private final Tracer tracer;
-  private final CaseTelemetry telemetry;
+  private final Telemetry telemetry;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
   private final String prefix;
@@ -115,7 +115,7 @@ public final class Versioning {
     metrics.observeReferenceKeys(model::size);
     this.metrics = metrics;
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
-    this.telemetry = new CaseTelemetry(tracer, metrics, Options.VERSIONING);
+    this.telemetry = new Telemetry(tracer, metrics, Options.VERSIONING);
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
     this.attemptTimeout = RetryUtils.attemptTimeout(OPERATION_ATTEMPT_TIMEOUT, retryTimeout);
     this.prefix = "/oxia-chaos/runs/" + runId + "/versioning/key-";

@@ -30,8 +30,8 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.ViolationException;
-import io.oxia.chaos.observability.CaseTelemetry;
 import io.oxia.chaos.observability.Metrics;
+import io.oxia.chaos.observability.Telemetry;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
 import io.oxia.chaos.util.ExceptionUtils;
@@ -96,7 +96,7 @@ public final class Notifications {
   private final SyncOxiaClient client;
   private final Metrics metrics;
   private final Tracer tracer;
-  private final CaseTelemetry telemetry;
+  private final Telemetry telemetry;
   private final Duration deliveryTimeout;
   private final RetryPolicy<Object> retryPolicy;
   private final Timeout<Object> attemptTimeout;
@@ -126,7 +126,7 @@ public final class Notifications {
     this.metrics = metrics;
     metrics.observeReferenceKeys(reference::size);
     this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
-    this.telemetry = new CaseTelemetry(tracer, metrics, Options.NOTIFICATION);
+    this.telemetry = new Telemetry(tracer, metrics, Options.NOTIFICATION);
     // Notifications of acknowledged writes must arrive within the window a write may retry in
     this.deliveryTimeout = retryTimeout;
     this.retryPolicy = RetryUtils.retryPolicy(retryTimeout);
