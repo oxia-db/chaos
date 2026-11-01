@@ -46,7 +46,10 @@ class BasicKvE2ETest {
 
   @Test
   void runsBasicKvAgainstThreeShardOxiaAndCleansUpItsKeys() throws Exception {
-    assertThat(BasicKv.selectBatch(new SplittableRandom(SEED).nextDouble(Constants.TOTAL_WEIGHT)))
+    assertThat(
+            BasicKv.batchType(
+                BasicKv.selectOperation(
+                    new SplittableRandom(SEED).nextDouble(Constants.TOTAL_WEIGHT))))
         .isEqualTo(BatchType.DELETE_RANGE);
 
     final String runId = "testcontainers-e2e";

@@ -46,7 +46,6 @@ import io.oxia.chaos.testcase.CaseContext;
 import io.oxia.chaos.testcase.TestCase;
 import io.oxia.chaos.util.BatchUtils;
 import io.oxia.chaos.util.DeleteUtils;
-import io.oxia.chaos.util.GuardUtils;
 import io.oxia.chaos.util.KeyGenerator;
 import io.oxia.chaos.util.KeyValue;
 import io.oxia.chaos.util.RangeUtils;
@@ -58,8 +57,10 @@ import io.oxia.client.api.CloseableIterable;
 import io.oxia.client.api.GetResult;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.client.api.options.GetOption;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -130,24 +131,22 @@ public final class BasicKv implements TestCase {
     final Span span = tracer.spanBuilder("basic-kv.warmup").setNoParent().startSpan();
     final long started = System.nanoTime();
     try (final Scope ignored = Context.root().makeCurrent()) {
-      runWithRetry(
-          () ->
-              GuardUtils.putReferenceGuard(
-                  client, reference, keyGenerator.lowerGuardKey(), "lower"));
+      // The guards around the keys keep ordered gets and scans inside the keys of this run
+      final Map<String, byte[]> initial = new LinkedHashMap<>();
+      initial.put(keyGenerator.lowerGuardKey(), "guard-lower".getBytes(StandardCharsets.UTF_8));
       for (int index = 0; index < options.keyCount(); index++) {
-        final int keyIndex = index;
-        final String key = keyGenerator.key(keyIndex);
-        final byte[] value = valueGenerator.warmup(keyIndex);
-        runWithRetry(
-            () -> {
-              client.put(key, value);
-              reference.put(key, value);
-            });
+        initial.put(keyGenerator.key(index), valueGenerator.warmup(index));
       }
-      runWithRetry(
-          () ->
-              GuardUtils.putReferenceGuard(
-                  client, reference, keyGenerator.upperGuardKey(), "upper"));
+      initial.put(keyGenerator.upperGuardKey(), "guard-upper".getBytes(StandardCharsets.UTF_8));
+      initial.forEach(
+          (final String key, final byte[] value) ->
+              RetryUtils.run(
+                  retryPolicy,
+                  attemptTimeout,
+                  () -> {
+                    client.put(key, value);
+                    reference.put(key, value);
+                  }));
       span.setAttribute("test.keys", options.keyCount()).setStatus(StatusCode.OK);
       LOGGER
           .atInfo()
@@ -174,7 +173,7 @@ public final class BasicKv implements TestCase {
     try (final ExecutorService executor =
         Context.taskWrapping(Executors.newThreadPerTaskExecutor(threads.factory()))) {
       while (System.nanoTime() < deadline) {
-        final BatchType batchType = selectBatch(random.nextDouble(TOTAL_WEIGHT));
+        final BatchType batchType = batchType(selectOperation(random.nextDouble(TOTAL_WEIGHT)));
         final int maximumBatchSize =
             batchType == BatchType.WRITE
                 ? Math.min(options.batchSize(), options.keyCount())
@@ -189,7 +188,31 @@ public final class BasicKv implements TestCase {
             break;
           }
           final long sequence = operationCount + generated;
-          addNextOperation(batchType, random, sequence, writeKeys, operations, referenceUpdates);
+          switch (batchType) {
+            case WRITE ->
+                addWriteOperation(random, sequence, writeKeys, operations, referenceUpdates);
+            case READ -> addReadOperation(random, operations);
+            case DELETE_RANGE -> {
+              final int index = random.nextInt(options.keyCount());
+              final String key = keyGenerator.key(index);
+              final String endKey =
+                  keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
+              operations.add(
+                  () -> {
+                    telemetry.observe(
+                        Operation.DELETE_RANGE,
+                        key,
+                        () ->
+                            RetryUtils.run(
+                                retryPolicy,
+                                attemptTimeout,
+                                () -> client.deleteRange(key, endKey)));
+                    return null;
+                  });
+              referenceUpdates.add(() -> reference.subMap(key, endKey).clear());
+            }
+            default -> throw new IllegalStateException("unreachable batch type: " + batchType);
+          }
           generated++;
         }
 
@@ -208,21 +231,6 @@ public final class BasicKv implements TestCase {
     }
   }
 
-  private void addNextOperation(
-      final BatchType batchType,
-      final SplittableRandom random,
-      final long sequence,
-      final Set<Integer> writeKeys,
-      final List<Callable<Void>> operations,
-      final List<Runnable> referenceUpdates) {
-    switch (batchType) {
-      case WRITE -> addWriteOperation(random, sequence, writeKeys, operations, referenceUpdates);
-      case READ -> addReadOperation(random, operations);
-      case DELETE_RANGE -> addDeleteRangeOperation(random, operations, referenceUpdates);
-      default -> throw new IllegalStateException("unreachable batch type: " + batchType);
-    }
-  }
-
   private void addWriteOperation(
       final SplittableRandom random,
       final long sequence,
@@ -230,7 +238,11 @@ public final class BasicKv implements TestCase {
       final List<Callable<Void>> operations,
       final List<Runnable> referenceUpdates) {
     final Operation operation = selectOperationForBatch(BatchType.WRITE, random);
-    final int index = nextUniqueWriteIndex(random, writeKeys);
+    int unique;
+    do {
+      unique = random.nextInt(options.keyCount());
+    } while (!writeKeys.add(unique));
+    final int index = unique;
     final String key = keyGenerator.key(index);
 
     switch (operation) {
@@ -238,7 +250,10 @@ public final class BasicKv implements TestCase {
         final byte[] value = valueGenerator.next(index, sequence);
         operations.add(
             () -> {
-              observe(operation, key, () -> client.put(key, value));
+              telemetry.observe(
+                  operation,
+                  key,
+                  () -> RetryUtils.run(retryPolicy, attemptTimeout, () -> client.put(key, value)));
               return null;
             });
         referenceUpdates.add(() -> reference.put(key, value));
@@ -248,7 +263,20 @@ public final class BasicKv implements TestCase {
         operations.add(
             () -> {
               final AtomicBoolean attempted = new AtomicBoolean();
-              observe(operation, key, () -> verifyDelete(operation, key, expected, attempted));
+              telemetry.observe(
+                  operation,
+                  key,
+                  () ->
+                      RetryUtils.run(
+                          retryPolicy,
+                          attemptTimeout,
+                          () -> {
+                            // Marked before the call, so an attempt that fails still makes the
+                            // next one a retry
+                            final boolean retry = attempted.getAndSet(true);
+                            DeleteUtils.verifyDelete(
+                                operation, key, expected, client.delete(key), retry);
+                          }));
               return null;
             });
         referenceUpdates.add(() -> reference.remove(key));
@@ -264,16 +292,15 @@ public final class BasicKv implements TestCase {
     final String key = keyGenerator.key(index);
 
     switch (operation) {
-      case GET ->
+      case GET, FLOOR, CEILING, LOWER, HIGHER ->
           operations.add(
               () -> {
-                observe(operation, key, () -> verifyGet(operation, key, GetOption.ComparisonEqual));
-                return null;
-              });
-      case FLOOR, CEILING, LOWER, HIGHER ->
-          operations.add(
-              () -> {
-                observe(operation, key, () -> verifyGet(operation, key, comparisonFor(operation)));
+                telemetry.observe(
+                    operation,
+                    key,
+                    () ->
+                        RetryUtils.run(
+                            retryPolicy, attemptTimeout, () -> verifyGet(operation, key)));
                 return null;
               });
       case RANGE_SCAN -> {
@@ -281,7 +308,14 @@ public final class BasicKv implements TestCase {
             keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
         operations.add(
             () -> {
-              observe(operation, key, () -> verifyRangeScan(operation, key, endKey));
+              telemetry.observe(
+                  operation,
+                  key,
+                  () ->
+                      RetryUtils.run(
+                          retryPolicy,
+                          attemptTimeout,
+                          () -> verifyRangeScan(operation, key, endKey)));
               return null;
             });
       }
@@ -289,45 +323,37 @@ public final class BasicKv implements TestCase {
     }
   }
 
-  private void addDeleteRangeOperation(
-      final SplittableRandom random,
-      final List<Callable<Void>> operations,
-      final List<Runnable> referenceUpdates) {
-    final int index = random.nextInt(options.keyCount());
-    final String key = keyGenerator.key(index);
-    final String endKey = keyGenerator.key(RangeUtils.nextEnd(random, index, options.keyCount()));
-    operations.add(
-        () -> {
-          observe(Operation.DELETE_RANGE, key, () -> client.deleteRange(key, endKey));
-          return null;
-        });
-    referenceUpdates.add(() -> reference.subMap(key, endKey).clear());
-  }
-
-  private int nextUniqueWriteIndex(final SplittableRandom random, final Set<Integer> writeKeys) {
-    int index;
-    do {
-      index = random.nextInt(options.keyCount());
-    } while (!writeKeys.add(index));
-    return index;
-  }
-
-  private static GetOption comparisonFor(final Operation operation) {
-    return switch (operation) {
-      case FLOOR -> GetOption.ComparisonFloor;
-      case CEILING -> GetOption.ComparisonCeiling;
-      case LOWER -> GetOption.ComparisonLower;
-      case HIGHER -> GetOption.ComparisonHigher;
-      default -> throw new IllegalArgumentException("not an ordered get operation: " + operation);
-    };
-  }
-
-  private void observe(final Operation operation, final String key, final Runnable action) {
-    telemetry.observe(operation, key, () -> runWithRetry(action));
-  }
-
-  private void verifyGet(final Operation operation, final String key, final GetOption option) {
-    final Optional<KeyValue> expected = expectedGet(operation, key);
+  private void verifyGet(final Operation operation, final String key) {
+    final GetOption option;
+    final Map.Entry<String, byte[]> entry;
+    switch (operation) {
+      case GET -> {
+        option = GetOption.ComparisonEqual;
+        final byte[] value = reference.get(key);
+        entry = value == null ? null : Map.entry(key, value);
+      }
+      case FLOOR -> {
+        option = GetOption.ComparisonFloor;
+        entry = reference.floorEntry(key);
+      }
+      case CEILING -> {
+        option = GetOption.ComparisonCeiling;
+        entry = reference.ceilingEntry(key);
+      }
+      case LOWER -> {
+        option = GetOption.ComparisonLower;
+        entry = reference.lowerEntry(key);
+      }
+      case HIGHER -> {
+        option = GetOption.ComparisonHigher;
+        entry = reference.higherEntry(key);
+      }
+      default -> throw new IllegalArgumentException("not a get operation: " + operation);
+    }
+    final Optional<KeyValue> expected =
+        entry == null
+            ? Optional.empty()
+            : Optional.of(new KeyValue(entry.getKey(), entry.getValue()));
     final GetResult result = client.get(key, Set.of(option));
     final Optional<KeyValue> actual =
         result == null ? Optional.empty() : Optional.of(new KeyValue(result.key(), result.value()));
@@ -335,32 +361,6 @@ public final class BasicKv implements TestCase {
       throw ViolationException.operationMismatch(
           operation, key, expected.toString(), actual.toString());
     }
-  }
-
-  private Optional<KeyValue> expectedGet(final Operation operation, final String key) {
-    return switch (operation) {
-      case GET -> Optional.ofNullable(reference.get(key)).map(value -> new KeyValue(key, value));
-      case FLOOR -> keyValue(reference.floorEntry(key));
-      case CEILING -> keyValue(reference.ceilingEntry(key));
-      case LOWER -> keyValue(reference.lowerEntry(key));
-      case HIGHER -> keyValue(reference.higherEntry(key));
-      default -> throw new IllegalArgumentException("not a get operation: " + operation);
-    };
-  }
-
-  private static Optional<KeyValue> keyValue(final Map.Entry<String, byte[]> entry) {
-    return entry == null
-        ? Optional.empty()
-        : Optional.of(new KeyValue(entry.getKey(), entry.getValue()));
-  }
-
-  private void verifyDelete(
-      final Operation operation,
-      final String key,
-      final boolean expected,
-      final AtomicBoolean attempted) {
-    final boolean retry = attempted.getAndSet(true);
-    DeleteUtils.verifyDelete(operation, key, expected, client.delete(key), retry);
   }
 
   private void verifyRangeScan(final Operation operation, final String key, final String endKey) {
@@ -393,7 +393,9 @@ public final class BasicKv implements TestCase {
                   .map(entry -> new KeyValue(entry.getKey(), entry.getValue()))
                   .toList();
           final List<KeyValue> unorderedActual = new ArrayList<>();
-          runWithRetry(
+          RetryUtils.run(
+              retryPolicy,
+              attemptTimeout,
               () -> {
                 unorderedActual.clear();
                 try (final CloseableIterable<GetResult> results =
@@ -424,18 +426,12 @@ public final class BasicKv implements TestCase {
   /** Deletes every key the case wrote, guards included. */
   @Override
   public void close() {
-    runWithRetry(
+    RetryUtils.run(
+        retryPolicy,
+        attemptTimeout,
         () -> client.deleteRange(keyGenerator.lowerGuardKey(), keyGenerator.afterUpperGuardKey()));
     reference.clear();
     LOGGER.atInfo().addKeyValue("run_id", runId).log("basic-kv cleanup completed");
-  }
-
-  static BatchType selectBatch(final double selected) {
-    return batchType(selectOperation(selected));
-  }
-
-  private void runWithRetry(final Runnable action) {
-    RetryUtils.run(retryPolicy, attemptTimeout, action);
   }
 
   private static Operation selectOperationForBatch(
@@ -451,7 +447,7 @@ public final class BasicKv implements TestCase {
     return operation;
   }
 
-  private static BatchType batchType(final Operation operation) {
+  static BatchType batchType(final Operation operation) {
     return switch (operation) {
       case PUT, DELETE -> BatchType.WRITE;
       case GET, FLOOR, CEILING, LOWER, HIGHER, RANGE_SCAN -> BatchType.READ;

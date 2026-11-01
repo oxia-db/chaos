@@ -57,7 +57,8 @@ class BasicKvTest {
     final int samples = 250_000;
 
     for (int index = 0; index < samples; index++) {
-      final BatchType batchType = BasicKv.selectBatch(random.nextDouble(Constants.TOTAL_WEIGHT));
+      final BatchType batchType =
+          BasicKv.batchType(BasicKv.selectOperation(random.nextDouble(Constants.TOTAL_WEIGHT)));
       counts.merge(batchType, 1, Integer::sum);
     }
 
