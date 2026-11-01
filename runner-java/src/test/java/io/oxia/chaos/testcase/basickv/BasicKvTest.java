@@ -20,12 +20,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.oxia.chaos.ops.BatchType;
 import io.oxia.chaos.ops.Operation;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.SplittableRandom;
+import java.util.concurrent.ConcurrentSkipListMap;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 
 class BasicKvTest {
+
+  // Only the weights matter to the distribution
+  private static final List<OperationStrategy> STRATEGIES =
+      BasicKv.strategies(new Workload(null, new ConcurrentSkipListMap<>(), null, null, 0));
+  private static final double TOTAL_WEIGHT = BasicKv.totalWeight(STRATEGIES);
 
   @Test
   void followsTheNormalizedBasicKvDistribution() {
@@ -35,7 +42,7 @@ class BasicKvTest {
 
     for (int index = 0; index < samples; index++) {
       final Operation operation =
-          BasicKv.selectOperation(random.nextDouble(Constants.TOTAL_WEIGHT));
+          BasicKv.select(STRATEGIES, random.nextDouble(TOTAL_WEIGHT)).operation();
       counts.merge(operation, 1, Integer::sum);
     }
 
@@ -58,7 +65,7 @@ class BasicKvTest {
 
     for (int index = 0; index < samples; index++) {
       final BatchType batchType =
-          BasicKv.batchType(BasicKv.selectOperation(random.nextDouble(Constants.TOTAL_WEIGHT)));
+          BasicKv.select(STRATEGIES, random.nextDouble(TOTAL_WEIGHT)).batchType();
       counts.merge(batchType, 1, Integer::sum);
     }
 

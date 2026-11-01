@@ -27,7 +27,9 @@ import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.testcontainers.OxiaContainer;
 import java.time.Duration;
+import java.util.List;
 import java.util.SplittableRandom;
+import java.util.concurrent.ConcurrentSkipListMap;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
@@ -46,10 +48,13 @@ class BasicKvE2ETest {
 
   @Test
   void runsBasicKvAgainstThreeShardOxiaAndCleansUpItsKeys() throws Exception {
+    final List<OperationStrategy> strategies =
+        BasicKv.strategies(new Workload(null, new ConcurrentSkipListMap<>(), null, null, 0));
     assertThat(
-            BasicKv.batchType(
-                BasicKv.selectOperation(
-                    new SplittableRandom(SEED).nextDouble(Constants.TOTAL_WEIGHT))))
+            BasicKv.select(
+                    strategies,
+                    new SplittableRandom(SEED).nextDouble(BasicKv.totalWeight(strategies)))
+                .batchType())
         .isEqualTo(BatchType.DELETE_RANGE);
 
     final String runId = "testcontainers-e2e";
