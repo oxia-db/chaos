@@ -195,30 +195,21 @@ public final class Cmd implements Callable<Integer> {
                 .requestTimeout(REQUEST_TIMEOUT)
                 .openTelemetry(openTelemetry)
                 .syncClient()) {
+      final CaseContext context =
+          new CaseContext(
+              options, runId, options.namespace(), client, openTelemetry, metrics, REQUEST_TIMEOUT);
       try {
         switch (options.caseName()) {
-          case Options.BASIC_KV -> {
-            final CaseContext context =
-                new CaseContext(options, runId, client, openTelemetry, metrics, REQUEST_TIMEOUT);
-            runOnVirtualThread(
-                () -> {
-                  TestCaseRunner.run(new BasicKv(context), context);
-                  return null;
-                });
-          }
+          case Options.BASIC_KV ->
+              runOnVirtualThread(
+                  () -> {
+                    TestCaseRunner.run(new BasicKv(context), context);
+                    return null;
+                  });
           case Options.EPHEMERAL ->
               runOnVirtualThread(
                   () -> {
-                    new Ephemeral(
-                            options,
-                            runId,
-                            options.namespace(),
-                            client,
-                            openTelemetry,
-                            metrics,
-                            REQUEST_TIMEOUT,
-                            Ephemeral.Settings.DEFAULT)
-                        .run();
+                    TestCaseRunner.run(new Ephemeral(context, Ephemeral.Settings.DEFAULT), context);
                     return null;
                   });
           case Options.SECONDARY_INDEX ->

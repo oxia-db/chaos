@@ -75,7 +75,8 @@ class BasicKvE2ETest {
         final SyncOxiaClient client =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
       final CaseContext context =
-          new CaseContext(options, runId, client, openTelemetry, metrics, Duration.ofSeconds(30));
+          new CaseContext(
+              options, runId, "default", client, openTelemetry, metrics, Duration.ofSeconds(30));
       TestCaseRunner.run(new BasicKv(context), context);
 
       final String runPrefix = "/oxia-chaos/runs/" + runId + "/keys/key-";

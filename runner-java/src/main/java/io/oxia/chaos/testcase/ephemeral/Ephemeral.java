@@ -22,22 +22,18 @@ import static io.oxia.chaos.util.Timing.elapsedSeconds;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Scope;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.error.ViolationException;
 import io.oxia.chaos.obser.Metrics;
 import io.oxia.chaos.obser.Telemetry;
 import io.oxia.chaos.ops.Checkpoint;
 import io.oxia.chaos.ops.Operation;
+import io.oxia.chaos.testcase.CaseContext;
+import io.oxia.chaos.testcase.TestCase;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnedValue;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnedVersion;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnerOperationException;
 import io.oxia.chaos.testcase.ephemeral.Owner.OwnerUnavailableException;
-import io.oxia.chaos.util.ExceptionUtils;
 import io.oxia.chaos.util.RatePacer;
 import io.oxia.chaos.util.RetryUtils;
 import io.oxia.chaos.util.SummaryUtils;
@@ -58,8 +54,7 @@ import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Supplier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Checks that ephemeral records live exactly as long as the session that owns them.
@@ -68,10 +63,9 @@ import org.slf4j.LoggerFactory;
  * process verifies them. Owners are ended in turn, either gracefully or by SIGKILL, so Oxia must
  * delete their records on close or expire them on the session timeout, but never earlier.
  */
-public final class Ephemeral {
+@Slf4j
+public final class Ephemeral implements TestCase {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(Ephemeral.class);
-  private static final String INSTRUMENTATION_SCOPE = "io.oxia.chaos.ephemeral";
   private static final List<String> SLOT_NAMES = List.of("a", "b");
   private static final Duration INITIAL_RETRY_DELAY = Duration.ofMillis(100);
   private static final Duration MAX_RETRY_DELAY = Duration.ofSeconds(5);
@@ -130,7 +124,6 @@ public final class Ephemeral {
   private final String namespace;
   private final SyncOxiaClient observer;
   private final Metrics metrics;
-  private final Tracer tracer;
   private final Telemetry telemetry;
   private final Settings settings;
   private final RetryPolicy<Object> retryPolicy;
@@ -148,28 +141,18 @@ public final class Ephemeral {
   private long checkpointCount;
   private long rotationCount;
 
-  public Ephemeral(
-      final Options options,
-      final String runId,
-      final String namespace,
-      final SyncOxiaClient observer,
-      final OpenTelemetry openTelemetry,
-      final Metrics metrics,
-      final Duration retryTimeout,
-      final Settings settings) {
-    this.options = options;
-    this.runId = runId;
-    this.namespace = namespace;
-    this.observer = observer;
-    this.metrics = metrics;
-    this.reference = new ConcurrentSkipListMap<>();
-    metrics.observeReferenceKeys(reference::size);
-    this.tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE);
-    this.telemetry = new Telemetry(tracer, metrics, Options.EPHEMERAL);
+  public Ephemeral(final CaseContext context, final Settings settings) {
+    this.options = context.options();
+    this.runId = context.runId();
+    this.namespace = context.namespace();
+    this.observer = context.client();
+    this.metrics = context.metrics();
+    this.telemetry =
+        new Telemetry(context.tracer(Options.EPHEMERAL), context.metrics(), Options.EPHEMERAL);
     this.settings = settings;
     this.retryPolicy =
         RetryUtils.retryPolicy(
-            retryTimeout,
+            context.retryTimeout(),
             (final Throwable error) ->
                 error instanceof final OwnerOperationException owner && owner.retryable());
     this.spawnPolicy =
@@ -177,9 +160,10 @@ public final class Ephemeral {
             .handle(IllegalStateException.class)
             .withBackoff(INITIAL_RETRY_DELAY, MAX_RETRY_DELAY)
             .withMaxAttempts(-1)
-            .withMaxDuration(retryTimeout)
+            .withMaxDuration(context.retryTimeout())
             .build();
-    this.observerAttemptTimeout = RetryUtils.attemptTimeout(OBSERVER_ATTEMPT_TIMEOUT, retryTimeout);
+    this.observerAttemptTimeout =
+        RetryUtils.attemptTimeout(OBSERVER_ATTEMPT_TIMEOUT, context.retryTimeout());
     this.valueGenerator = new ValueGenerator(options.seed());
     final List<Slot> created = new ArrayList<>(SLOT_NAMES.size());
     for (int index = 0; index < SLOT_NAMES.size(); index++) {
@@ -191,66 +175,44 @@ public final class Ephemeral {
               slotKeyCount(options.keyCount(), SLOT_NAMES.size(), index)));
     }
     this.slots = List.copyOf(created);
+    this.reference = new ConcurrentSkipListMap<>();
+    metrics.observeReferenceKeys(reference::size);
   }
 
-  /** Runs warmup, the timed workload, final owner expiry checks, and mandatory cleanup. */
-  public void run() throws InterruptedException {
-    final Span runSpan =
-        tracer
-            .spanBuilder("ephemeral.run")
-            .setAttribute("test.case", Options.EPHEMERAL)
-            .setAttribute("test.run_id", runId)
-            .setAttribute("test.seed", options.seed())
-            .setAttribute("test.key_count", options.keyCount())
-            .startSpan();
+  @Override
+  public String name() {
+    return Options.EPHEMERAL;
+  }
 
-    Throwable failure = null;
-    try (final Scope ignored = runSpan.makeCurrent()) {
-      for (final Slot slot : slots) {
-        spawn(slot);
-      }
-      executeWorkload();
-      while (true) {
-        try {
-          awaitDrains();
-          checkpoint(Checkpoint.FINAL);
-          break;
-        } catch (final OwnerUnavailableException error) {
-          ownerLost(error);
-        }
-      }
-      finishing = true;
-      endOwnerAtFinish(slots.get(0), Operation.OWNER_CRASH);
-      endOwnerAtFinish(slots.get(1), Operation.OWNER_CLOSE);
-      awaitDrains();
-      runSpan.setStatus(StatusCode.OK);
-    } catch (final ViolationException error) {
-      failure = error;
-      metrics.recordSafetyViolation();
-      runSpan.recordException(error).setStatus(StatusCode.ERROR, error.getMessage());
-      throw error;
-    } catch (final InterruptedException error) {
-      failure = error;
-      runSpan.recordException(error).setStatus(StatusCode.ERROR, "interrupted");
-      throw error;
-    } catch (final RuntimeException error) {
-      failure = error;
-      runSpan.recordException(error).setStatus(StatusCode.ERROR, "execution failure");
-      throw error;
-    } finally {
+  /** Runs warmup, the timed workload, a final checkpoint and the final owner expiry checks. */
+  @Override
+  public void start() throws InterruptedException {
+    doWarmUp();
+    doWorkload();
+    while (true) {
       try {
-        cleanup();
-      } catch (final RuntimeException cleanupError) {
-        if (failure != null) {
-          ExceptionUtils.addSuppressedIfDistinct(failure, cleanupError);
-        } else {
-          throw cleanupError;
-        }
-      } finally {
-        runSpan.end();
+        awaitDrains();
+        doCheckpoint(Checkpoint.FINAL);
+        break;
+      } catch (final OwnerUnavailableException error) {
+        ownerLost(error);
       }
     }
-
+    // End one owner of each kind and wait until their records are gone
+    finishing = true;
+    final List<Operation> finalModes = List.of(Operation.OWNER_CRASH, Operation.OWNER_CLOSE);
+    for (int index = 0; index < slots.size(); index++) {
+      final Slot slot = slots.get(index);
+      if (slot.owner == null) {
+        continue;
+      }
+      try {
+        endOwner(slot, finalModes.get(index));
+      } catch (final OwnerUnavailableException error) {
+        ownerLost(error);
+      }
+    }
+    awaitDrains();
     LOGGER
         .atInfo()
         .addKeyValue("run_id", runId)
@@ -260,7 +222,14 @@ public final class Ephemeral {
         .log("ephemeral completed");
   }
 
-  private void executeWorkload() throws InterruptedException {
+  /** Starts an owner for every slot, which fills its slice with ephemeral records. */
+  private void doWarmUp() {
+    for (final Slot slot : slots) {
+      spawn(slot);
+    }
+  }
+
+  private void doWorkload() throws InterruptedException {
     final long started = System.nanoTime();
     final long deadline = addSaturated(started, options.duration().toNanos());
     long nextCheckpoint = addSaturated(started, options.checkpointInterval().toNanos());
@@ -270,7 +239,11 @@ public final class Ephemeral {
 
     while (System.nanoTime() < deadline) {
       try {
-        pollDrains();
+        for (final Slot slot : slots) {
+          if (slot.drain != null && System.nanoTime() >= slot.nextPoll) {
+            pollDrain(slot);
+          }
+        }
         if (System.nanoTime() >= nextRotation && slots.stream().allMatch(Slot::alive)) {
           final Slot slot = slots.get((int) (rotationCount % slots.size()));
           endOwner(slot, random.nextBoolean() ? Operation.OWNER_CRASH : Operation.OWNER_CLOSE);
@@ -289,12 +262,55 @@ public final class Ephemeral {
         }
         final Slot slot = alive.get(random.nextInt(alive.size()));
         final int index = random.nextInt(slot.keyCount);
-        executeOperation(selectOperation(random.nextDouble(TOTAL_WEIGHT)), slot, index);
+        final String key = slot.key(index);
+        final Operation operation = selectOperation(random.nextDouble(TOTAL_WEIGHT));
+        switch (operation) {
+          case EPHEMERAL_PUT -> {
+            final byte[] value = valueGenerator.next(index, operationCount);
+            telemetry.observe(
+                operation,
+                key,
+                () -> {
+                  final OwnedVersion version = ownerCall(() -> slot.owner.put(key, value));
+                  reference.put(
+                      key,
+                      new EphemeralRecord(
+                          key, value, slot.owner.clientIdentifier(), owned(key, version)));
+                });
+          }
+          case OWNER_GET ->
+              telemetry.observe(
+                  operation, key, () -> verify(slot, key, ownerCall(() -> slot.owner.get(key))));
+          case GET ->
+              telemetry.observe(
+                  operation,
+                  key,
+                  () ->
+                      verify(
+                          slot,
+                          key,
+                          Failsafe.with(retryPolicy, observerAttemptTimeout)
+                              .get(
+                                  () ->
+                                      tracked(
+                                          () ->
+                                              Optional.ofNullable(observer.get(key))
+                                                  .map(Ephemeral::owned)))));
+          case DELETE ->
+              telemetry.observe(
+                  operation,
+                  key,
+                  () -> {
+                    ownerCall(() -> slot.owner.delete(key));
+                    reference.remove(key);
+                  });
+          default -> throw new IllegalStateException("unreachable operation: " + operation);
+        }
         operationCount++;
 
         final long now = System.nanoTime();
         if (now >= nextCheckpoint && now < deadline) {
-          checkpoint(Checkpoint.PERIODIC);
+          doCheckpoint(Checkpoint.PERIODIC);
           nextCheckpoint = addSaturated(System.nanoTime(), options.checkpointInterval().toNanos());
         }
       } catch (final OwnerUnavailableException error) {
@@ -303,88 +319,7 @@ public final class Ephemeral {
     }
   }
 
-  private void executeOperation(final Operation operation, final Slot slot, final int index) {
-    final String key = slot.key(index);
-    switch (operation) {
-      case EPHEMERAL_PUT -> {
-        final byte[] value = valueGenerator.next(index, operationCount);
-        telemetry.observe(operation, key, () -> putOwned(slot, key, value));
-      }
-      case OWNER_GET ->
-          telemetry.observe(
-              operation, key, () -> verify(slot, key, ownerCall(() -> slot.owner.get(key))));
-      case GET -> telemetry.observe(operation, key, () -> verify(slot, key, observerGet(key)));
-      case DELETE ->
-          telemetry.observe(
-              operation,
-              key,
-              () -> {
-                ownerCall(() -> slot.owner.delete(key));
-                reference.remove(key);
-              });
-      default -> throw new IllegalStateException("unreachable operation: " + operation);
-    }
-  }
-
-  private void putOwned(final Slot slot, final String key, final byte[] value) {
-    final OwnedVersion version = ownerCall(() -> slot.owner.put(key, value));
-    reference.put(
-        key, new EphemeralRecord(key, value, slot.owner.clientIdentifier(), owned(key, version)));
-  }
-
-  private long owned(final String key, final OwnedVersion version) {
-    if (version.sessionId().isEmpty()) {
-      throw ViolationException.operationMismatch(
-          Operation.EPHEMERAL_PUT, key, "a session id", "none");
-    }
-    return version.sessionId().get();
-  }
-
-  /**
-   * Compares an observed record with the reference, probing the owner when the record is missing.
-   */
-  private void verify(final Slot slot, final String key, final Optional<OwnedValue> actual) {
-    final Optional<EphemeralRecord> expected = Optional.ofNullable(reference.get(key));
-    if (expected.isEmpty()) {
-      if (actual.isPresent()) {
-        throw ViolationException.operationMismatch(
-            Operation.GET, key, "absent", describe(actual.get()));
-      }
-      return;
-    }
-    if (actual.isEmpty()) {
-      probeMissing(slot, expected.get());
-      return;
-    }
-    if (!matches(expected.get(), actual.get())) {
-      throw ViolationException.operationMismatch(
-          Operation.GET, key, expected.get().toString(), describe(actual.get()));
-    }
-  }
-
-  /**
-   * A record missing while its owner is alive is a violation only if the owner still holds the
-   * session that wrote it. Rewriting the record reveals the owner's current session on that shard;
-   * a new session means the old one legitimately expired, for example during a long fault.
-   */
-  private void probeMissing(final Slot slot, final EphemeralRecord expected) {
-    final OwnedVersion version = ownerCall(() -> slot.owner.put(expected.key(), expected.value()));
-    final long current = owned(expected.key(), version);
-    if (current == expected.sessionId()) {
-      throw ViolationException.ephemeralLost(expected.key(), expected.sessionId());
-    }
-    metrics.recordSessionReplacement();
-    LOGGER
-        .atWarn()
-        .addKeyValue("owner", expected.owner())
-        .addKeyValue("key", expected.key())
-        .addKeyValue("previous_session", expected.sessionId())
-        .addKeyValue("current_session", current)
-        .log("ephemeral owner session was replaced");
-    reference.put(expected.key(), expected.withSessionId(current));
-  }
-
-  private void checkpoint(final Checkpoint checkpoint) {
+  private void doCheckpoint(final Checkpoint checkpoint) {
     final long started = System.nanoTime();
     telemetry.checkpoint(
         checkpoint,
@@ -406,6 +341,68 @@ public final class Ephemeral {
               .log("ephemeral checkpoint passed");
           return keys;
         });
+  }
+
+  /** Closes the owners that are still running and deletes every record the case wrote. */
+  @Override
+  public void close() {
+    for (final Slot slot : slots) {
+      if (slot.owner != null) {
+        slot.owner.close();
+        slot.owner = null;
+      }
+    }
+    for (final Slot slot : slots) {
+      observerCall(() -> observer.deleteRange(slot.prefix, slot.end()));
+    }
+    reference.clear();
+    LOGGER.atInfo().addKeyValue("run_id", runId).log("ephemeral cleanup completed");
+  }
+
+  private long owned(final String key, final OwnedVersion version) {
+    if (version.sessionId().isEmpty()) {
+      throw ViolationException.operationMismatch(
+          Operation.EPHEMERAL_PUT, key, "a session id", "none");
+    }
+    return version.sessionId().get();
+  }
+
+  /**
+   * Compares an observed record with the reference. A record missing while its owner is alive is a
+   * violation only if the owner still holds the session that wrote it. Rewriting the record reveals
+   * the owner's current session on that shard; a new session means the old one legitimately
+   * expired, for example during a long fault.
+   */
+  private void verify(final Slot slot, final String key, final Optional<OwnedValue> actual) {
+    final EphemeralRecord expected = reference.get(key);
+    if (expected == null) {
+      if (actual.isPresent()) {
+        throw ViolationException.operationMismatch(
+            Operation.GET, key, "absent", describe(actual.get()));
+      }
+      return;
+    }
+    if (actual.isPresent()) {
+      if (!matches(expected, actual.get())) {
+        throw ViolationException.operationMismatch(
+            Operation.GET, key, expected.toString(), describe(actual.get()));
+      }
+      return;
+    }
+    final OwnedVersion version = ownerCall(() -> slot.owner.put(key, expected.value()));
+    final long current = owned(key, version);
+    if (current == expected.sessionId()) {
+      throw ViolationException.ephemeralLost(key, expected.sessionId());
+    }
+    metrics.recordSessionReplacement();
+    LOGGER
+        .atWarn()
+        .addKeyValue("owner", expected.owner())
+        .addKeyValue("key", key)
+        .addKeyValue("previous_session", expected.sessionId())
+        .addKeyValue("current_session", current)
+        .log("ephemeral owner session was replaced");
+    reference.put(key, expected.withSessionId(current));
   }
 
   /** Verifies every record of a live owner's slice and returns how many are expected. */
@@ -458,17 +455,6 @@ public final class Ephemeral {
     pollDrain(slot);
   }
 
-  private void endOwnerAtFinish(final Slot slot, final Operation mode) throws InterruptedException {
-    if (slot.owner == null) {
-      return;
-    }
-    try {
-      endOwner(slot, mode);
-    } catch (final OwnerUnavailableException error) {
-      ownerLost(error);
-    }
-  }
-
   /**
    * Handles an owner process that died or stopped responding. Its last request may or may not have
    * been applied, so its slice drains leniently: remaining records only need to belong to it.
@@ -482,7 +468,8 @@ public final class Ephemeral {
                         && candidate.owner.clientIdentifier().equals(error.clientIdentifier()))
             .findFirst()
             .orElseThrow(() -> error);
-    noteFault();
+    faulted = true;
+    lastFaultNanos = System.nanoTime();
     final Map<String, EphemeralRecord> expected =
         new LinkedHashMap<>(reference.subMap(slot.prefix, slot.end()));
     reference.subMap(slot.prefix, slot.end()).clear();
@@ -500,17 +487,14 @@ public final class Ephemeral {
         .log("ephemeral owner lost");
   }
 
-  private void pollDrains() {
-    for (final Slot slot : slots) {
-      if (slot.drain != null && System.nanoTime() >= slot.nextPoll) {
-        pollDrain(slot);
-      }
-    }
-  }
-
+  /** Polls the draining slices until every one of them is empty. */
   private void awaitDrains() throws InterruptedException {
     while (slots.stream().anyMatch((final Slot slot) -> slot.drain != null)) {
-      pollDrains();
+      for (final Slot slot : slots) {
+        if (slot.drain != null && System.nanoTime() >= slot.nextPoll) {
+          pollDrain(slot);
+        }
+      }
       Thread.sleep(DRAIN_POLL_INTERVAL);
     }
   }
@@ -592,7 +576,11 @@ public final class Ephemeral {
                         settings.startTimeout(),
                         settings.replyTimeout()));
     for (int index = 0; index < slot.keyCount; index++) {
-      putOwned(slot, slot.key(index), valueGenerator.warmup(index));
+      final String key = slot.key(index);
+      final byte[] value = valueGenerator.warmup(index);
+      final OwnedVersion version = ownerCall(() -> slot.owner.put(key, value));
+      reference.put(
+          key, new EphemeralRecord(key, value, slot.owner.clientIdentifier(), owned(key, version)));
     }
     LOGGER
         .atInfo()
@@ -618,11 +606,6 @@ public final class Ephemeral {
     return present;
   }
 
-  private Optional<OwnedValue> observerGet(final String key) {
-    return Failsafe.with(retryPolicy, observerAttemptTimeout)
-        .get(() -> tracked(() -> Optional.ofNullable(observer.get(key)).map(Ephemeral::owned)));
-  }
-
   private void observerCall(final Runnable action) {
     Failsafe.with(retryPolicy, observerAttemptTimeout)
         .run(
@@ -645,28 +628,10 @@ public final class Ephemeral {
     try {
       return attempt.get();
     } catch (final RuntimeException error) {
-      noteFault();
+      faulted = true;
+      lastFaultNanos = System.nanoTime();
       throw error;
     }
-  }
-
-  private void noteFault() {
-    faulted = true;
-    lastFaultNanos = System.nanoTime();
-  }
-
-  private void cleanup() {
-    for (final Slot slot : slots) {
-      if (slot.owner != null) {
-        slot.owner.close();
-        slot.owner = null;
-      }
-    }
-    for (final Slot slot : slots) {
-      observerCall(() -> observer.deleteRange(slot.prefix, slot.end()));
-    }
-    reference.clear();
-    LOGGER.atInfo().addKeyValue("run_id", runId).log("ephemeral cleanup completed");
   }
 
   /**

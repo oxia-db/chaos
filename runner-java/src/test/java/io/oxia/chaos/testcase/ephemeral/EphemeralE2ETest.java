@@ -24,6 +24,8 @@ import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.oxia.chaos.cmd.Options;
 import io.oxia.chaos.obser.Metrics;
+import io.oxia.chaos.testcase.CaseContext;
+import io.oxia.chaos.testcase.TestCaseRunner;
 import io.oxia.client.api.OxiaClientBuilder;
 import io.oxia.client.api.SyncOxiaClient;
 import io.oxia.testcontainers.OxiaContainer;
@@ -73,16 +75,10 @@ class EphemeralE2ETest {
         final Metrics metrics = new Metrics(openTelemetry, Options.EPHEMERAL);
         final SyncOxiaClient observer =
             OxiaClientBuilder.create(serviceAddress).namespace("default").syncClient()) {
-      new Ephemeral(
-              options,
-              runId,
-              "default",
-              observer,
-              openTelemetry,
-              metrics,
-              Duration.ofSeconds(30),
-              settings)
-          .run();
+      final CaseContext context =
+          new CaseContext(
+              options, runId, "default", observer, openTelemetry, metrics, Duration.ofSeconds(30));
+      TestCaseRunner.run(new Ephemeral(context, settings), context);
 
       final Collection<MetricData> collected = reader.collectAllMetrics();
       assertThat(successes(collected, "owner-crash")).isPositive();

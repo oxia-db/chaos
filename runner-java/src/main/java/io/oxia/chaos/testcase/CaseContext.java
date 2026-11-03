@@ -26,6 +26,7 @@ import java.time.Duration;
 public record CaseContext(
     Options options,
     String runId,
+    String namespace,
     SyncOxiaClient client,
     OpenTelemetry openTelemetry,
     Metrics metrics,
