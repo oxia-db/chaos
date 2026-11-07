@@ -1,20 +1,16 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-06T02:29:37Z",
+  "generatedAt": "2026-11-07T02:39:45Z",
   "windowDays": 90,
   "channels": [
     {
       "id": "stable",
       "serverVersion": "0.18",
-      "updatedAt": "2026-11-06T02:29:37Z",
+      "updatedAt": "2026-11-07T02:39:45Z",
       "testCases": [
         {
           "id": "basic-kv",
           "history": [
-            {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
             {
               "date": "2026-08-10",
               "result": "not_run"
@@ -474,6 +470,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -481,10 +484,6 @@
           "id": "ephemeral",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -870,6 +869,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -877,10 +883,6 @@
           "id": "notification",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -1266,6 +1268,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -1273,10 +1282,6 @@
           "id": "sequences",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -1662,6 +1667,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -1669,10 +1681,6 @@
           "id": "secondary-index",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -2058,6 +2066,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -2065,10 +2080,6 @@
           "id": "versioning",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -2454,6 +2465,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         }
@@ -2473,15 +2491,11 @@
     {
       "id": "beta",
       "serverVersion": "main",
-      "updatedAt": "2026-11-06T02:29:37Z",
+      "updatedAt": "2026-11-07T02:39:45Z",
       "testCases": [
         {
           "id": "basic-kv",
           "history": [
-            {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
             {
               "date": "2026-08-10",
               "result": "not_run"
@@ -2941,6 +2955,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -2948,10 +2969,6 @@
           "id": "ephemeral",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -3337,6 +3354,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -3344,10 +3368,6 @@
           "id": "notification",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -3733,6 +3753,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -3740,10 +3767,6 @@
           "id": "sequences",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -4129,6 +4152,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -4136,10 +4166,6 @@
           "id": "secondary-index",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -4525,6 +4551,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         },
@@ -4532,10 +4565,6 @@
           "id": "versioning",
           "history": [
             {
-              "date": "2026-08-09",
-              "result": "not_run"
-            },
-            {
               "date": "2026-08-10",
               "result": "not_run"
             },
@@ -4921,6 +4950,13 @@
               "title": "Scheduled correctness run did not complete",
               "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
               "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42150203263"
+            },
+            {
+              "date": "2026-11-07",
+              "result": "failed",
+              "title": "Scheduled correctness run did not complete",
+              "detail": "The workflow ended without successful chaos-pipeline and correctness results.",
+              "runUrl": "https://github.com/oxia-db/chaos/actions/runs/42329017389"
             }
           ]
         }
